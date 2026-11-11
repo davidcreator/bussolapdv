@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QDate, Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDateEdit,
     QHBoxLayout,
@@ -25,6 +26,8 @@ from ..dominio.erros import ErroBussola
 from ..dominio.produto import Produto, StatusEstoque
 from ..dominio.usuario import Acao, Usuario
 from .login import DialogoAutorizacao
+from .tema import cor_da_tonalidade
+from .widgets import CaixaInfo, Cartao, preparar_tabela
 
 
 class TelaProdutos(QWidget):
@@ -33,14 +36,30 @@ class TelaProdutos(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        self.kpi_ativos = CaixaInfo("Produtos ativos", "0", "produtos", "primaria", "no catálogo")
+        self.kpi_ruptura = CaixaInfo("Sem estoque", "0", "aviso", "erro", "saldo zerado")
+        self.kpi_baixo = CaixaInfo("Abaixo do mínimo", "0", "estoque", "alerta", "repor agora")
+        indicadores = QHBoxLayout()
+        indicadores.setSpacing(10)
+        for caixa_info in (self.kpi_ativos, self.kpi_ruptura, self.kpi_baixo):
+            indicadores.addWidget(caixa_info, 1)
+        layout.addLayout(indicadores)
+
+        cartao = Cartao(
+            "Catálogo e saldo",
+            "Saldo é posição corrente; o status vem da regra de estoque do domínio",
+        )
+        self.rotulo_resumo = QLabel()
+        cartao.adicionar_ferramenta(self.rotulo_resumo)
 
         linha = QHBoxLayout()
         self.campo_busca = QLineEdit()
         self.campo_busca.setPlaceholderText("buscar por código, código de barras ou descrição")
         self.campo_busca.textChanged.connect(self.atualizar)
-        self.rotulo_resumo = QLabel()
         linha.addWidget(self.campo_busca, 1)
-        linha.addWidget(self.rotulo_resumo)
 
         self.tabela = QTableWidget(0, 8)
         self.tabela.setHorizontalHeaderLabels(
@@ -49,9 +68,11 @@ class TelaProdutos(QWidget):
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tabela.setAlternatingRowColors(True)
+        preparar_tabela(self.tabela)
 
-        layout.addLayout(linha)
-        layout.addWidget(self.tabela)
+        cartao.adicionar_layout(linha)
+        cartao.adicionar(self.tabela, 1)
+        layout.addWidget(cartao, 1)
         self.atualizar()
 
     def atualizar(self) -> None:
@@ -81,14 +102,21 @@ class TelaProdutos(QWidget):
                     celula.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 if coluna == 7:
                     if status is StatusEstoque.RUPTURA:
-                        celula.setForeground(Qt.GlobalColor.darkRed)
+                        celula.setForeground(QColor(cor_da_tonalidade("erro")))
                     elif status is StatusEstoque.BAIXO:
-                        celula.setForeground(Qt.GlobalColor.darkYellow)
+                        celula.setForeground(QColor(cor_da_tonalidade("alerta")))
                 self.tabela.setItem(linha, coluna, celula)
         self.rotulo_resumo.setText(
-            f"Ruptura: {contagem[StatusEstoque.RUPTURA]} · Baixo: {contagem[StatusEstoque.BAIXO]} · "
+            f"{len(produtos)} na consulta · Ruptura: {contagem[StatusEstoque.RUPTURA]} · "
+            f"Baixo: {contagem[StatusEstoque.BAIXO]} · "
             f"Reposição: {contagem[StatusEstoque.REPOSICAO]} · OK: {contagem[StatusEstoque.OK]}"
         )
+        ativos = sum(1 for produto in produtos if produto.ativo)
+        self.kpi_ativos.definir(str(ativos), "no catálogo", "primaria" if ativos else "claro")
+        ruptura = contagem[StatusEstoque.RUPTURA]
+        baixo = contagem[StatusEstoque.BAIXO]
+        self.kpi_ruptura.definir(str(ruptura), "saldo zerado", "erro" if ruptura else "claro")
+        self.kpi_baixo.definir(str(baixo), "repor agora", "alerta" if baixo else "claro")
 
 
 def _status(produto: Produto, saldo: int) -> StatusEstoque:
@@ -113,7 +141,19 @@ class TelaVendas(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
+        self.kpi_cupons = CaixaInfo("Cupons no período", "0", "vendas", "primaria", "concluídos")
+        self.kpi_faturamento = CaixaInfo("Faturamento", "R$ 0,00", "dinheiro", "sucesso", "líquido")
+        self.kpi_ticket = CaixaInfo("Ticket médio", "R$ 0,00", "visao", "secundaria", "por cupom")
+        indicadores = QHBoxLayout()
+        indicadores.setSpacing(10)
+        for caixa_info in (self.kpi_cupons, self.kpi_faturamento, self.kpi_ticket):
+            indicadores.addWidget(caixa_info, 1)
+        layout.addLayout(indicadores)
+
+        cartao = Cartao("Vendas", "Cancelamento exige autorização e motivo registrado")
         linha = QHBoxLayout()
         self.data_ini = QDateEdit(QDate.currentDate().addDays(-30))
         self.data_ini.setCalendarPopup(True)
@@ -139,11 +179,13 @@ class TelaVendas(QWidget):
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        preparar_tabela(self.tabela)
         self.mensagem = QLabel("")
 
-        layout.addLayout(linha)
-        layout.addWidget(self.tabela, 1)
-        layout.addWidget(self.mensagem)
+        cartao.adicionar_layout(linha)
+        cartao.adicionar(self.tabela, 1)
+        cartao.adicionar(self.mensagem)
+        layout.addWidget(cartao, 1)
         self._vendas: list[dict] = []
         self.atualizar()
 
@@ -152,6 +194,24 @@ class TelaVendas(QWidget):
             data_inicial=self.data_ini.date().toString("yyyy-MM-dd"),
             data_final=self.data_fim.date().toString("yyyy-MM-dd"),
             limite=1000,
+        )
+        concluidas = [venda for venda in self._vendas if venda["status"] == "CONCLUIDA"]
+        faturamento = sum(venda["total_centavos"] for venda in concluidas)
+        ticket = faturamento // len(concluidas) if concluidas else 0
+        self.kpi_cupons.definir(
+            str(len(concluidas)),
+            f"{len(self._vendas) - len(concluidas)} cancelada(s)",
+            "primaria" if concluidas else "claro",
+        )
+        self.kpi_faturamento.definir(
+            Dinheiro(faturamento).formatado(),
+            "soma dos cupons concluídos",
+            "sucesso" if faturamento else "claro",
+        )
+        self.kpi_ticket.definir(
+            Dinheiro(ticket).formatado(),
+            "faturamento ÷ cupons",
+            "secundaria" if ticket else "claro",
         )
         self.tabela.setRowCount(len(self._vendas))
         for linha, venda in enumerate(self._vendas):
@@ -225,8 +285,15 @@ class TelaAuditoria(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        cartao = Cartao(
+            "Trilha de auditoria",
+            "Append-only: UPDATE e DELETE são bloqueados por trigger; a cadeia é verificável",
+        )
         linha = QHBoxLayout()
         self.rotulo = QLabel()
+        self.rotulo.setObjectName("textoAjuda")
         botao = QPushButton("Verificar cadeia de hashes")
         botao.clicked.connect(self._verificar)
         botao_atualizar = QPushButton("Atualizar")
@@ -239,10 +306,15 @@ class TelaAuditoria(QWidget):
         self.tabela = QTableWidget(0, 6)
         self.tabela.setHorizontalHeaderLabels(["Seq.", "Quando (UTC)", "Ação", "Ator", "Entidade", "Motivo"])
         self.tabela.verticalHeader().setVisible(False)
-        self.tabela.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        cabecalho = self.tabela.horizontalHeader()
+        for coluna in range(5):
+            cabecalho.setSectionResizeMode(coluna, QHeaderView.ResizeMode.ResizeToContents)
+        cabecalho.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
+        preparar_tabela(self.tabela)
 
-        layout.addLayout(linha)
-        layout.addWidget(self.tabela, 1)
+        cartao.adicionar_layout(linha)
+        cartao.adicionar(self.tabela, 1)
+        layout.addWidget(cartao, 1)
         self.atualizar()
 
     def atualizar(self) -> None:
@@ -273,7 +345,13 @@ class TelaFechamento(QWidget):
         self.usuario = usuario
         self.servico = ServicoRelatorios(contexto)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
+        cartao = Cartao(
+            "Relatório do dia",
+            "Conferência aritmética do dia; não representa confirmação bancária de PIX ou cartão",
+        )
         linha = QHBoxLayout()
         self.data = QDateEdit(QDate.currentDate())
         self.data.setCalendarPopup(True)
@@ -291,8 +369,9 @@ class TelaFechamento(QWidget):
         self.texto = QPlainTextEdit()
         self.texto.setReadOnly(True)
         self.texto.setStyleSheet("font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt;")
-        layout.addLayout(linha)
-        layout.addWidget(self.texto, 1)
+        cartao.adicionar_layout(linha)
+        cartao.adicionar(self.texto, 1)
+        layout.addWidget(cartao, 1)
         self._gerar()
 
     def _data_iso(self) -> str:

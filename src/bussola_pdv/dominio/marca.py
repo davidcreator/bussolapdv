@@ -54,20 +54,22 @@ def razao_contraste(cor_a: str, cor_b: str) -> float:
 class Paleta:
     """Cores da interface. Nomes funcionais, não nomes de tinta."""
 
-    primaria: str = "#1F3864"
-    primaria_escura: str = "#16294A"
-    secundaria: str = "#0F7C86"
-    secundaria_clara: str = "#E3F2F3"
-    destaque: str = "#FFC000"
-    fundo: str = "#F7F8FA"
+    # Skin padrão inspirada no AdminLTE/Bootstrap 5: azul de ação, sidebar grafite,
+    # fundo cinza-azulado e cartões brancos. Nomes funcionais, não nomes de tinta.
+    primaria: str = "#0D6EFD"
+    primaria_escura: str = "#343A40"
+    secundaria: str = "#17A2B8"
+    secundaria_clara: str = "#D3E9F0"
+    destaque: str = "#FFC107"
+    fundo: str = "#F4F6F9"
     superficie: str = "#FFFFFF"
-    texto: str = "#1F1F1F"
-    texto_suave: str = "#5A5A5A"
-    sucesso: str = "#0B7A3B"
-    alerta: str = "#8A5A00"
-    erro: str = "#B00020"
-    borda: str = "#C9C9C9"
-    entrada: str = "#FFF9E6"
+    texto: str = "#212529"
+    texto_suave: str = "#6C757D"
+    sucesso: str = "#198754"
+    alerta: str = "#856404"
+    erro: str = "#B02A37"
+    borda: str = "#DEE2E6"
+    entrada: str = "#FFFFFF"
 
     def __post_init__(self) -> None:
         for nome in self.__slots__:
@@ -115,52 +117,68 @@ class Paleta:
 PALETAS_PADRAO: dict[str, Paleta] = {
     "BUSSOLA": Paleta(),
     "GRAFITE": Paleta(
-        primaria="#2B2B2B",
-        primaria_escura="#1C1C1C",
-        secundaria="#5B6770",
-        secundaria_clara="#ECEFF1",
+        primaria="#495057",
+        primaria_escura="#212529",
+        secundaria="#6C757D",
+        secundaria_clara="#E9ECEF",
         destaque="#E0A800",
-        fundo="#F5F5F5",
+        fundo="#F1F3F5",
         superficie="#FFFFFF",
-        texto="#1A1A1A",
-        texto_suave="#5F6368",
+        texto="#212529",
+        texto_suave="#6C757D",
         sucesso="#1E7B34",
         alerta="#8A5A00",
         erro="#B3261E",
-        borda="#C4C7CB",
-        entrada="#FFF8E1",
+        borda="#CED4DA",
+        entrada="#FFFFFF",
     ),
     "ESMERALDA": Paleta(
-        primaria="#0B3D2E",
-        primaria_escura="#072A20",
-        secundaria="#12865F",
-        secundaria_clara="#E1F5EC",
+        primaria="#0F7B57",
+        primaria_escura="#1E3B31",
+        secundaria="#20C997",
+        secundaria_clara="#D6F2E9",
         destaque="#F2B705",
-        fundo="#F4F9F6",
+        fundo="#F2F7F5",
         superficie="#FFFFFF",
         texto="#14251E",
         texto_suave="#4F6157",
         sucesso="#0F7B3F",
         alerta="#7A5200",
         erro="#A4262C",
-        borda="#BFD3C8",
-        entrada="#FFFBE6",
+        borda="#CDDED6",
+        entrada="#FFFFFF",
     ),
     "NOTURNO": Paleta(
-        primaria="#101826",
-        primaria_escura="#0A1017",
-        secundaria="#2C7A7B",
-        secundaria_clara="#1B2B33",
+        primaria="#3D8BFD",
+        primaria_escura="#141A21",
+        secundaria="#4DB8C4",
+        secundaria_clara="#22303C",
         destaque="#F6C445",
-        fundo="#0E141B",
-        superficie="#16202B",
+        fundo="#0F141A",
+        superficie="#1A222C",
         texto="#E8EEF5",
         texto_suave="#A9B7C6",
         sucesso="#3FB950",
         alerta="#D29922",
         erro="#F85149",
-        borda="#2E3B4A",
-        entrada="#1D2A36",
+        borda="#303C4A",
+        entrada="#222D3A",
+    ),
+    "OCEANO": Paleta(
+        primaria="#0B7285",
+        primaria_escura="#17323A",
+        secundaria="#22B8CF",
+        secundaria_clara="#D3EFF3",
+        destaque="#FFC107",
+        fundo="#F3F7F8",
+        superficie="#FFFFFF",
+        texto="#1B2A2E",
+        texto_suave="#5C7076",
+        sucesso="#198754",
+        alerta="#856404",
+        erro="#B02A37",
+        borda="#D8E2E5",
+        entrada="#FFFFFF",
     ),
 }
 

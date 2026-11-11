@@ -41,6 +41,7 @@ from ..dominio.usuario import Acao, Usuario
 from ..dominio.venda import Carrinho, TotaisVenda
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from .login import DialogoAutorizacao
+from .widgets import CaixaInfo, preparar_tabela
 
 COLUNAS = ["Código", "Descrição", "Qtd", "Un.", "Preço", "Desc.", "Total"]
 COLUNAS_PAGAMENTO = [
@@ -73,11 +74,24 @@ class TelaPDV(QWidget):
     # -- interface ----------------------------------------------------------
     def _montar_interface(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(7)
 
         self.rotulo_turno = QLabel()
         self.rotulo_turno.setObjectName("textoAjuda")
         self.mensagem = QLabel("")
         self.mensagem.setWordWrap(True)
+
+        # indicadores do cupom (small-box do AdminLTE)
+        self.kpi_itens = CaixaInfo("Itens no cupom", "0", "pdv", "primaria", "unidades lançadas")
+        self.kpi_desconto = CaixaInfo("Desconto", "R$ 0,00", "vendas", "alerta", "itens + cupom")
+        self.kpi_troco = CaixaInfo("Pagamento", "R$ 0,00", "dinheiro", "claro", "falta ou troco")
+        for caixa_info in (self.kpi_itens, self.kpi_desconto, self.kpi_troco):
+            caixa_info.legenda.setVisible(False)
+        indicadores = QHBoxLayout()
+        indicadores.setSpacing(10)
+        for caixa_info in (self.kpi_itens, self.kpi_desconto, self.kpi_troco):
+            indicadores.addWidget(caixa_info, 1)
 
         # 01 — identificação
         grupo_ident = QGroupBox("01 · Identifique a venda")
@@ -118,7 +132,8 @@ class TelaPDV(QWidget):
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.tabela.setMinimumHeight(200)
+        self.tabela.setMinimumHeight(92)
+        preparar_tabela(self.tabela)
 
         layout_itens.addLayout(linha_codigo)
         layout_itens.addWidget(self.tabela)
@@ -166,6 +181,7 @@ class TelaPDV(QWidget):
 
         layout.addWidget(self.rotulo_turno)
         layout.addWidget(self.mensagem)
+        layout.addLayout(indicadores)
         layout.addWidget(grupo_ident)
         layout.addWidget(grupo_itens, 1)
         layout.addWidget(grupo_pagamento)
@@ -297,6 +313,23 @@ class TelaPDV(QWidget):
         totais = self._totais()
         total = totais.total if totais else Dinheiro.zero()
         self.rotulo_total.setText(total.formatado())
+        unidades = sum(item.quantidade.milesimos for item in self.carrinho.itens)
+        self.kpi_itens.definir(
+            valor=f"{len(self.carrinho)} item(ns)",
+            legenda=f"{Quantidade(unidades).formatada()} unidade(s) · {total.formatado()}",
+            tonalidade="primaria" if self.carrinho.itens else "claro",
+        )
+        desconto = totais.desconto_total if totais else Dinheiro.zero()
+        self.kpi_desconto.definir(
+            valor=desconto.formatado(),
+            legenda=(
+                f"itens {totais.desconto_itens.formatado()} · cupom "
+                f"{totais.desconto_cupom.formatado()}"
+                if totais
+                else "sem desconto aplicado"
+            ),
+            tonalidade="alerta" if desconto.centavos else "claro",
+        )
         primeiro = self.linhas_pagamento[0][1]
         if not self.carrinho.vazio and not self._pagamento_manual:
             primeiro.blockSignals(True)
@@ -308,21 +341,30 @@ class TelaPDV(QWidget):
         totais = self._totais()
         if totais is None:
             self.rotulo_troco.setText("Troco: R$ 0,00")
+            self.kpi_troco.definir("R$ 0,00", "nenhum pagamento informado", "claro")
             return
         try:
             plano, _ = self._montar_plano(totais.total, permitir_incompleto=True)
         except ErroBussola as exc:
             self.rotulo_troco.setText(f"Atenção: {exc}")
+            self.kpi_troco.definir("—", str(exc), "erro")
             return
         aplicado = plano.total_aplicado if plano else Dinheiro.zero()
         troco = plano.troco if plano else Dinheiro.zero()
         falta = totais.total - aplicado
         if falta.centavos > 0:
             self.rotulo_troco.setText(f"Falta {falta.formatado()}")
+            self.kpi_troco.definir(
+                falta.formatado(), "falta receber para fechar a venda", "alerta"
+            )
         elif troco.centavos > 0:
             self.rotulo_troco.setText(f"Troco {troco.formatado()}")
+            self.kpi_troco.definir(troco.formatado(), "troco em dinheiro", "sucesso")
         else:
             self.rotulo_troco.setText("Pagamento completo")
+            self.kpi_troco.definir(
+                "Completo", f"aplicado {aplicado.formatado()} · sem troco", "sucesso"
+            )
 
     def _montar_plano(
         self, total: Dinheiro, *, permitir_incompleto: bool = False

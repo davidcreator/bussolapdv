@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.2.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.3.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados. **Não é homologado para operação real**, não emite documento fiscal, não
 > suporta múltiplas estações em rede e não substitui contador ou sistema fiscal certificado.
@@ -40,6 +40,9 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
   logo) e paleta de cores com presets claro/escuro — o tema vale para a interface inteira.
 - **Área administrativa** com diagnóstico real de dependências, cadastros, parâmetros, cópias de
   segurança verificadas e restauração.
+- **Interface no vocabulário do AdminLTE**: barra lateral recolhível com ícones desenhados no
+  projeto, barra superior, trilha de navegação, cartões, indicadores (*small-box*), etiquetas de
+  status e rodapé — tudo pintado pela paleta da loja.
 - **Backup consistente** pela API do SQLite, com verificação de integridade e teste de restauração.
 - **Demonstração offline** com 16 produtos, 5 clientes, 16 vendas em 3 dias, uma venda cancelada e um
   crediário de 3 parcelas — tudo fictício.
@@ -80,6 +83,27 @@ informa quantas seções o perfil tem liberadas.
 
 ![Diagnóstico de dependências](docs/capturas/08_admin_dependencias.png)
 ![Marca e tema](docs/capturas/09_admin_marca.png)
+
+## Interface
+
+A casca é inspirada no [AdminLTE](https://github.com/ColorlibHQ/AdminLTE) (MIT) — barra lateral
+escura com a marca no topo, painel do usuário, menu com ícones, barra superior com botão de recolher,
+cabeçalho de página com trilha, cartões e *small-boxes* de indicador. Nada do projeto original é
+copiado: o CSS do AdminLTE não entra aqui, e os ícones são 21 SVGs desenhados neste repositório.
+Como a folha de estilo é gerada a partir da paleta da loja, trocar o tema no painel administrativo
+repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
+
+| Tela | Indicadores exibidos |
+|---|---|
+| PDV | itens no cupom, desconto aplicado, situação do pagamento (falta / troco / completo) |
+| Caixa | fundo de troco, esperado na gaveta, movimentos do turno |
+| Produtos | ativos, sem estoque, abaixo do mínimo |
+| Vendas | cupons do período, faturamento, ticket médio |
+| Fechamento / Auditoria | relatório e trilha dentro de cartões, com ferramentas no cabeçalho |
+
+Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.md).
+
+![Menu recolhido](docs/capturas/15_menu_recolhido.png)
 
 ## Instalação
 
@@ -134,11 +158,11 @@ src/bussola_pdv/
   dominio/         regras puras (dinheiro, venda, pagamentos, caixa, crediário, estoque, auditoria)
   aplicacao/       casos de uso, transações, autorização, relatórios
   infra/sqlite/    conexão, migrações versionadas, repositórios, massa demo
-  ui/              PySide6: tema, login, PDV, caixa, consultas, fechamento
+  ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
-tests/             354 testes: unidade, integração com SQLite real, falhas e UI offscreen
-docs/              análise do repositório de origem, decisões (ADRs), plano e capturas
+tests/             381 testes: unidade, integração com SQLite real, falhas e UI offscreen
+docs/              análise do repositório de origem, decisões (ADRs), interface, plano e capturas
 ```
 
 ## Limites explícitos

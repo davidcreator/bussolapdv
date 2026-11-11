@@ -2,6 +2,48 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.3.0] — 2026-11-11 — pré-alfa: interface no padrão AdminLTE
+
+### Adicionado
+
+- **Casca nova** (`ui/widgets.py`) com a linguagem visual do AdminLTE: `BarraLateral` (marca, painel
+  do usuário, navegação com ícones, recolher para 62 px), `BarraSuperior` (botão de recolher, título,
+  chip do usuário), `CabecalhoConteudo` (título + trilha), `Cartao`, `CaixaInfo` (*small-box*),
+  `Selo` (*badge*), `Rodape` e `PilhaDePaginas`.
+- **21 ícones SVG próprios** (`ui/icones.py`), coloridos em tempo de execução e cacheados; nenhum
+  arquivo de terceiros, nenhuma dependência de rede.
+- **Indicadores por tela**: PDV (itens, desconto, situação do pagamento), Caixa (fundo, esperado,
+  movimentos), Produtos (ativos, sem estoque, abaixo do mínimo), Vendas (cupons, faturamento, ticket).
+- **Cartões** em Produtos, Vendas, Auditoria e Fechamento, com ferramentas no cabeçalho.
+- **Skin padrão do AdminLTE** (azul `#0D6EFD`, sidebar `#343A40`, fundo `#F4F6F9`), presets
+  GRAFITE/ESMERALDA/NOTURNO recalibrados e preset novo **OCEANO**; tela de tema com nomes de papel
+  atualizados.
+- **Login em cartão** (`login-box`), com faixa da marca, rodapé e versão real.
+- `docs/INTERFACE.md`: tokens, componentes, ícones, regras e capturas; ADR-016 com a decisão e o
+  enquadramento de licença.
+
+### Alterado
+
+- `ui/janela.py` e `ui/admin/janela.py` reconstruídos sobre a casca; a área administrativa usa a mesma
+  sidebar, ganhou trilha de navegação e o botão "Voltar ao PDV".
+- Títulos internos duplicados das seções administrativas foram removidos — o cabeçalho de conteúdo é
+  a única fonte do título.
+- Tabelas não inflam mais o layout (`AdjustIgnored`), então a tela não passa a rolar ao receber linhas;
+  a área de conteúdo deixou de usar `QScrollArea` (cada tela rola o que precisa).
+- Cores de status em tabelas vêm da paleta (`sucesso`/`alerta`/`erro`), não de constantes do Qt.
+
+### Corrigido
+
+- Retorno de módulo alto (ex.: Auditoria) não deixava mais a barra de rolagem presa nas outras telas.
+- Colunas apertadas em Caixa e Auditoria (tipo, data e ação truncados).
+- Ícone sem cor herdava cinza sobre fundo escuro e desaparecia na sidebar.
+
+### Testes
+
+- `tests/test_ui_adminlte.py` (27 testes): ícones (cor, tamanho, cache, nome inválido), widgets,
+  recolher da sidebar, trilha, pilha por página, folha de estilo e casca da janela.
+- Total: **381 testes**, 80% de cobertura; 15 capturas em `docs/capturas/`.
+
 ## [0.2.0] — 2026-11-11 — pré-alfa: administração, marca e hierarquia
 
 ### Adicionado

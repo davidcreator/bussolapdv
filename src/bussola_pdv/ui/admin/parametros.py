@@ -37,9 +37,6 @@ class SecaoParametros(QWidget):
         area.setWidgetResizable(True)
         conteudo = QWidget()
         layout = QVBoxLayout(conteudo)
-        titulo = QLabel("Parâmetros de operação")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         ajuda = QLabel(
             "Valores que mudam o comportamento do PDV. Faixas mínimas e máximas são validadas "
             "aqui e no serviço; toda alteração entra na auditoria com valor anterior e novo."

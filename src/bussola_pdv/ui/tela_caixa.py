@@ -35,6 +35,7 @@ from ..dominio.erros import ErroBussola
 from ..dominio.usuario import Acao, Usuario
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from .login import DialogoAutorizacao
+from .widgets import CaixaInfo, preparar_tabela
 
 
 class DialogoFechamentoCaixa(QDialog):
@@ -127,10 +128,24 @@ class TelaCaixa(QWidget):
 
     def _montar(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(7)
         self.rotulo_status = QLabel()
         self.mensagem = QLabel("")
         self.mensagem.setObjectName("mensagemAlerta")
         self.mensagem.setWordWrap(True)
+
+        self.kpi_fundo = CaixaInfo("Fundo de troco", "—", "caixa", "primaria", "abertura do turno")
+        self.kpi_esperado = CaixaInfo(
+            "Esperado na gaveta", "R$ 0,00", "dinheiro", "claro", "vendas em dinheiro − sangrias"
+        )
+        self.kpi_diferenca = CaixaInfo(
+            "Movimentos", "0", "vendas", "claro", "sangrias e suprimentos registrados"
+        )
+        indicadores = QHBoxLayout()
+        indicadores.setSpacing(10)
+        for caixa_info in (self.kpi_fundo, self.kpi_esperado, self.kpi_diferenca):
+            indicadores.addWidget(caixa_info, 1)
 
         grupo_acao = QGroupBox("Turno")
         linha = QHBoxLayout(grupo_acao)
@@ -152,8 +167,11 @@ class TelaCaixa(QWidget):
         layout_mov = QVBoxLayout(grupo_mov)
         self.tabela = QTableWidget(0, 3)
         self.tabela.setHorizontalHeaderLabels(["Tipo", "Valor", "Motivo"])
+        preparar_tabela(self.tabela)
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.tabela.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         layout_mov.addWidget(self.tabela)
 
         self.rotulo_resumo = QLabel()
@@ -162,6 +180,7 @@ class TelaCaixa(QWidget):
 
         layout.addWidget(self.rotulo_status)
         layout.addWidget(self.mensagem)
+        layout.addLayout(indicadores)
         layout.addWidget(grupo_acao)
         layout.addWidget(grupo_mov, 1)
         layout.addWidget(self.rotulo_resumo)
@@ -183,6 +202,9 @@ class TelaCaixa(QWidget):
                 botao.setEnabled(False)
             self.tabela.setRowCount(0)
             self.rotulo_resumo.setText("Esperado na gaveta: R$ 0,00")
+            self.kpi_fundo.definir("—", "nenhum turno aberto", "claro")
+            self.kpi_esperado.definir("R$ 0,00", "abra o turno para operar", "claro")
+            self.kpi_diferenca.definir("0", "sem movimentos", "claro")
             return
         self.botao_abrir.setEnabled(False)
         for botao in (self.botao_sangria, self.botao_suprimento, self.botao_fechar):
@@ -202,6 +224,24 @@ class TelaCaixa(QWidget):
             self.tabela.setItem(linha, 2, QTableWidgetItem(movimento.motivo))
         esperado = self.ctx.caixas.carregar_turno(turno.id).esperado
         self.rotulo_resumo.setText(f"Esperado na gaveta: {esperado.formatado()}")
+        abertura = turno.aberto_em.astimezone(self.ctx.relogio.fuso()).strftime("%H:%M")
+        self.kpi_fundo.definir(
+            turno.fundo.formatado(), f"turno aberto às {abertura}", "primaria"
+        )
+        self.kpi_esperado.definir(
+            esperado.formatado(),
+            f"caixa {caixa['nome']} · data {turno.data_negocio}",
+            "sucesso" if esperado.centavos >= 0 else "erro",
+        )
+        sangrias = sum(
+            1 for movimento in movimentos if movimento.tipo is TipoMovimentoCaixa.SANGRIA
+        )
+        suprimentos = len(movimentos) - sangrias
+        self.kpi_diferenca.definir(
+            str(len(movimentos)),
+            f"{sangrias} sangria(s) · {suprimentos} suprimento(s)",
+            "secundaria" if movimentos else "claro",
+        )
 
     def _mensagem(self, texto: str) -> None:
         self.mensagem.setText(texto)

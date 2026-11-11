@@ -32,7 +32,7 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 | Entradas | API funcional; tela pendente |
 | Parâmetros | Tela administrativa com faixa por parâmetro (admin) |
 | Administração | Funcional: diagnóstico, marca/tema, usuários, matriz de permissões, manutenção |
-| Instruções / Dashboard gráfico | Pendentes |
+| Instruções / Dashboard gráfico | Pendentes (a casca e os indicadores por tela já existem) |
 
 ## Evidências da entrega administrativa
 
@@ -46,6 +46,14 @@ repositório. **Nada é marcado como pronto sem teste executado.**
   `foreign_key_check` limpo, triggers e índice recriados, CHECK novo aceitando só os cinco perfis.
 - `tests/test_ui_admin.py` (29): seções por perfil, matriz intocável na coluna do master, criação de
   usuário pela tela, edição de parâmetro, tema aplicado na janela principal e perda de acesso na sessão.
+
+## Evidências da entrega de interface
+
+- `tests/test_ui_adminlte.py` (27): ícones (cor, tamanho, cache, nome inválido), `Cartao`,
+  `CaixaInfo`, `Selo`, `BarraLateral` (recolher, sinais, identidade), `BarraSuperior`,
+  `PilhaDePaginas` (altura por página), folha de estilo (cartões, paleta, contraste) e casca da janela.
+- `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
+- 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
 
 ## Próximos incrementos sugeridos (ordem)
 

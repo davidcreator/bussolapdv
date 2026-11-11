@@ -12,17 +12,16 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtCore import QTimer
 
-from bussola_pdv.aplicacao.contexto import Contexto  # noqa: E402
-from bussola_pdv.dominio.relogio import RelogioFixo  # noqa: E402
-from bussola_pdv.infra.massa_demo import popular, relogio_demo  # noqa: E402
-from bussola_pdv.dominio.marca import Marca  # noqa: E402
-from bussola_pdv.aplicacao.marca import ServicoMarca  # noqa: E402
-from bussola_pdv.ui.admin.janela import JanelaAdmin  # noqa: E402
-from bussola_pdv.ui.app import criar_aplicacao  # noqa: E402
-from bussola_pdv.ui.janela import JanelaPrincipal  # noqa: E402
-from bussola_pdv.ui.login import DialogoLogin  # noqa: E402
+from bussola_pdv.aplicacao.contexto import Contexto
+from bussola_pdv.aplicacao.marca import ServicoMarca
+from bussola_pdv.dominio.marca import Marca
+from bussola_pdv.infra.massa_demo import popular, relogio_demo
+from bussola_pdv.ui.admin.janela import JanelaAdmin
+from bussola_pdv.ui.app import criar_aplicacao
+from bussola_pdv.ui.janela import JanelaPrincipal
+from bussola_pdv.ui.login import DialogoLogin
 
 SAIDA = Path(__file__).resolve().parents[1] / "docs" / "capturas"
 
@@ -39,10 +38,12 @@ def main() -> int:
     operador = ctx.usuarios.por_login("operador")
 
     janela = JanelaPrincipal(ctx, operador)
-    janela.resize(1280, 800)
+    janela.resize(1280, 820)
     janela.show()
 
     def capturar(nome: str) -> None:
+        # dois ciclos: o recolher/expandir da sidebar reajusta a geometria depois
+        app.processEvents()
         app.processEvents()
         pix = janela.grab()
         pix.save(str(SAIDA / f"{nome}.png"))
@@ -75,6 +76,7 @@ def main() -> int:
         chaves = admin_janela.secoes_liberadas()
         admin_janela.menu.setCurrentRow(chaves.index(chave))
         app.processEvents()
+        app.processEvents()
         admin_janela.grab().save(str(SAIDA / f"{nome}.png"))
         print("captura:", SAIDA / f"{nome}.png")
 
@@ -85,6 +87,22 @@ def main() -> int:
     capturar_admin("12_admin_parametros", "parametros")
     capturar_admin("13_admin_manutencao", "manutencao")
     admin_janela.close()
+
+    # Menu recolhido: a mesma tela com a sidebar só de ícones.
+    janela.navegacao.setCurrentRow(0)
+    janela.barra_superior.botao_menu.click()
+    app.processEvents()
+    capturar("15_menu_recolhido")
+    janela.barra_superior.botao_menu.click()
+    app.processEvents()
+
+    # Tela de login (antes de trocar o tema, para registrar a skin padrão).
+    login = DialogoLogin(ctx)
+    login.show()
+    app.processEvents()
+    login.grab().save(str(SAIDA / "07_login.png"))
+    print("captura:", SAIDA / "07_login.png")
+    login.close()
 
     # Tema personalizado: troca de cores da marca e reaplica em toda a interface.
     ServicoMarca(ctx).salvar(
@@ -101,14 +119,7 @@ def main() -> int:
     app.processEvents()
     capturar("14_tema_personalizado")
 
-    # Tela de login.
     janela.close()
-    login = DialogoLogin(ctx)
-    login.show()
-    app.processEvents()
-    login.grab().save(str(SAIDA / "07_login.png"))
-    print("captura:", SAIDA / "07_login.png")
-    login.close()
     ctx.fechar()
     QTimer.singleShot(0, app.quit)
     return 0

@@ -37,9 +37,6 @@ class SecaoUsuarios(QWidget):
         self.servico = ServicoUsuarios(contexto)
 
         layout = QVBoxLayout(self)
-        titulo = QLabel("Usuários")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         ajuda = QLabel(
             "Cada usuário tem um perfil, e o perfil define o que ele alcança. "
             "Você só gerencia quem está abaixo do seu nível; ninguém altera o próprio acesso."
@@ -294,9 +291,6 @@ class SecaoPermissoes(QWidget):
         self.editavel = usuario.pode(Acao.PERMISSAO_GERENCIAR)
 
         layout = QVBoxLayout(self)
-        titulo = QLabel("Perfis e permissões")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         ajuda = QLabel(
             "Marque o que cada perfil pode fazer. O Admin Master tem acesso integral e não "
             "aparece como opção — é garantia de código, não configuração. "

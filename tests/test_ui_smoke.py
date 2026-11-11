@@ -122,5 +122,6 @@ def test_tela_fechamento_gera_relatorio(janela):
 
 def test_modulo_nao_implementado_avisa(janela):
     janela.navegacao.setCurrentRow(6)  # Clientes
-    texto = janela.pilha.currentWidget().findChildren(type(janela.rotulo_modulo))[0].text()
-    assert "não foi" in texto
+    rotulos = [w.text() for w in janela.pilha.currentWidget().findChildren(type(janela.rotulo_modulo))]
+    assert any("não foi implementado" in texto for texto in rotulos)
+    assert janela.cabecalho.titulo.text() == "Clientes"

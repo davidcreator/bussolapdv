@@ -27,13 +27,13 @@ from ...dominio.usuario import Acao, Usuario
 from .comum import Mensagem, descrever_erro
 
 ROTULOS_COR = {
-    "primaria": "Primária (faixa e botões)",
-    "primaria_escura": "Primária escura (navegação)",
-    "secundaria": "Secundária (destaque de módulo)",
-    "secundaria_clara": "Secundária clara (seleção)",
-    "destaque": "Destaque (bordas de entrada)",
+    "primaria": "Primária (botões e marca)",
+    "primaria_escura": "Barra lateral",
+    "secundaria": "Secundária (informação)",
+    "secundaria_clara": "Seleção suave",
+    "destaque": "Destaque (item ativo e avisos)",
     "fundo": "Fundo da janela",
-    "superficie": "Superfície (tabelas)",
+    "superficie": "Superfície (cartões e tabelas)",
     "texto": "Texto principal",
     "texto_suave": "Texto secundário",
     "sucesso": "Sucesso",
@@ -94,9 +94,6 @@ class SecaoMarca(QWidget):
         conteudo = QWidget()
         layout = QVBoxLayout(conteudo)
 
-        titulo = QLabel("Marca e tema")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         layout.addWidget(
             self._ajuda(
                 "Identidade da loja (nome, contato, logo) e cores da interface. "

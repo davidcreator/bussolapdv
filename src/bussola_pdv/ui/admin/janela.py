@@ -3,6 +3,10 @@
 O menu é montado a partir das permissões efetivas do usuário — não existe aba
 "desabilitada" para quem não pode: a seção simplesmente não aparece. Se o perfil
 não tem `ADMIN_ACESSAR`, a janela nem abre.
+
+A casca segue a linguagem do AdminLTE (sidebar escura, barra superior, cabeçalho
+com trilha e rodapé), a mesma da janela principal, para que a área administrativa
+não pareça outro programa.
 """
 
 from __future__ import annotations
@@ -13,9 +17,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
-    QLabel,
-    QListWidget,
-    QListWidgetItem,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -27,6 +28,13 @@ from ...dominio.erros import AutorizacaoNegada
 from ...dominio.marca import Marca
 from ...dominio.usuario import Acao, Usuario
 from ..tema import folha_estilo_da_marca
+from ..widgets import (
+    BarraLateral,
+    BarraSuperior,
+    CabecalhoConteudo,
+    EntradaNavegacao,
+    Rodape,
+)
 from .acessos import SecaoPermissoes, SecaoUsuarios
 from .dependencias import SecaoDependencias
 from .manutencao import SecaoManutencao
@@ -41,6 +49,7 @@ class Secao:
     descricao: str
     acao: Acao
     fabrica: object  # Callable[[Contexto, Usuario], QWidget]
+    icone: str = "menu"
 
 
 SECOES: tuple[Secao, ...] = (
@@ -50,6 +59,7 @@ SECOES: tuple[Secao, ...] = (
         "Diagnóstico real de dependências, banco e trilha de auditoria",
         Acao.ADMIN_ACESSAR,
         SecaoDependencias,
+        "visao",
     ),
     Secao(
         "marca",
@@ -57,6 +67,7 @@ SECOES: tuple[Secao, ...] = (
         "Nome da loja, contato, logo, cores e tipografia",
         Acao.ADMIN_ACESSAR,
         SecaoMarca,
+        "marca",
     ),
     Secao(
         "usuarios",
@@ -64,6 +75,7 @@ SECOES: tuple[Secao, ...] = (
         "Criar, ativar, desativar e redefinir senhas conforme a hierarquia",
         Acao.USUARIO_GERENCIAR,
         SecaoUsuarios,
+        "usuarios",
     ),
     Secao(
         "permissoes",
@@ -71,6 +83,7 @@ SECOES: tuple[Secao, ...] = (
         "Matriz do que cada perfil pode fazer — exclusivo do Admin Master",
         Acao.PERMISSAO_GERENCIAR,
         SecaoPermissoes,
+        "permissoes",
     ),
     Secao(
         "parametros",
@@ -78,6 +91,7 @@ SECOES: tuple[Secao, ...] = (
         "Descontos, crediário, caixa e segurança",
         Acao.PARAMETRO_ALTERAR,
         SecaoParametros,
+        "parametros",
     ),
     Secao(
         "manutencao",
@@ -85,6 +99,7 @@ SECOES: tuple[Secao, ...] = (
         "Cópias de segurança, verificação e restauração",
         Acao.BACKUP_EXECUTAR,
         SecaoManutencao,
+        "manutencao",
     ),
 )
 
@@ -104,32 +119,40 @@ class JanelaAdmin(QDialog):
             )
         self.ctx = contexto
         self.usuario = usuario
+        self.marca = contexto_marca(contexto)
         self.setWindowTitle(f"Administração · {usuario.perfil.rotulo}")
-        self.resize(1120, 760)
-        self.setStyleSheet(folha_estilo_da_marca(contexto_marca(contexto)))
+        self.resize(1180, 800)
+        self.setStyleSheet(folha_estilo_da_marca(self.marca))
 
         self.secoes = [secao for secao in SECOES if usuario.pode(secao.acao)]
-
-        raiz = QVBoxLayout(self)
-        raiz.setContentsMargins(0, 0, 0, 0)
-        raiz.setSpacing(0)
-        raiz.addWidget(self._cabecalho())
-
-        corpo = QWidget()
-        linha = QHBoxLayout(corpo)
-        linha.setContentsMargins(0, 0, 0, 0)
-        linha.setSpacing(0)
-
-        self.menu = QListWidget()
-        self.menu.setObjectName("navegacao")
-        self.menu.setFixedWidth(210)
-        for secao in self.secoes:
-            QListWidgetItem(secao.rotulo, self.menu)
-        self.menu.currentRowChanged.connect(self._trocar)
-        linha.addWidget(self.menu)
-
-        self.pilha = QStackedWidget()
         self.telas: dict[str, QWidget] = {}
+
+        # -- sidebar com as seções liberadas ---------------------------------
+        self.barra_lateral = BarraLateral(
+            nome_loja=self.marca.nome_fantasia,
+            usuario=usuario.nome,
+            perfil=usuario.perfil.rotulo,
+            paleta=self.marca.paleta,
+        )
+        self.barra_lateral.rotulo_versao_marca.setText("Administração")
+        self.barra_lateral.definir_modulos(
+            [
+                EntradaNavegacao(chave=secao.chave, rotulo=secao.rotulo, icone=secao.icone)
+                for secao in self.secoes
+            ]
+        )
+        self.menu = self.barra_lateral.lista  # nome herdado
+        self.barra_lateral.modulo_escolhido.connect(self._ir_para)
+
+        # -- topo e conteúdo -------------------------------------------------
+        self.barra_superior = BarraSuperior(
+            titulo="Administração", usuario=usuario.nome, perfil=usuario.perfil.rotulo
+        )
+        self.barra_superior.recolher_pedido.connect(self.barra_lateral.alternar_recolhida)
+
+        self.cabecalho = CabecalhoConteudo("Administração", "Área restrita · tudo é auditado")
+        self.rotulo_rodape = self.cabecalho.descricao  # nome herdado
+        self.pilha = QStackedWidget()
         for secao in self.secoes:
             tela = secao.fabrica(contexto, usuario)  # type: ignore[operator]
             self.telas[secao.chave] = tela
@@ -140,59 +163,84 @@ class JanelaAdmin(QDialog):
             if isinstance(tela, SecaoPermissoes):
                 tela.permissoes_alteradas.connect(self.dados_alterados.emit)
             self.pilha.addWidget(tela)
-        linha.addWidget(self.pilha, 1)
-        raiz.addWidget(corpo, 1)
 
-        rodape = QHBoxLayout()
-        rodape.setContentsMargins(12, 6, 12, 6)
-        self.rotulo_rodape = QLabel(
-            f"{len(self.secoes)} seção(ões) liberada(s) para {usuario.perfil.rotulo} · "
-            "toda alteração é auditada"
-        )
-        self.rotulo_rodape.setObjectName("textoAjuda")
-        self.botao_fechar = QPushButton("Fechar")
+        self.botao_fechar = QPushButton("Voltar ao PDV")
         self.botao_fechar.setObjectName("secundario")
         self.botao_fechar.clicked.connect(self.accept)
-        rodape.addWidget(self.rotulo_rodape, 1)
-        rodape.addWidget(self.botao_fechar)
-        raiz.addLayout(rodape)
+
+        self.rodape = Rodape(
+            f"{len(self.secoes)} seção(ões) liberada(s) para {usuario.perfil.rotulo} · "
+            "toda alteração é auditada",
+            "",
+        )
+        self.rodape.direita.setText(f"sessão de {usuario.nome}")
+
+        corpo = QWidget()
+        corpo.setObjectName("conteudo")
+        coluna = QVBoxLayout(corpo)
+        coluna.setContentsMargins(0, 0, 0, 0)
+        coluna.setSpacing(0)
+        coluna.addWidget(self.barra_superior)
+        coluna.addWidget(self.cabecalho)
+        coluna.addWidget(self.pilha, 1)
+        linha_rodape = QHBoxLayout()
+        linha_rodape.setContentsMargins(0, 0, 12, 0)
+        linha_rodape.addWidget(self.rodape, 1)
+        linha_rodape.addWidget(self.botao_fechar, 0, Qt.AlignmentFlag.AlignVCenter)
+        coluna.addLayout(linha_rodape)
+
+        raiz = QHBoxLayout(self)
+        raiz.setContentsMargins(0, 0, 0, 0)
+        raiz.setSpacing(0)
+        raiz.addWidget(self.barra_lateral)
+        raiz.addWidget(corpo, 1)
 
         if self.secoes:
             self.menu.setCurrentRow(0)
 
-    def _cabecalho(self) -> QWidget:
-        marca = contexto_marca(self.ctx)
-        faixa = QWidget()
-        faixa.setObjectName("faixaSuperior")
-        layout = QVBoxLayout(faixa)
-        layout.setContentsMargins(16, 10, 16, 10)
-        titulo = QLabel(f"Administração · {marca.nome_fantasia}")
-        titulo.setObjectName("tituloApp")
-        subtitulo = QLabel(
-            f"Sessão de {self.usuario.nome} ({self.usuario.perfil.rotulo}) · "
-            "as seções abaixo respeitam o que o Admin Master liberou"
-        )
-        subtitulo.setObjectName("subtituloApp")
-        layout.addWidget(titulo)
-        layout.addWidget(subtitulo)
-        return faixa
+    # -- navegação ----------------------------------------------------------
+    def secoes_liberadas(self) -> list[str]:
+        return [secao.chave for secao in self.secoes]
+
+    def _indice_da_chave(self, chave: str) -> int:
+        for indice, secao in enumerate(self.secoes):
+            if secao.chave == chave:
+                return indice
+        return -1
+
+    def _ir_para(self, chave: str) -> None:
+        indice = self._indice_da_chave(chave)
+        if indice < 0:
+            return
+        if self.menu.currentRow() != indice:
+            self.menu.blockSignals(True)
+            self.menu.setCurrentRow(indice)
+            self.menu.blockSignals(False)
+        self._trocar(indice)
 
     def _trocar(self, indice: int) -> None:
         if indice < 0 or indice >= len(self.secoes):
             return
         secao = self.secoes[indice]
         self.pilha.setCurrentWidget(self.telas[secao.chave])
+        self.cabecalho.definir(
+            titulo=secao.rotulo,
+            descricao=secao.descricao,
+            trilha=["Início", "Administração", secao.rotulo],
+        )
         self.rotulo_rodape.setText(f"{secao.descricao} · toda alteração é auditada")
+        self.barra_superior.definir_pagina(f"Administração · {secao.rotulo}")
         tela = self.telas[secao.chave]
         if hasattr(tela, "atualizar"):
             tela.atualizar()
 
     def _marca_salva(self) -> None:
-        self.setStyleSheet(folha_estilo_da_marca(contexto_marca(self.ctx)))
+        self.marca = contexto_marca(self.ctx)
+        self.setStyleSheet(folha_estilo_da_marca(self.marca))
+        self.barra_lateral.atualizar_identidade(
+            self.marca.nome_fantasia, self.usuario.nome, self.usuario.perfil.rotulo
+        )
         self.marca_alterada.emit()
-
-    def secoes_liberadas(self) -> list[str]:
-        return [secao.chave for secao in self.secoes]
 
 
 def contexto_marca(contexto: Contexto) -> Marca:
@@ -201,6 +249,3 @@ def contexto_marca(contexto: Contexto) -> Marca:
         return Marca.de_parametros(contexto.parametros.por_prefixo("marca."))
     except Exception:  # pragma: no cover - banco em estado estranho
         return Marca.padrao()
-
-
-__all__ = ["SECOES", "JanelaAdmin", "Qt", "Secao", "contexto_marca"]

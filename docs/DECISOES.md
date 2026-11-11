@@ -125,6 +125,18 @@ master ativo) e classifica cada linha em OK / Atenção / Erro.
 problema real aparece em vermelho com o motivo. Restauração de cópia é exclusiva do master, verifica a
 cópia antes de sobrescrever e guarda uma cópia do estado anterior ao lado do banco.
 
+## ADR-016 — Interface no vocabulário do AdminLTE, com cor vinda do banco
+
+**Decisão.** A casca (sidebar recolhível, topbar, cabeçalho com trilha, cartões, *small-boxes*,
+etiquetas) segue a linguagem do AdminLTE (MIT), reconstruída em PySide6: nenhum arquivo do projeto
+original é copiado e os 21 ícones são SVGs próprios. A folha de estilo continua derivada da paleta
+salva pela loja; a skin padrão passa a ser a do AdminLTE (azul `#0D6EFD`, sidebar `#343A40`, fundo
+`#F4F6F9`), com preset novo `OCEANO`.
+**Consequência.** Ganho de legibilidade e densidade sem quebrar a personalização por loja: trocar a
+paleta repinta sidebar, cartões e indicadores. Custo aceito: a janela tem altura mínima ~760 px por
+causa da densidade de informações do PDV; não há versão "mobile". O CSS do AdminLTE não é carregado
+em tempo de execução — se um dia for, a licença MIT exige manter o aviso de copyright.
+
 ---
 
 ## Pendências que exigem decisão do responsável

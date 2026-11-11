@@ -35,9 +35,6 @@ class SecaoDependencias(QWidget):
         self.servico = ServicoAdministracao(contexto)
 
         layout = QVBoxLayout(self)
-        titulo = QLabel("Visão geral e dependências")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         explicacao = QLabel(
             "Cada linha abaixo é uma checagem executada agora, não um texto fixo. "
             "Vermelho significa impedimento técnico; âmbar, atenção."

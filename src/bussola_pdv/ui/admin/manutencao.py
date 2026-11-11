@@ -35,9 +35,6 @@ class SecaoManutencao(QWidget):
         self.servico = ServicoAdministracao(contexto)
 
         layout = QVBoxLayout(self)
-        titulo = QLabel("Manutenção e cópias de segurança")
-        titulo.setObjectName("destaqueAdmin")
-        layout.addWidget(titulo)
         ajuda = QLabel(
             "A cópia é feita pela API do SQLite, com a base aberta: não é cópia de arquivo em uso. "
             "Restaurar substitui os dados atuais e guarda a base anterior ao lado, "
