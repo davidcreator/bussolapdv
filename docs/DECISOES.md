@@ -139,6 +139,26 @@ em tempo de execução — se um dia for, a licença MIT exige manter o aviso de
 
 ---
 
+## ADR-017 — Distribuição no Windows: onedir + Inno Setup, dados fora da pasta do programa
+
+**Decisão.** O Windows é o alvo de instalação. Três caminhos convivem: (1) rodar do código com
+Python 3.12, (2) `.zip` portátil do PyInstaller, (3) instalador do Inno Setup 6. O PyInstaller roda
+em modo **onedir**, com `console=False` no executável principal e um segundo binário com console para
+diagnóstico; sem UPX e sem assinatura digital. A base e as cópias ficam no diretório de dados do
+usuário (`%LOCALAPPDATA%\BussolaPDV`), nunca em `Program Files`; a desinstalação remove o programa e
+preserva os dados por padrão. Quando não há base, o próprio programa abre o assistente de primeiro uso
+em vez de exigir `bussola init` no terminal.
+
+**Consequência.** Instalar deixa de exigir Python, e atualizar o programa não toca no banco. Custo
+aceito: nenhum binário Windows é produzido no ambiente de desenvolvimento (Linux) — os artefatos saem
+do runner `windows-latest` ou de uma máquina Windows, então este repositório versiona a **receita**,
+não o `.exe`. Sem certificado de assinatura de código, o SmartScreen alerta no primeiro uso; o guia
+assume isso e ensina a conferir o hash em vez de pedir que o usuário ignore o aviso. O caminho `.msi`
+(WiX) fica documentado como alternativa não automatizada. Distribuir binário assinado é decisão de
+quem publica, não do código.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

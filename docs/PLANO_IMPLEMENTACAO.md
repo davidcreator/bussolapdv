@@ -55,11 +55,31 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
 - 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
 
+## Evidências da entrega de instalação Windows (v0.4.0)
+
+- `tests/test_primeiro_uso.py` (10): detecção de base ausente/vazia/pronta/arquivo corrompido;
+  diálogo cria Admin Master, `Caixa 1` e nome da loja pelos casos de uso do `init`; senhas divergentes,
+  campos vazios e senha curta recusados sem deixar base criada.
+- `tests/test_empacotamento.py` (21): versão de `versao_info.txt`, `pyproject.toml` e `instalador.iss`
+  sincronizadas com `__version__`; `.ico` com 7 resoluções e PNGs válidos; spec aponta para arquivos
+  existentes; `.iss` só referencia arquivos reais e não apaga dados na desinstalação; workflow publica
+  `.zip` e `setup.exe`; diretório de dados por sistema (`LOCALAPPDATA`, `XDG_DATA_HOME`, `BUSSOLA_DADOS`);
+  `bussola-pdv` com argumento devolve o controle ao CLI.
+- **Build de fumaça real** (Linux, mesma receita do spec): `python -m PyInstaller empacotamento/bussola.spec`
+  produziu um binário congelado que executou `demo` (base criada), `info` (esquema v3, integridade OK,
+  cadeia de auditoria íntegra em 42 eventos) e `--version`. O teste pegou um defeito real: as migrações
+  `.sql` não estavam no bundle e o executável falhava com `no such table: usuarios` — corrigido em
+  `datas` do spec, com teste de regressão.
+- `docs/INSTALACAO_WINDOWS.md`: três caminhos (instalador, código, build), pacotes pip por extra,
+  pasta de dados, backup/restauração, SmartScreen, desinstalação, problemas comuns e checklist.
+- **Não verificado**: binário Windows (`.exe`), instalador `.iss` compilado e instalação em Windows real
+  — exigem runner `windows-latest` (workflow `windows.yml`) ou máquina Windows.
+
 ## Próximos incrementos sugeridos (ordem)
 
 1. Telas de clientes, crediário e estoque (a API já existe).
 2. Devolução parcial de venda com recomposição de pagamento.
 3. Geração de PDF do fechamento (Qt PrintSupport).
 4. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
-5. Empacotamento Windows com versões fixadas e hashes.
+5. Assinatura digital dos binários Windows e hashes publicados na Release.
 6. Revisão de segurança/LGPD e homologação com operador real.

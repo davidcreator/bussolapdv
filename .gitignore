@@ -24,6 +24,8 @@ __pycache__/
 .eggs/
 build/
 dist/
+# PyInstaller deixa *.spec gerado quando se roda sem --specpath; o nosso é versionado
+!empacotamento/bussola.spec
 .venv/
 venv/
 .mypy_cache/

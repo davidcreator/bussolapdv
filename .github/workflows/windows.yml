@@ -1,0 +1,99 @@
+name: Windows
+
+# Build do executável e do instalador para Windows.
+#
+# Roda em `windows-latest` porque binário Windows só nasce em Windows — o CI de
+# Linux (ci.yml) testa código, este workflow produz o artefato que o usuário baixa.
+# Não publica nada: sobe como artefato do run. Para virar Release, baixe o .zip/.exe
+# e anexe manualmente (assinatura digital fica para quando houver certificado).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "empacotamento/**"
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binario:
+    name: Executável + instalador (Python 3.12 x64)
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 3.12 (x64)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+          cache: pip
+
+      - name: Dependências
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e ".[empacotamento,dev]"
+
+      - name: Testes (Qt offscreen)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests -q
+
+      - name: Lint e tipos
+        run: |
+          python -m ruff check src tests
+          python -m mypy
+
+      - name: Ícone
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python empacotamento/gerar_icone.py
+
+      - name: PyInstaller (onedir, sem console)
+        run: python -m PyInstaller --noconfirm --clean empacotamento/bussola.spec
+
+      - name: Fumaça — o executável inicia e mostra a versão
+        shell: pwsh
+        run: |
+          $saida = & "dist\BussolaPDV\BussolaPDV-console.exe" --version 2>&1 | Out-String
+          $saida.Trim()
+          if ($saida -notmatch "B.ssola") { throw "O executável não respondeu ao --version" }
+
+      - name: Inno Setup
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $versao = python -c "import bussola_pdv; print(bussola_pdv.__version__)"
+          & $iscc "/DAppVersion=$versao" "empacotamento\instalador.iss"
+        shell: pwsh
+
+      - name: Empacotar artefatos
+        run: |
+          $versao = python -c "import bussola_pdv; print(bussola_pdv.__version__)"
+          Compress-Archive -Path "dist\BussolaPDV\*" -DestinationPath "dist\BussolaPDV-$versao-win64.zip"
+          Get-ChildItem dist -Recurse -Include *.zip, *.exe | Select-Object FullName, Length
+        shell: pwsh
+
+      - name: Publicar artefatos
+        uses: actions/upload-artifact@v4
+        with:
+          name: bussolapdv-windows
+          path: |
+            dist/BussolaPDV-*-win64.zip
+            dist/instalador/BussolaPDV-*-setup.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Aviso de assinatura
+        run: |
+          echo "::warning::Binários sem assinatura digital. O SmartScreen vai avisar o usuário: veja docs/INSTALACAO_WINDOWS.md."
+        shell: bash

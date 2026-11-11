@@ -2,6 +2,59 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.4.0] — 2026-11-11 — pré-alfa: instalação no Windows e empacotamento
+
+### Adicionado
+
+- **`docs/INSTALACAO_WINDOWS.md`**: guia passo a passo (Python 3.12 x64, PowerShell/CMD, venv,
+  `pip install -e .`, primeiro `init`, abrir o programa, backup, atalho, atualização, desinstalação),
+  com tabela de pacotes pip (execução, `dev`, `empacotamento`), dependências de sistema, pasta de
+  dados, SmartScreen/antivírus, solução de problemas e checklist de validação.
+- **Primeiro uso sem terminal** (`ui/primeiro_uso.py`): quando a base não existe (ou existe sem
+  usuário), o programa abre um diálogo que cria o Admin Master, o caixa `Caixa 1` e grava o nome da
+  loja — pelos mesmos casos de uso do `bussola init`, sem caminho paralelo de escrita.
+- **`ui/entrada.py`** (`bussola-pdv`) agora abre a instalação instalada de verdade: base em
+  `%LOCALAPPDATA%\BussolaPDV`, primeiro uso quando necessário, e qualquer argumento devolve o
+  controle ao CLI (`backup`, `info`, `demo`…).
+- **`caminhos.py`**: diretório de dados por sistema operacional
+  (`%LOCALAPPDATA%\BussolaPDV`, `XDG_DATA_HOME/bussola-pdv`, `~/Library/Application Support`),
+  sobreponível por `BUSSOLA_DADOS`; dados deixam de morar na pasta do programa.
+- **`empacotamento/`**: `bussola.spec` (PyInstaller **onedir**, `console=False` no executável
+  principal, `upx=False`, exclusões de módulos Qt não usados, `hiddenimports` do argon2),
+  `versao_info.txt` (metadados do `.exe`), `entrada.py` (ponto de entrada congelado com
+  `freeze_support` e AppUserModelID), `gerar_icone.py` + `bussola.ico` (ícone 16→256 px desenhado
+  com QPainter, sem dependência externa), `instalador.iss` (Inno Setup 6, instalação por usuário,
+  não apaga a base ao desinstalar), `AVISO.txt`, `LEIA-ME.txt` e `build_windows.ps1` (build completo
+  em um comando).
+- **`BussolaPDV-console.exe`**: segundo executável, com console, para diagnosticar quando a versão
+  sem janela falha em silêncio.
+- **Workflow `.github/workflows/windows.yml`** (`windows-latest`): testes, lint, ícone, PyInstaller,
+  teste de fumaça do executável, Inno Setup e publicação do `.zip` portátil e do `setup.exe` como
+  artefato.
+- **`python -m bussola_pdv`** como alternativa ao script instalado.
+- Testes novos: primeiro uso (criação, validações, senha curta, base corrompida) e empacotamento
+  (versões sincronizadas, `.ico` válido, arquivos referenciados, caminhos por sistema, workflow).
+
+### Alterado
+
+- `pyproject.toml`: extra `empacotamento` (`pyinstaller`), versão 0.4.0 e `bussola-pdv` apontando
+  para `ui.entrada:main`.
+- `README.md`: seção **Instalação** reescrita para Windows (instalador pronto, rodar do código,
+  compilar) com tabela de pacotes e link para o guia completo.
+
+### Verificado
+
+- Build de fumaça da receita PyInstaller em Linux: binário congelado rodou `demo`, `info` e
+  `--version` com a base íntegra. O teste revelou que as migrações `.sql` não entravam no bundle
+  (`no such table: usuarios`); as `datas` do spec foram corrigidas e ganharam teste de regressão.
+
+### Limites desta versão
+
+- `BussolaPDV.exe`, o instalador e o `.zip` **não** foram gerados no ambiente de desenvolvimento
+  (Linux, sem Windows/Wine). Saem do workflow `windows.yml` ou de uma máquina Windows via
+  `empacotamento/build_windows.ps1`. O caminho `.msi` (WiX) está descrito, mas não automatizado.
+- Sem assinatura digital: SmartScreen avisa na primeira execução (documentado).
+
 ## [0.3.0] — 2026-11-11 — pré-alfa: interface no padrão AdminLTE
 
 ### Adicionado

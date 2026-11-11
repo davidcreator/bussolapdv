@@ -2,10 +2,13 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.3.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.4.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
-> administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados. **Não é homologado para operação real**, não emite documento fiscal, não
-> suporta múltiplas estações em rede e não substitui contador ou sistema fiscal certificado.
+> administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
+> Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
+> [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md). **Não é homologado para operação real**,
+> não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
+> sistema fiscal certificado.
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
 > antes de qualquer uso com dados reais.
 
@@ -107,17 +110,66 @@ Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.m
 
 ## Instalação
 
-Requer Python 3.12 ou superior.
+Há dois caminhos. O guia completo, com passo a passo para leigo, solução de
+problemas e checklist de validação, está em
+**[docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md)**.
+
+### Windows — instalador (mais simples)
+
+Baixe `BussolaPDV-<versão>-setup.exe` (ou o `.zip` portátil) nas
+[Releases](https://github.com/davidcreator/bussolapdv/releases), execute e siga o assistente.
+Na primeira abertura o próprio programa pede o nome da loja e cria o Admin Master.
+O binário **não é assinado digitalmente**: o SmartScreen avisa na primeira execução — o guia
+explica por quê e como conferir o SHA-256.
+
+Os artefatos saem do workflow [`.github/workflows/windows.yml`](.github/workflows/windows.yml)
+(runner `windows-latest`) ou do seu próprio build, em uma máquina Windows:
+
+```bat
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+python -m pip install -e ".[empacotamento]"
+powershell -ExecutionPolicy Bypass -File empacotamento\build_windows.ps1
+```
+
+Saída: `dist\BussolaPDV\BussolaPDV.exe`, `dist\BussolaPDV-<versão>-win64.zip` e
+`dist\instalador\BussolaPDV-<versão>-setup.exe` (Inno Setup 6).
+
+### Windows — rodando do código
+
+Requer [Python 3.12 x64](https://www.python.org/downloads/windows/) — marque
+**“Add python.exe to PATH”** no instalador.
+
+```bat
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+python -m pip install -e .
+
+bussola init --banco dados\pdv.db --admin-login master --admin-nome "Seu Nome"
+bussola-pdv --banco dados\pdv.db
+```
+
+Pacotes de execução (o resto vem como dependência deles):
+
+| Pacote | Versão | Papel |
+| --- | --- | --- |
+| `PySide6-Essentials` | `>=6.6,<7` | interface Qt 6; no Windows as DLLs já vêm no wheel |
+| `argon2-cffi` | `>=23.1,<26` | hash de senha Argon2id |
+
+Extras: `dev` (`pytest`, `pytest-cov`, `ruff`, `mypy`) e `empacotamento` (`pyinstaller`).
+Nenhuma dependência de sistema extra no Windows. Base e cópias ficam em
+`%LOCALAPPDATA%\BussolaPDV` (sobreponível com a variável `BUSSOLA_DADOS`), fora da pasta do programa.
+
+### Linux (desenvolvimento)
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-No Linux, o Qt precisa de bibliotecas de sistema
-(`libxkbcommon0 libgl1 libegl1 libfontconfig1 libdbus-1-3`). No Windows, o PySide6 já traz o necessário.
+O Qt precisa de bibliotecas de sistema
+(`libxkbcommon0 libgl1 libegl1 libfontconfig1 libdbus-1-3`); `make test` usa Qt offscreen.
 
 ## Uso rápido
 
@@ -158,11 +210,15 @@ src/bussola_pdv/
   dominio/         regras puras (dinheiro, venda, pagamentos, caixa, crediário, estoque, auditoria)
   aplicacao/       casos de uso, transações, autorização, relatórios
   infra/sqlite/    conexão, migrações versionadas, repositórios, massa demo
-  ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas
+  ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas,
+                   primeiro uso (cria a instalação sem terminal) e entrada do app empacotado
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
-tests/             381 testes: unidade, integração com SQLite real, falhas e UI offscreen
-docs/              análise do repositório de origem, decisões (ADRs), interface, plano e capturas
+  caminhos.py      onde ficam os dados por sistema operacional (%LOCALAPPDATA% no Windows)
+tests/             412 testes: unidade, integração com SQLite real, falhas, UI offscreen e empacotamento
+empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
+docs/              análise do repositório de origem, decisões (ADRs), interface, instalação no
+                   Windows, plano e capturas
 ```
 
 ## Limites explícitos

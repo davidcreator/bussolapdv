@@ -1,0 +1,36 @@
+# Metadados do BussolaPDV.exe (propriedades do arquivo no Windows).
+# Formato exigido pelo PyInstaller: uma expressão VSVersionInfo avaliada no build.
+# `tests/test_empacotamento.py` confere se a versão aqui bate com __version__.
+VSVersionInfo(
+    ffi=FixedFileInfo(
+        filevers=(0, 4, 0, 0),
+        prodvers=(0, 4, 0, 0),
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        StringFileInfo(
+            [
+                StringTable(
+                    "040904B0",
+                    [
+                        StringStruct("CompanyName", "Bússola Sistema PDV Open Source"),
+                        StringStruct("FileDescription", "Bússola Sistema PDV Open Source"),
+                        StringStruct("FileVersion", "0.4.0"),
+                        StringStruct("InternalName", "BussolaPDV"),
+                        StringStruct("LegalCopyright", "GPL-2.0-or-later — sem garantia"),
+                        StringStruct("OriginalFilename", "BussolaPDV.exe"),
+                        StringStruct("ProductName", "Bússola Sistema PDV Open Source"),
+                        StringStruct("ProductVersion", "0.4.0"),
+                        StringStruct("Comments", "PDV desktop offline. Documento interno, nao fiscal."),
+                    ],
+                )
+            ]
+        ),
+        VarFileInfo([VarStruct("Translation", [1033, 1200])]),
+    ],
+)

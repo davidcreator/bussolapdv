@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bussola-pdv"
-version = "0.3.0"
+version = "0.4.0"
 description = "Bússola Sistema PDV Open Source — PDV desktop offline em Python para varejo (pt-BR)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -38,12 +38,16 @@ dev = [
     "mypy>=1.11",
 ]
 seed = []  # a massa fictícia usa apenas a biblioteca padrão
+# Só para gerar .exe/.msi — não é necessário para rodar do código.
+empacotamento = [
+    "pyinstaller>=6.10,<7",
+]
 
 [project.scripts]
 bussola = "bussola_pdv.cli:main"
 
 [project.gui-scripts]
-bussola-pdv = "bussola_pdv.ui.app:main"
+bussola-pdv = "bussola_pdv.ui.entrada:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bussola_pdv"]

@@ -1,0 +1,22 @@
+Bússola Sistema PDV Open Source — aviso importante
+==================================================
+
+1. Este programa está em PRÉ-ALFA. Ele NÃO é homologado fiscalmente e NÃO
+   emite NF-e, NFC-e, SAT ou cupom fiscal. O comprovante que ele imprime é
+   documento interno, sem valor fiscal.
+
+2. Não use esta versão como único sistema de uma loja em operação. Faça cópias
+   de segurança e teste com dados fictícios (comando `demo`) antes de qualquer
+   uso real.
+
+3. O programa funciona OFFLINE: não acessa a internet, não envia dados para
+   ninguém e não tem telemetria. Tudo o que a loja cadastra fica no computador.
+
+4. O instalador e o executável não são assinados digitalmente (não há
+   certificado de assinatura de código no projeto). Por isso o Windows
+   SmartScreen pode exibir "O Windows protegeu o computador". Isso é esperado
+   em software livre sem assinatura — confira a origem do arquivo (Releases do
+   repositório oficial) antes de liberar.
+
+5. Licença GPL-2.0-or-later, sem garantia. Código-fonte:
+   https://github.com/davidcreator/bussolapdv

@@ -1,0 +1,42 @@
+Bússola Sistema PDV Open Source
+==============================
+
+Como abrir
+----------
+Atalho "Bússola Sistema PDV" no menu Iniciar, ou o arquivo BussolaPDV.exe
+nesta pasta.
+
+Na primeira execução o programa pede o nome da loja e cria o Admin Master
+(usuário dono da instalação). Guarde a senha: ela não pode ser recuperada,
+apenas redefinida por outro Admin Master.
+
+Onde ficam os dados
+-------------------
+%LOCALAPPDATA%\BussolaPDV\pdv.db        base do PDV (SQLite)
+%LOCALAPPDATA%\BussolaPDV\copias\       cópias de segurança (.db)
+
+Para abrir essa pasta: menu Iniciar > "Pasta de dados (banco e cópias)".
+
+Cópia de segurança
+------------------
+No PDV, use a rotina de backup da interface, ou no Prompt de Comando:
+
+  "%LOCALAPPDATA%\Programs\BussolaPDV\BussolaPDV-console.exe" backup ^
+      --banco "%LOCALAPPDATA%\BussolaPDV\pdv.db" ^
+      --destino "%LOCALAPPDATA%\BussolaPDV\copias"
+
+Copie a pasta "copias" para um pendrive ou nuvem da loja regularmente.
+
+Diagnóstico
+-----------
+Se o programa não abrir, rode BussolaPDV-console.exe no Prompt de Comando:
+ele mostra a mensagem de erro em vez de fechar em silêncio.
+
+Desinstalação
+-------------
+Configurações > Aplicativos > Aplicativos instalados > Bússola Sistema PDV.
+A desinstalação remove o PROGRAMA e mantém a base em %LOCALAPPDATA%\BussolaPDV.
+Para apagar tudo, remova essa pasta manualmente — sem volta.
+
+Licença: GPL-2.0-or-later. Código e documentação:
+https://github.com/davidcreator/bussolapdv
