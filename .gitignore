@@ -1,0 +1,54 @@
+# Banco de dados e cópias (nunca versionar dados de operação)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+dados/
+copias/
+backups/
+*.bak
+
+# Segredos e configuração local
+.env
+.env.*
+*.key
+*.pem
+*.p12
+segredos/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Qt / capturas geradas localmente
+*.qmlc
+capturas/*.tmp.png
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Planilhas e dados reais de operação (nunca versionar)
+*.xlsx
+*.xlsm
+*.csv
+!docs/exemplos/*.csv
+# o protótipo histórico é preservado de propósito em prototipo/
+!prototipo/especificacao/excel/*.xlsx
+!prototipo/especificacao/uploads/*.png

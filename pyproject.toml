@@ -1,0 +1,91 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bussola-pdv"
+version = "0.2.0"
+description = "Bússola Sistema PDV Open Source — PDV desktop offline em Python para varejo (pt-BR)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-2.0-or-later" }
+authors = [{ name = "Bússola Sistema PDV Open Source — contribuidores" }]
+keywords = ["pdv", "varejo", "python", "sqlite", "pyside6", "offline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Point-Of-Sale",
+]
+dependencies = [
+    # Derivação de senha forte (Argon2id). Sem ela o app recusa iniciar em produção.
+    "argon2-cffi>=23.1,<26",
+    # UI desktop. Instale extras de UI apenas nas estações com vídeo.
+    "PySide6-Essentials>=6.6,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<10",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+seed = []  # a massa fictícia usa apenas a biblioteca padrão
+
+[project.scripts]
+bussola = "bussola_pdv.cli:main"
+
+[project.gui-scripts]
+bussola-pdv = "bussola_pdv.ui.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bussola_pdv"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "ui: testes que exigem PySide6 e plataforma offscreen",
+    "integracao: testes com SQLite real em diretório temporário",
+]
+filterwarnings = ["error::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "UP", "S", "C4", "PT", "SIM", "RUF"]
+ignore = [
+    "S101",    # assert é esperado em testes
+    "N802",    # nomes de domínio em pt-BR usam CamelCase intencional
+    "N818",    # exceções em pt-BR: ErroBussola, ErroMigracao, Argon2Indisponivel
+    "RUF001",  # texto pt-BR usa ×, −, "aspas tipográficas" de propósito
+    "RUF002",
+    "RUF003",
+    "RUF009",  # dataclasses frozen: Dinheiro()/Percentual() em default é seguro
+    "B008",    # idem: avaliação de default imutável em assinatura
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S608", "PT011"]
+"src/bussola_pdv/infra/sqlite/**" = ["S608"]  # SQL montado a partir de constantes internas
+"src/bussola_pdv/infra/massa_demo.py" = ["C408"]  # dict(campo=...) é mais legível para a massa fictícia
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_optional = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["src/bussola_pdv"]
