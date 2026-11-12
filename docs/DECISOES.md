@@ -248,6 +248,53 @@ silêncio.
 
 ---
 
+## ADR-021 — Responsividade por faixa de largura, não por tamanho fixo
+
+**Contexto.** A interface nasceu para 1280×820 e isso apareceu no balcão: em monitor de 1024×768 a
+página de Produtos pedia 949 px de largura mínima e era cortada; em 800×600 os cartões de indicador se
+sobrepunham e os grupos do PDV ficavam por baixo uns dos outros; as tabelas espremiam a coluna de
+descrição até o cabeçalho virar "›escriçã". Os números estavam espalhados pelo código: `setFixedWidth`
+na sidebar, `setMinimumWidth` em diálogos, `QHBoxLayout` com `addWidget(x, 1)` para quatro cartões.
+
+**Decisão.** Uma única camada, `ui/responsivo.py`, com a régua de largura e as peças que reagem a ela:
+
+* **faixas** — `classe_de_largura()` devolve `compacta` (< 900 px), `media` (< 1180 px) ou `ampla`.
+  Nenhuma tela compara pixels por conta própria; todas perguntam a faixa;
+* **indicadores** — `GradeDeIndicadores` troca `QHBoxLayout` por `QGridLayout` e reflui 4 → 3 → 2 → 1
+  cartão por linha; a altura mínima acompanha as linhas (era a causa da sobreposição);
+* **casca** — `CascaResponsiva` (herdado por `JanelaPrincipal` e `JanelaAdmin`) recolhe a sidebar na
+  faixa compacta, esconde chip do usuário, trilha e lado direito do rodapé, e reduz a margem de 18 para
+  10 px. O botão do menu continua mandando: a escolha manual vale até a janela mudar de faixa;
+* **cartões** — o cabeçalho é uma grade: quando o cartão tem menos de 640 px, as ferramentas
+  ("Exportar", resumo da consulta) descem para a segunda linha em vez de impor largura mínima à página;
+* **tabelas** — `ColunasDaTabela` mede o conteúdo: se cabe, estica a coluna elástica; se não cabe,
+  mantém a largura de cada coluna (nunca abaixo de `LARGURA_MINIMA_COLUNA = 84`) e liga a rolagem
+  horizontal da própria tabela. O ajuste é adiado 150 ms para não travar o arraste da janela;
+* **fileiras de botões** — `FluxoDeAcoes` posiciona os botões em linhas sucessivas: sete ações
+  ("Aplicar perfil", "Ativar", "Desativar", "Redefinir senha", "Transferir propriedade…") não cabiam
+  lado a lado e saíam pela borda. A geometria é calculada à mão porque guardar `QLayoutItem` em Python
+  num `QLayout` próprio derrubava o processo com *segmentation fault* na destruição da janela;
+* **diálogos** — `ajustar_dialogo()` limita largura e altura à tela disponível.
+
+O conteúdo ganhou rolagem vertical própria (`QScrollArea` em volta da pilha de páginas) porque em
+600 px de altura os formulários do PDV não cabem: sem ela, os grupos se sobrepunham em vez de rolar. A
+área administrativa passou a usar `PilhaDePaginas` pelo mesmo motivo de fundo: com `QStackedWidget`
+puro, a seção mais larga (856 px) impunha largura mínima às outras oito.
+
+**Alternativas descartadas.** *Uma folha de estilo por resolução* — duplica manutenção e não resolve
+mínimos de layout, que são cálculo e não pintura. *`QScrollArea` em cada tela* — o mesmo código dez
+vezes e rolagem aninhada. *Layout livre com posições absolutas* — nenhum. *Recolher a sidebar só pelo
+botão* — o operador de balcão não deveria precisar descobrir que existe um botão para ver a tela
+inteira. *Deixar o `Stretch` espremer colunas* — corta cabeçalho, que é informação.
+
+**Consequência.** A interface foi medida, não só olhada: `ferramentas/verificar_responsivo.py` abre as
+duas janelas em 800×600, 1024×768, 1280×800, 1366×768 e 1920×1080 e falha (código 1) se uma página
+pedir mais largura do que tem, se uma coluna descer do mínimo legível, se a sidebar recolher sem
+motivo ou se a faixa da casca não bater com a largura. Em troca de mais código de layout, o número
+1280 deixou de ser uma premissa: em 800×600 nada fica cortado e a janela pode ser reduzida até 720×480.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

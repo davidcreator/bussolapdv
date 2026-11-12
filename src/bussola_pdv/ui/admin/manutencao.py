@@ -29,6 +29,7 @@ from ...caminhos import (
 )
 from ...dominio.auditoria import AcaoAuditoria, EventoAuditoria
 from ...dominio.usuario import Acao, Usuario
+from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
 PASTA_PADRAO = Path("copias")
@@ -99,7 +100,7 @@ class SecaoManutencao(QWidget):
         cabecalho.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         layout.addWidget(self.tabela, 1)
 
-        botoes = QHBoxLayout()
+        botoes = FluxoDeAcoes()
         self.botao_listar = QPushButton("Atualizar lista")
         self.botao_listar.setObjectName("secundario")
         self.botao_listar.clicked.connect(self._listar)
@@ -112,12 +113,11 @@ class SecaoManutencao(QWidget):
         self.botao_restaurar = QPushButton("Restaurar selecionada…")
         self.botao_restaurar.setObjectName("perigo")
         self.botao_restaurar.clicked.connect(self._restaurar)
-        botoes.addWidget(self.botao_listar)
-        botoes.addWidget(self.botao_verificar)
-        botoes.addWidget(self.botao_abrir)
-        botoes.addStretch(1)
-        botoes.addWidget(self.botao_restaurar)
-        layout.addLayout(botoes)
+        botoes.adicionar(self.botao_listar)
+        botoes.adicionar(self.botao_verificar)
+        botoes.adicionar(self.botao_abrir)
+        botoes.adicionar(self.botao_restaurar)
+        layout.addWidget(botoes)
 
         self.mensagem = Mensagem()
         layout.addWidget(self.mensagem)

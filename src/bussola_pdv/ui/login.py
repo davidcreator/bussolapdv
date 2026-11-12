@@ -27,6 +27,7 @@ from ..aplicacao.contexto import Contexto
 from ..dominio.erros import ErroBussola
 from ..dominio.usuario import Acao, Usuario
 from .icones import icone
+from .responsivo import ajustar_dialogo
 from .widgets import Rodape
 
 
@@ -78,7 +79,7 @@ class DialogoLogin(QDialog):
         self.ctx = contexto
         self.usuario: Usuario | None = None
         self.setWindowTitle("Bússola Sistema PDV Open Source — Entrar")
-        self.setMinimumWidth(460)
+        ajustar_dialogo(self, largura_preferida=460)
 
         cartao, corpo = _cartao_modal(
             "Acesso local. Senhas são verificadas com Argon2id; nenhuma senha é gravada "
@@ -151,7 +152,7 @@ class DialogoAutorizacao(QDialog):
         self.acao = acao
         self.autorizador: Usuario | None = None
         self.setWindowTitle("Autorização necessária")
-        self.setMinimumWidth(460)
+        ajustar_dialogo(self, largura_preferida=460)
 
         cartao, corpo = _cartao_modal()
         explicacao = QLabel(
@@ -222,7 +223,7 @@ class DialogoConfirmacao(QDialog):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(titulo)
-        self.setMinimumWidth(460)
+        ajustar_dialogo(self, largura_preferida=460)
 
         cartao, corpo = _cartao_modal()
         texto = QLabel(pergunta)

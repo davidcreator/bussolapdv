@@ -40,6 +40,7 @@ from ..dominio.marca import Marca
 from ..dominio.usuario import Perfil, Usuario
 from .icones import icone
 from .login import _cartao_modal, _faixa, _finalizar_cartao
+from .responsivo import ajustar_dialogo
 
 
 def precisa_de_configuracao(caminho: Path) -> bool:
@@ -69,7 +70,7 @@ class DialogoPrimeiroUso(QDialog):
         self.pasta_inicial = Path(pasta_inicial or self.banco.parent)
         self.usuario: Usuario | None = None
         self.setWindowTitle("Bússola PDV — primeiro uso")
-        self.setMinimumWidth(560)
+        ajustar_dialogo(self, largura_preferida=560, altura_preferida=760)
 
         cartao, corpo = _cartao_modal(
             "Esta é a primeira execução: vamos criar a instalação local. O usuário criado "

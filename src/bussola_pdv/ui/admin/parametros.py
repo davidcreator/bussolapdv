@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -21,6 +20,7 @@ from PySide6.QtWidgets import (
 from ...aplicacao.contexto import Contexto
 from ...aplicacao.parametros import DefinicaoParametro, ServicoParametros, TipoParametro
 from ...dominio.usuario import Acao, Usuario
+from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
 
@@ -60,16 +60,15 @@ class SecaoParametros(QWidget):
                     formulario.addRow("", dica)
             layout.addWidget(caixa)
 
-        botoes = QHBoxLayout()
+        botoes = FluxoDeAcoes()
         self.botao_salvar = QPushButton("Salvar parâmetros")
         self.botao_salvar.clicked.connect(self._salvar)
         self.botao_recarregar = QPushButton("Descartar alterações")
         self.botao_recarregar.setObjectName("secundario")
         self.botao_recarregar.clicked.connect(self.atualizar)
-        botoes.addWidget(self.botao_salvar)
-        botoes.addWidget(self.botao_recarregar)
-        botoes.addStretch(1)
-        layout.addLayout(botoes)
+        botoes.adicionar(self.botao_salvar)
+        botoes.adicionar(self.botao_recarregar)
+        layout.addWidget(botoes)
 
         self.mensagem = Mensagem()
         layout.addWidget(self.mensagem)

@@ -20,7 +20,7 @@
 ;  * Sem tarefa agendada, sem serviço, sem acesso à rede: o app é offline.
 
 #ifndef AppVersion
-  #define AppVersion "0.6.1"
+  #define AppVersion "0.7.0"
 #endif
 #define AppName "Bússola Sistema PDV"
 #define AppShortName "BussolaPDV"

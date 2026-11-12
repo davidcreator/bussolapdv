@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -169,9 +170,44 @@ def main() -> int:
     print("captura:", SAIDA / "20_primeiro_uso.png")
     primeiro.close()
 
+    capturar_compacto(app, banco)
+
     ctx.fechar()
     QTimer.singleShot(0, app.quit)
     return 0
+
+
+def capturar_compacto(app, banco: Path) -> None:
+    """Capturas na faixa compacta (800×600), a mesma que roda em monitor de balcão.
+
+    Ficam ao lado das capturas em 1280×820 de propósito: é a comparação que mostra a
+    interface se reorganizando (sidebar recolhida, indicadores 2 por linha, cartões
+    com as ferramentas na segunda linha).
+    """
+    ctx = Contexto.abrir(banco, relogio=relogio_demo())
+    janela = JanelaPrincipal(ctx, ctx.usuarios.por_login("gerente"))
+    janela.resize(800, 600)
+    janela.show()
+    app.processEvents()
+
+    def capturar_apos(nome: str, modulo: str) -> None:
+        janela._selecionar(modulo)
+        # o ajuste de colunas espera 150 ms: sem a espera a captura sai no meio
+        fim = time.monotonic() + 0.4
+        while time.monotonic() < fim:
+            app.processEvents()
+        janela.grab().save(str(SAIDA / f"{nome}.png"))
+        print("captura:", SAIDA / f"{nome}.png")
+
+    janela._selecionar("PDV")
+    fim = time.monotonic() + 0.4
+    while time.monotonic() < fim:
+        app.processEvents()
+    capturar_apos("21_pdv_800x600", "PDV")
+    capturar_apos("22_produtos_800x600", "Produtos")
+    capturar_apos("23_caixa_800x600", "Caixa")
+    janela.close()
+    ctx.fechar()
 
 
 if __name__ == "__main__":

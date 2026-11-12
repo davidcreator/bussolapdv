@@ -14,13 +14,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QAbstractScrollArea,
     QFrame,
     QGraphicsDropShadowEffect,
+    QGridLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -41,6 +42,10 @@ ALTURA_BARRA_SUPERIOR = 52
 ALTURA_ITEM_NAVEGACAO = 40
 LARGURA_BARRA_LATERAL = 226
 LARGURA_BARRA_RECOLHIDA = 62
+#: Nenhuma coluna fica mais estreita que isto: cabeçalho cortado não é informação.
+LARGURA_MINIMA_COLUNA = 84
+#: Abaixo desta largura as ferramentas do cartão (exportar, resumo) descem de linha.
+LARGURA_CABECALHO_LADO_A_LADO = 640
 
 
 def iniciais(nome: str) -> str:
@@ -175,18 +180,32 @@ class Cartao(QFrame):
         self.ferramentas.setContentsMargins(0, 0, 0, 0)
         self.ferramentas.setSpacing(6)
 
-        cabecalho = QWidget()
-        cabecalho.setObjectName("cartaoCabecalho")
-        linha_cabecalho = QHBoxLayout(cabecalho)
-        linha_cabecalho.setContentsMargins(14, 9, 12, 9)
-        linha_cabecalho.setSpacing(8)
+        self.titulo.setWordWrap(True)
+        self.subtitulo.setWordWrap(True)  # em tela estreita o texto quebra em vez de alargar
+
+        self.cabecalho = QWidget()
+        self.cabecalho.setObjectName("cartaoCabecalho")
+        # Grade (e não HBox) porque o cabeçalho tem duas formas: título e
+        # ferramentas lado a lado, ou ferramentas numa segunda linha quando o
+        # cartão é estreito. Ver `_reorganizar_cabecalho`.
+        self._grade_cabecalho = QGridLayout(self.cabecalho)
+        self._grade_cabecalho.setContentsMargins(14, 9, 12, 9)
+        self._grade_cabecalho.setSpacing(8)
         textos = QVBoxLayout()
         textos.setContentsMargins(0, 0, 0, 0)
         textos.setSpacing(0)
         textos.addWidget(self.titulo)
         textos.addWidget(self.subtitulo)
-        linha_cabecalho.addLayout(textos, 1)
-        linha_cabecalho.addLayout(self.ferramentas)
+        self._moldura_ferramentas = QWidget()
+        self._moldura_ferramentas.setLayout(self.ferramentas)
+        self.ferramentas.setContentsMargins(0, 0, 0, 0)
+        self.ferramentas.setSpacing(6)
+        self._grade_cabecalho.addLayout(textos, 0, 0)
+        self._grade_cabecalho.addWidget(
+            self._moldura_ferramentas, 0, 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self._grade_cabecalho.setColumnStretch(0, 1)
+        self._cabecalho_empilhado = False
 
         self.corpo = QVBoxLayout()
         self.corpo.setContentsMargins(14, 12, 14, 12)
@@ -195,7 +214,7 @@ class Cartao(QFrame):
         raiz = QVBoxLayout(self)
         raiz.setContentsMargins(0, 0, 0, 0)
         raiz.setSpacing(0)
-        raiz.addWidget(cabecalho)
+        raiz.addWidget(self.cabecalho)
         raiz.addLayout(self.corpo, 1)
         if sombreado:
             sombra(self)
@@ -210,6 +229,33 @@ class Cartao(QFrame):
     def adicionar_ferramenta(self, widget: QWidget) -> QWidget:
         self.ferramentas.addWidget(widget)
         return widget
+
+    # -- responsividade -----------------------------------------------------
+    def resizeEvent(self, evento: QResizeEvent) -> None:
+        super().resizeEvent(evento)
+        self._reorganizar_cabecalho(evento.size().width())
+
+    def _reorganizar_cabecalho(self, largura: int) -> None:
+        """Ferramentas do cabeçalho descem de linha quando não cabem ao lado do título.
+
+        Sem isto, um cartão com "Exportar Excel/PDF" ao lado de um subtítulo longo
+        impunha 949 px de largura mínima à página inteira — e a página era cortada
+        em monitor de 1024.
+        """
+        if not hasattr(self, "_grade_cabecalho"):
+            return
+        empilhado = largura < LARGURA_CABECALHO_LADO_A_LADO
+        if empilhado == self._cabecalho_empilhado and self._grade_cabecalho.count():
+            return
+        self._cabecalho_empilhado = empilhado
+        self._grade_cabecalho.removeWidget(self._moldura_ferramentas)
+        if empilhado:
+            alinhamento = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            self._grade_cabecalho.addWidget(self._moldura_ferramentas, 1, 0, alinhamento)
+        else:
+            alinhamento = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            self._grade_cabecalho.addWidget(self._moldura_ferramentas, 0, 1, alinhamento)
+        self.updateGeometry()
 
 
 class CabecalhoConteudo(QWidget):
@@ -481,19 +527,100 @@ def preparar_tabela(tabela: QTableWidget) -> QTableWidget:
     """Tabela que não infla o layout: a altura vem do espaço, não do número de linhas.
 
     Sem `AdjustIgnored`, cada linha acrescentada aumenta o tamanho mínimo da página
-    e a tela inteira passa a rolar — o oposto do que se quer num painel.
+    e a tela inteira passa a rolar — o oposto do que se quer num painel. A largura
+    mínima de coluna impede que a coluna elástica colapse numa tela estreita: em vez
+    de cortar o cabeçalho, a tabela ganha rolagem horizontal própria.
     """
     tabela.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
     tabela.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     tabela.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+    tabela.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+    tabela.horizontalHeader().setMinimumSectionSize(LARGURA_MINIMA_COLUNA)
     return tabela
+
+
+class ColunasDaTabela(QObject):
+    """Colunas que preenchem a largura quando sobra e rolam quando falta.
+
+    Duas formas, escolhidas pela largura do momento:
+
+    * **cabe** — colunas com a largura do conteúdo e a coluna *elástica* esticada
+      (o visual de painel, sem espaço vazio à direita);
+    * **não cabe** — todas com a largura do conteúdo e a última esticada; o total
+      passa da área visível e a tabela ganha rolagem horizontal **própria**, com
+      todas as colunas legíveis.
+
+    A alternativa era deixar o `Stretch` espremer a coluna elástica: em 800 px de
+    janela o cabeçalho "Descrição" virava "›escriçã" e "Saldo" ficava fora da tela.
+    A medição custa ~45 ms em 1000 linhas, então só roda quando a largura muda
+    (com espera de 150 ms), nunca a cada tecla digitada na busca.
+    """
+
+    ATRASO_MS = 150
+
+    def __init__(self, tabela: QTableWidget, esticada: int = 0) -> None:
+        super().__init__(tabela)
+        self._tabela = tabela
+        self._esticada = esticada
+        self._modo_rolagem = False
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._aplicar)
+        tabela.viewport().installEventFilter(self)
+        self._aplicar()
+
+    @property
+    def modo_rolagem(self) -> bool:
+        return self._modo_rolagem
+
+    def reconfigurar(self, esticada: int) -> None:
+        """Nova coluna elástica (a tabela foi montada de novo com outras colunas)."""
+        self._esticada = esticada
+        self._modo_rolagem = False
+        self._aplicar()
+
+    def eventFilter(self, objeto: QObject, evento: QEvent) -> bool:
+        if evento.type() == QEvent.Type.Resize:
+            self._timer.start(self.ATRASO_MS)
+        return False
+
+    def _necessario(self) -> int:
+        """Largura que a tabela precisa para mostrar todas as colunas legíveis."""
+        tabela = self._tabela
+        minimo = tabela.horizontalHeader().minimumSectionSize()
+        total = sum(
+            max(tabela.sizeHintForColumn(coluna), minimo)
+            for coluna in range(tabela.columnCount())
+        )
+        return total + 2 * tabela.frameWidth()
+
+    def _aplicar(self) -> None:
+        self._timer.stop()
+        tabela = self._tabela
+        if tabela.columnCount() == 0:
+            return
+        cabecalho = tabela.horizontalHeader()
+        disponivel = tabela.viewport().width()
+        if disponivel <= 0:
+            return
+        rolagem = self._necessario() > disponivel
+        if rolagem == self._modo_rolagem and cabecalho.count():
+            return
+        self._modo_rolagem = rolagem
+        cabecalho.setStretchLastSection(rolagem)
+        for coluna in range(tabela.columnCount()):
+            modo = QHeaderView.ResizeMode.ResizeToContents
+            if not rolagem and coluna == self._esticada:
+                modo = QHeaderView.ResizeMode.Stretch
+            cabecalho.setSectionResizeMode(coluna, modo)
 
 
 def ajustar_colunas(tabela: QTableWidget, esticada: int = 0) -> QTableWidget:
     """Colunas com a largura do conteúdo; a `esticada` fica com o espaço que sobra.
 
     Sem isso, `Stretch` puro espremia "Ponto de pedido" e "Valor a custo" a ponto
-    de cortar o cabeçalho e o `R$` do valor.
+    de cortar o cabeçalho e o `R$` do valor. Quem decide se cabe é
+    `ColunasDaTabela`, que também instala a rolagem quando não cabe.
     """
     cabecalho = tabela.horizontalHeader()
     for indice in range(tabela.columnCount()):
@@ -503,6 +630,14 @@ def ajustar_colunas(tabela: QTableWidget, esticada: int = 0) -> QTableWidget:
             else QHeaderView.ResizeMode.ResizeToContents
         )
         cabecalho.setSectionResizeMode(indice, modo)
+    vigia = tabela.findChild(ColunasDaTabela)
+    if vigia is None:
+        # O pai (a tabela) mantém o vigia vivo; sem um registro paralelo não há
+        # ciclo Python e nada vaza quando a tabela é destruída.
+        vigia = ColunasDaTabela(tabela, esticada)
+    else:
+        vigia.reconfigurar(esticada)
+    tabela.viewport().installEventFilter(vigia)
     return tabela
 
 

@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -38,20 +37,21 @@ from ..dominio.usuario import Acao, Usuario
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from .exportacao import BotaoExportar
 from .login import DialogoAutorizacao
-from .widgets import CaixaInfo, preparar_tabela
+from .responsivo import GradeDeIndicadores, ajustar_dialogo
+from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
 
 
 class DialogoFechamentoCaixa(QDialog):
     def __init__(self, contexto: Contexto, esperado: Dinheiro, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Conferência e fechamento do turno")
-        self.setMinimumWidth(420)
+        ajustar_dialogo(self, largura_preferida=420, altura_preferida=640)
         self.campos: dict[int, QSpinBox] = {}
 
         tabela = QTableWidget(len(DENOMINACOES_BRL), 2)
         tabela.setHorizontalHeaderLabels(["Denominação", "Quantidade"])
         tabela.verticalHeader().setVisible(False)
-        tabela.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        ajustar_colunas(tabela, 0)
         for linha, denominacao in enumerate(DENOMINACOES_BRL):
             tabela.setItem(linha, 0, QTableWidgetItem(ROTULOS_DENOMINACAO[denominacao]))
             campo = QSpinBox()
@@ -146,10 +146,7 @@ class TelaCaixa(QWidget):
         self.kpi_diferenca = CaixaInfo(
             "Movimentos", "0", "vendas", "claro", "sangrias e suprimentos registrados"
         )
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_fundo, self.kpi_esperado, self.kpi_diferenca):
-            indicadores.addWidget(caixa_info, 1)
+        indicadores = GradeDeIndicadores((self.kpi_fundo, self.kpi_esperado, self.kpi_diferenca))
 
         grupo_acao = QGroupBox("Turno")
         linha = QHBoxLayout(grupo_acao)
@@ -184,9 +181,7 @@ class TelaCaixa(QWidget):
         self.tabela.setHorizontalHeaderLabels(["Tipo", "Valor", "Motivo"])
         preparar_tabela(self.tabela)
         self.tabela.verticalHeader().setVisible(False)
-        self.tabela.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        self.tabela.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        ajustar_colunas(self.tabela, 2)
         layout_mov.addWidget(self.tabela)
 
         self.rotulo_resumo = QLabel()
@@ -195,7 +190,7 @@ class TelaCaixa(QWidget):
 
         layout.addWidget(self.rotulo_status)
         layout.addWidget(self.mensagem)
-        layout.addLayout(indicadores)
+        layout.addWidget(indicadores)
         layout.addWidget(grupo_acao)
         layout.addWidget(grupo_mov, 1)
         layout.addWidget(self.rotulo_resumo)

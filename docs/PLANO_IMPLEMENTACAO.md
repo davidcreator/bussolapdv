@@ -55,6 +55,27 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
 - 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
 
+## Evidências da responsividade (v0.7.0)
+
+- `tests/test_ui_responsivo.py` (25): réguas de largura nas bordas (899/900, 1179/1180) e refluência
+  dos indicadores 4 → 3 → 2 → 1; altura da grade acompanhando as linhas (regressão da sobreposição);
+  cabeçalho de cartão empilhando ferramentas e deixando de impor 949 px de mínimo; `CascaResponsiva`
+  recolhendo a sidebar no compacto, respeitando a escolha manual até mudar de faixa e reduzindo margens;
+  trilha e rodapé sumindo; `ColunasDaTabela` esticando quando cabe e entrando em modo rolagem quando
+  não cabe, com piso de coluna e vigia único por tabela; `FluxoDeAcoes` quebrando a fileira de botões
+  em linhas (com `heightForWidth`); `GradeDeCartoes` empilhando identidade/prévia; `ajustar_dialogo()`
+  limitando à tela.
+- **Medição real** (`make responsivo`, saída em 2026-11-11): `JanelaPrincipal` 800×600 → faixa
+  compacta, sidebar recolhida, indicadores 2 por linha; 1024×768 → média, 3 por linha; 1280×800,
+  1366×768 e 1920×1080 → ampla, 4 por linha. `JanelaAdmin` idem. Nenhuma página pediu mais largura do
+  que a área disponível e nenhuma coluna desceu do mínimo legível — **OK nas cinco resoluções**.
+- Conferência visual das seções administrativas em 800×600 (Marca, Usuários, Parâmetros, Manutenção):
+  os botões de ação quebram em duas linhas e a seção rola na vertical, sem corte lateral.
+- Capturas `21_pdv_800x600.png`, `22_produtos_800x600.png` e `23_caixa_800x600.png` ao lado das de
+  1280×820, e `docs/DECISOES.md` ADR-021.
+- **Não verificado**: uso real em tela de toque e em Windows com DPI acima de 100% (o layout é medido em
+  pixels lógicos; a escala do sistema é aplicada pelo Qt, mas não foi testada em hardware).
+
 ## Evidências da correção do primeiro uso e da pasta de dados (v0.6.1)
 
 - `tests/test_caminhos_instalacao.py` (23): precedência `BUSSOLA_DADOS` > escolha > padrão; criação e
@@ -127,7 +148,7 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 ## Próximos incrementos sugeridos (ordem)
 
 1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
-   ~~Escolher a pasta de dados~~ — feito na v0.6.1.
+   ~~Escolher a pasta de dados~~ — feito na v0.6.1. ~~Responsividade~~ — feito na v0.7.0.
 2. **Operação nas telas novas**: cadastrar/editar cliente, receber título e lançar entrada de estoque
    com formulário (hoje só pela API), incluindo a tela de **Entradas** que continua placeholder.
 3. Devolução parcial de venda com recomposição de pagamento.

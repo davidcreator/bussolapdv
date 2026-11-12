@@ -22,6 +22,7 @@ from ..aplicacao.exportacao import ServicoExportacao
 from ..dominio.usuario import Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
+from .responsivo import GradeDeIndicadores
 from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
 
@@ -39,11 +40,8 @@ class TelaEstoque(QWidget):
         self.kpi_ruptura = CaixaInfo("Em ruptura", "0", "estoque", "claro", "saldo zerado")
         self.kpi_baixo = CaixaInfo("Abaixo do mínimo", "0", "aviso", "claro", "repor agora")
         self.kpi_custo = CaixaInfo("Valor a custo", "R$ 0,00", "dinheiro", "claro", "saldo × custo")
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_ruptura, self.kpi_baixo, self.kpi_custo):
-            indicadores.addWidget(caixa_info, 1)
-        layout.addLayout(indicadores)
+        indicadores = GradeDeIndicadores((self.kpi_ruptura, self.kpi_baixo, self.kpi_custo))
+        layout.addWidget(indicadores)
 
         cartao = Cartao(
             "Saldo por produto",

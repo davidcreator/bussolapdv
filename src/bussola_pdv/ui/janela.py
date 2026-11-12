@@ -8,12 +8,14 @@ cor vem da paleta da loja; toda a lógica continua nas telas e na camada de apli
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QMainWindow,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +24,7 @@ from .. import __version__
 from ..aplicacao.contexto import Contexto
 from ..dominio.usuario import Acao, Usuario
 from .admin.janela import JanelaAdmin, contexto_marca
+from .responsivo import CascaResponsiva
 from .tela_caixa import TelaCaixa
 from .tela_pdv import TelaPDV
 from .telas_clientes import TelaClientes
@@ -72,7 +75,9 @@ DETALHES_MODULO: dict[str, tuple[str, str]] = {
 }
 
 
-class JanelaPrincipal(QMainWindow):
+class JanelaPrincipal(QMainWindow, CascaResponsiva):
+    """Janela de operação. A casca se reorganiza pela largura (ver `responsivo`)."""
+
     def __init__(self, contexto: Contexto, usuario: Usuario) -> None:
         super().__init__()
         self.ctx = contexto
@@ -84,6 +89,8 @@ class JanelaPrincipal(QMainWindow):
 
         self.setWindowTitle(f"{self.marca.nome_fantasia} · Bússola PDV")
         self.resize(1280, 820)
+        # Abaixo disso a operação deixa de ser confortável: a janela não encolhe mais.
+        self.setMinimumSize(720, 480)
 
         self.tela_pdv = TelaPDV(contexto, usuario)
         self.tela_caixa = TelaCaixa(contexto, usuario)
@@ -112,6 +119,8 @@ class JanelaPrincipal(QMainWindow):
         self.tela_pdv.venda_finalizada.connect(self.tela_caixa.atualizar)
 
         self.setCentralWidget(self._montar_casca())
+        self.ajustar_complementos(self.cabecalho, self.rodape)
+        self.reorganizar_casca(self.width())
         self.navegacao.setCurrentRow(0)
         self._selecionar(self.modulos[0])  # o sinal não dispara se a linha já era 0
 
@@ -142,19 +151,28 @@ class JanelaPrincipal(QMainWindow):
             perfil=self.usuario.perfil.rotulo,
         )
         self.barra_superior.recolher_pedido.connect(self._alternar_menu)
+        self._iniciar_casca(self._definir_margens_do_conteudo)
 
         self.cabecalho = CabecalhoConteudo()
         self.rotulo_modulo = self.cabecalho.descricao  # nome herdado
         self.rotulo_titulo = self.barra_lateral.rotulo_marca  # nome herdado: marca
         self.rotulo_empresa = self.barra_superior.rotulo_pagina
 
-        # Sem QScrollArea: cada tela já rola o que precisa (tabelas e blocos internos).
-        # Assim a altura da página acompanha a página visível — o Qt só cresce.
+        # Rolagem vertical própria: em tela baixa (600 px) os formulários do PDV não
+        # cabem inteiros e, sem isto, os grupos se sobrepunham em vez de rolar. A
+        # pilha reporta a altura da página visível (`PilhaDePaginas`), então páginas
+        # que cabem continuam sem barra nenhuma.
         self.moldura = QWidget()
         self.moldura.setObjectName("conteudo")
         layout_moldura = QVBoxLayout(self.moldura)
         layout_moldura.setContentsMargins(18, 4, 18, 14)
-        layout_moldura.addWidget(self.pilha)
+        self.rolagem = QScrollArea()
+        self.rolagem.setObjectName("rolagemConteudo")
+        self.rolagem.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.rolagem.setWidgetResizable(True)
+        self.rolagem.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.rolagem.setWidget(self.pilha)
+        layout_moldura.addWidget(self.rolagem)
 
         self.rodape = Rodape(
             f"{self.marca.nome_fantasia} · dados locais, sem emissão fiscal",
@@ -180,8 +198,19 @@ class JanelaPrincipal(QMainWindow):
         linha.addWidget(conteudo, 1)
         return raiz
 
+    def _definir_margens_do_conteudo(self, margem: int) -> None:
+        """Em tela pequena a margem de 18 px é luxo: 10 px devolve largura útil."""
+        layout = self.moldura.layout()
+        if layout is not None:
+            layout.setContentsMargins(margem, 4, margem, max(8, margem - 4))
+
     def _alternar_menu(self) -> None:
-        self.barra_lateral.alternar_recolhida()
+        self.alternar_casca_recolhida()
+
+    # -- responsividade -----------------------------------------------------
+    def resizeEvent(self, evento: QResizeEvent) -> None:
+        super().resizeEvent(evento)
+        self.reorganizar_casca(evento.size().width())
 
     # -- navegação ----------------------------------------------------------
     def _trocar(self, indice: int) -> None:

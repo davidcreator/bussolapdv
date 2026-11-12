@@ -24,6 +24,7 @@ from ..aplicacao.exportacao import ServicoExportacao
 from ..dominio.usuario import Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
+from .responsivo import GradeDeIndicadores
 from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
 
@@ -42,11 +43,10 @@ class TelaClientes(QWidget):
         self.kpi_limite = CaixaInfo("Limite concedido", "R$ 0,00", "crediario", "claro", "soma dos limites")
         self.kpi_aberto = CaixaInfo("Em aberto", "R$ 0,00", "dinheiro", "alerta", "saldo no crediário")
         self.kpi_vencido = CaixaInfo("Vencido", "R$ 0,00", "aviso", "claro", "títulos em atraso")
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_ativos, self.kpi_limite, self.kpi_aberto, self.kpi_vencido):
-            indicadores.addWidget(caixa_info, 1)
-        layout.addLayout(indicadores)
+        indicadores = GradeDeIndicadores(
+            (self.kpi_ativos, self.kpi_limite, self.kpi_aberto, self.kpi_vencido)
+        )
+        layout.addWidget(indicadores)
 
         cartao = Cartao(
             "Carteira de clientes",

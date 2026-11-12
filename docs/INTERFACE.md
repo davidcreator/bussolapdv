@@ -72,6 +72,46 @@ na tela de tema; se o branco sobre a primária não passar, o texto do botão vi
 coloridos em tempo de execução (cache por nome/cor/tamanho). Não há dependência de rede nem de
 pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tela.
 
+## Responsividade (ADR-021)
+
+A interface não tem um tamanho de projeto: ela pergunta a largura e se reorganiza. Tudo o que decide
+isso mora em `ui/responsivo.py` — nenhuma tela compara pixels por conta própria.
+
+| Faixa | Largura | O que muda |
+|---|---|---|
+| **compacta** | < 900 px | sidebar recolhida (só ícones, com dica de tela), chip do usuário, trilha e lado direito do rodapé escondidos, margem de 18 → 10 px |
+| **média** | 900–1179 px | sidebar aberta, chip visível, indicadores até 3 por linha |
+| **ampla** | ≥ 1180 px | layout completo, até 4 indicadores por linha |
+
+Peças que reagem à largura:
+
+- **`GradeDeIndicadores`** — cartões de indicador em `QGridLayout`: 4 → 3 → 2 → 1 por linha, e a altura
+  mínima cresce com o número de linhas (sem isso o segundo cartão era desenhado sobre o primeiro).
+- **`CascaResponsiva`** — herdado por `JanelaPrincipal` e `JanelaAdmin`: recolhe a sidebar na faixa
+  compacta, esconde os complementos e ajusta margens. O botão do menu continua valendo: a escolha
+  manual do operador dura até a janela mudar de faixa.
+- **`Cartao`** — cabeçalho em grade: abaixo de 640 px de cartão, as ferramentas ("Exportar", resumo da
+  consulta) descem para a segunda linha em vez de alargar a página.
+- **`ColunasDaTabela`** — mede o conteúdo (adiado 150 ms): se cabe, estica a coluna elástica; se não
+  cabe, mantém cada coluna legível (piso de 84 px) e liga a rolagem horizontal da própria tabela.
+- **`QScrollArea`** em volta da pilha de páginas, nas duas janelas — em 600 px de altura o PDV rola em
+  vez de sobrepor os grupos, e a área administrativa usa `PilhaDePaginas` para não herdar a largura
+  mínima da seção mais larga.
+- **`FluxoDeAcoes`** — fileiras de botões quebram em várias linhas; `QHBoxLayout` não quebra e a
+  fileira de ações de Usuários saía pela borda em 800 px.
+- **`GradeDeCartoes`** — dois blocos de conteúdo lado a lado (identidade/prévia da marca) empilham
+  quando não cabem.
+- **`ajustar_dialogo()`** — login, autorização, primeiro uso e conferência de gaveta nunca nascem
+  maiores do que a tela.
+
+A janela recusa ficar menor que 720×480 (operação) e 700×460 (administração): abaixo disso a operação
+deixa de ser segura, e é melhor um limite honesto do que um layout quebrado.
+
+Medido, não só olhado: `make responsivo` (`ferramentas/verificar_responsivo.py`) abre as duas janelas em
+800×600, 1024×768, 1280×800, 1366×768 e 1920×1080 e falha se alguma página pedir mais largura do que
+tem, se uma coluna descer do mínimo legível, se a sidebar recolher sem motivo ou se a faixa não bater
+com a largura. Hoje: **OK nas cinco resoluções**.
+
 ## Regras que a interface respeita
 
 1. **A tela não calcula.** Cálculo é domínio; widget só mostra e emite intenção (ADR-012).
@@ -90,7 +130,9 @@ pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tel
 servidor gráfico): PDV vazio e com itens, caixa (e o caixa com o *Exportar* do turno), produtos,
 fechamento, **clientes**, **crediário**, **estoque**, auditoria, login, as seis seções
 administrativas, tema personalizado, menu recolhido e **primeiro uso** (tela onde se escolhe a
-pasta dos dados).
+pasta dos dados). As capturas `21`, `22` e `23` são o mesmo PDV, Produtos e Caixa em **800×600**: ficam
+ao lado das de 1280×820 para mostrar a interface se reorganizando (sidebar só de ícones, indicadores 2
+por linha, ferramentas do cartão na segunda linha, tabela rolando na horizontal).
 
 As capturas de fechamento, clientes, crediário, estoque e do caixa com exportação usam a sessão de
 gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —

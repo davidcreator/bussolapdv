@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -41,7 +40,8 @@ from ..dominio.usuario import Acao, Usuario
 from ..dominio.venda import Carrinho, TotaisVenda
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from .login import DialogoAutorizacao
-from .widgets import CaixaInfo, preparar_tabela
+from .responsivo import GradeDeIndicadores
+from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
 
 COLUNAS = ["Código", "Descrição", "Qtd", "Un.", "Preço", "Desc.", "Total"]
 COLUNAS_PAGAMENTO = [
@@ -88,10 +88,7 @@ class TelaPDV(QWidget):
         self.kpi_troco = CaixaInfo("Pagamento", "R$ 0,00", "dinheiro", "claro", "falta ou troco")
         for caixa_info in (self.kpi_itens, self.kpi_desconto, self.kpi_troco):
             caixa_info.legenda.setVisible(False)
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_itens, self.kpi_desconto, self.kpi_troco):
-            indicadores.addWidget(caixa_info, 1)
+        indicadores = GradeDeIndicadores((self.kpi_itens, self.kpi_desconto, self.kpi_troco))
 
         # 01 — identificação
         grupo_ident = QGroupBox("01 · Identifique a venda")
@@ -131,9 +128,9 @@ class TelaPDV(QWidget):
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.setAlternatingRowColors(True)
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.tabela.setMinimumHeight(92)
+        self.tabela.setMinimumHeight(92)  # cabe ~3 linhas mesmo em janela baixa
         preparar_tabela(self.tabela)
+        ajustar_colunas(self.tabela, 1)
 
         layout_itens.addLayout(linha_codigo)
         layout_itens.addWidget(self.tabela)
@@ -181,7 +178,7 @@ class TelaPDV(QWidget):
 
         layout.addWidget(self.rotulo_turno)
         layout.addWidget(self.mensagem)
-        layout.addLayout(indicadores)
+        layout.addWidget(indicadores)
         layout.addWidget(grupo_ident)
         layout.addWidget(grupo_itens, 1)
         layout.addWidget(grupo_pagamento)

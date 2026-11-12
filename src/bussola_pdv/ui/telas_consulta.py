@@ -7,7 +7,6 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDateEdit,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -28,8 +27,9 @@ from ..dominio.produto import Produto, StatusEstoque
 from ..dominio.usuario import Acao, Usuario
 from .exportacao import BotaoExportar
 from .login import DialogoAutorizacao
+from .responsivo import GradeDeIndicadores
 from .tema import cor_da_tonalidade
-from .widgets import CaixaInfo, Cartao, preparar_tabela
+from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
 
 class TelaProdutos(QWidget):
@@ -44,11 +44,8 @@ class TelaProdutos(QWidget):
         self.kpi_ativos = CaixaInfo("Produtos ativos", "0", "produtos", "primaria", "no catálogo")
         self.kpi_ruptura = CaixaInfo("Sem estoque", "0", "aviso", "erro", "saldo zerado")
         self.kpi_baixo = CaixaInfo("Abaixo do mínimo", "0", "estoque", "alerta", "repor agora")
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_ativos, self.kpi_ruptura, self.kpi_baixo):
-            indicadores.addWidget(caixa_info, 1)
-        layout.addLayout(indicadores)
+        indicadores = GradeDeIndicadores((self.kpi_ativos, self.kpi_ruptura, self.kpi_baixo))
+        layout.addWidget(indicadores)
 
         cartao = Cartao(
             "Catálogo e saldo",
@@ -76,9 +73,9 @@ class TelaProdutos(QWidget):
             ["Código", "Descrição", "Categoria", "Un.", "Custo", "Preço", "Saldo", "Estoque"]
         )
         self.tabela.verticalHeader().setVisible(False)
-        self.tabela.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tabela.setAlternatingRowColors(True)
         preparar_tabela(self.tabela)
+        ajustar_colunas(self.tabela, 1)
 
         cartao.adicionar_layout(linha)
         cartao.adicionar(self.tabela, 1)
@@ -157,11 +154,8 @@ class TelaVendas(QWidget):
         self.kpi_cupons = CaixaInfo("Cupons no período", "0", "vendas", "primaria", "concluídos")
         self.kpi_faturamento = CaixaInfo("Faturamento", "R$ 0,00", "dinheiro", "sucesso", "líquido")
         self.kpi_ticket = CaixaInfo("Ticket médio", "R$ 0,00", "visao", "secundaria", "por cupom")
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_cupons, self.kpi_faturamento, self.kpi_ticket):
-            indicadores.addWidget(caixa_info, 1)
-        layout.addLayout(indicadores)
+        indicadores = GradeDeIndicadores((self.kpi_cupons, self.kpi_faturamento, self.kpi_ticket))
+        layout.addWidget(indicadores)
 
         cartao = Cartao("Vendas", "Cancelamento exige autorização e motivo registrado")
         self.exportacao = ServicoExportacao(contexto)
@@ -198,9 +192,9 @@ class TelaVendas(QWidget):
             ["Cupom", "Data", "Operador", "Cliente", "Itens", "Total", "Aplicado", "Status"]
         )
         self.tabela.verticalHeader().setVisible(False)
-        self.tabela.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         preparar_tabela(self.tabela)
+        ajustar_colunas(self.tabela, 3)
         self.mensagem = QLabel("")
 
         cartao.adicionar_layout(linha)
@@ -335,11 +329,8 @@ class TelaAuditoria(QWidget):
         self.tabela = QTableWidget(0, 6)
         self.tabela.setHorizontalHeaderLabels(["Seq.", "Quando (UTC)", "Ação", "Ator", "Entidade", "Motivo"])
         self.tabela.verticalHeader().setVisible(False)
-        cabecalho = self.tabela.horizontalHeader()
-        for coluna in range(5):
-            cabecalho.setSectionResizeMode(coluna, QHeaderView.ResizeMode.ResizeToContents)
-        cabecalho.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         preparar_tabela(self.tabela)
+        ajustar_colunas(self.tabela, 5)
 
         cartao.adicionar_layout(linha)
         cartao.adicionar(self.tabela, 1)

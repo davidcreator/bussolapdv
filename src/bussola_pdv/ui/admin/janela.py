@@ -14,11 +14,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QPushButton,
-    QStackedWidget,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -27,12 +28,14 @@ from ...aplicacao.contexto import Contexto
 from ...dominio.erros import AutorizacaoNegada
 from ...dominio.marca import Marca
 from ...dominio.usuario import Acao, Usuario
+from ..responsivo import CascaResponsiva
 from ..tema import folha_estilo_da_marca
 from ..widgets import (
     BarraLateral,
     BarraSuperior,
     CabecalhoConteudo,
     EntradaNavegacao,
+    PilhaDePaginas,
     Rodape,
 )
 from .acessos import SecaoPermissoes, SecaoUsuarios
@@ -104,7 +107,7 @@ SECOES: tuple[Secao, ...] = (
 )
 
 
-class JanelaAdmin(QDialog):
+class JanelaAdmin(QDialog, CascaResponsiva):
     """Diálogo modal com as seções permitidas ao usuário."""
 
     marca_alterada = Signal()
@@ -122,6 +125,8 @@ class JanelaAdmin(QDialog):
         self.marca = contexto_marca(contexto)
         self.setWindowTitle(f"Administração · {usuario.perfil.rotulo}")
         self.resize(1180, 800)
+        self.setMinimumSize(700, 460)
+        self._iniciar_casca()
         self.setStyleSheet(folha_estilo_da_marca(self.marca))
 
         self.secoes = [secao for secao in SECOES if usuario.pode(secao.acao)]
@@ -148,11 +153,14 @@ class JanelaAdmin(QDialog):
         self.barra_superior = BarraSuperior(
             titulo="Administração", usuario=usuario.nome, perfil=usuario.perfil.rotulo
         )
-        self.barra_superior.recolher_pedido.connect(self.barra_lateral.alternar_recolhida)
+        self.barra_superior.recolher_pedido.connect(self.alternar_casca_recolhida)
 
         self.cabecalho = CabecalhoConteudo("Administração", "Área restrita · tudo é auditado")
         self.rotulo_rodape = self.cabecalho.descricao  # nome herdado
-        self.pilha = QStackedWidget()
+        # `PilhaDePaginas` (e não `QStackedWidget` puro): a altura e a largura mínimas
+        # vêm da seção visível. Com o QStackedWidget, a seção mais larga (856 px) impunha
+        # largura mínima a todas — a de Marca era cortada em 800×600.
+        self.pilha = PilhaDePaginas()
         for secao in self.secoes:
             tela = secao.fabrica(contexto, usuario)  # type: ignore[operator]
             self.telas[secao.chave] = tela
@@ -182,7 +190,13 @@ class JanelaAdmin(QDialog):
         coluna.setSpacing(0)
         coluna.addWidget(self.barra_superior)
         coluna.addWidget(self.cabecalho)
-        coluna.addWidget(self.pilha, 1)
+        # Mesma razão da janela principal: em tela baixa a seção rola em vez de cortar.
+        self.rolagem = QScrollArea()
+        self.rolagem.setObjectName("rolagemConteudo")
+        self.rolagem.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.rolagem.setWidgetResizable(True)
+        self.rolagem.setWidget(self.pilha)
+        coluna.addWidget(self.rolagem, 1)
         linha_rodape = QHBoxLayout()
         linha_rodape.setContentsMargins(0, 0, 12, 0)
         linha_rodape.addWidget(self.rodape, 1)
@@ -195,8 +209,14 @@ class JanelaAdmin(QDialog):
         raiz.addWidget(self.barra_lateral)
         raiz.addWidget(corpo, 1)
 
+        self.ajustar_complementos(self.cabecalho, self.rodape)
+        self.reorganizar_casca(self.width())
         if self.secoes:
             self.menu.setCurrentRow(0)
+
+    def resizeEvent(self, evento: QResizeEvent) -> None:
+        super().resizeEvent(evento)
+        self.reorganizar_casca(evento.size().width())
 
     # -- navegação ----------------------------------------------------------
     def secoes_liberadas(self) -> list[str]:

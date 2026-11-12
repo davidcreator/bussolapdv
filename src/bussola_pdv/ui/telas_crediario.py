@@ -23,6 +23,7 @@ from ..aplicacao.exportacao import ServicoExportacao
 from ..dominio.usuario import Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
+from .responsivo import GradeDeIndicadores
 from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
 COR_ATRASO = "#B02A37"
@@ -43,11 +44,10 @@ class TelaCrediario(QWidget):
         self.kpi_saldo = CaixaInfo("Saldo aberto", "R$ 0,00", "dinheiro", "claro", "a receber")
         self.kpi_atraso = CaixaInfo("Em atraso", "0", "aviso", "claro", "títulos vencidos")
         self.kpi_vencido = CaixaInfo("Saldo vencido", "R$ 0,00", "bloqueio", "claro", "cobrança")
-        indicadores = QHBoxLayout()
-        indicadores.setSpacing(10)
-        for caixa_info in (self.kpi_abertos, self.kpi_saldo, self.kpi_atraso, self.kpi_vencido):
-            indicadores.addWidget(caixa_info, 1)
-        layout.addLayout(indicadores)
+        indicadores = GradeDeIndicadores(
+            (self.kpi_abertos, self.kpi_saldo, self.kpi_atraso, self.kpi_vencido)
+        )
+        layout.addWidget(indicadores)
 
         cartao = Cartao(
             "Títulos",

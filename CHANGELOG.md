@@ -2,6 +2,50 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.7.0] — 2026-11-11 — responsividade: a interface se organiza pela largura da janela
+
+### Adicionado
+
+- **`ui/responsivo.py`, a camada de responsividade.** Régua única de largura (`compacta` < 900 px,
+  `media` < 1180 px, `ampla`) e as peças que reagem a ela. Nenhuma tela compara pixels por conta
+  própria — todas perguntam a faixa.
+- **`GradeDeIndicadores`**: os cartões de indicador deixaram de ser um `QHBoxLayout` fixo e passaram a
+  refluir 4 → 3 → 2 → 1 por linha, com altura mínima acompanhando as linhas.
+- **`CascaResponsiva`** (herdado por `JanelaPrincipal` e `JanelaAdmin`): sidebar recolhe sozinha na
+  faixa compacta, chip do usuário/trilha/rodapé direito somem e a margem cai de 18 para 10 px. O botão
+  do menu continua valendo e a escolha manual do operador dura até a janela mudar de faixa.
+- **Cabeçalho de cartão em duas formas**: com o cartão abaixo de 640 px, as ferramentas ("Exportar",
+  resumo da consulta) descem para a segunda linha em vez de impor largura mínima à página.
+- **`ColunasDaTabela`**: tabela mede o conteúdo e decide entre esticar a coluna elástica (quando cabe)
+  e ligar a rolagem horizontal da própria tabela (quando não cabe), com piso de 84 px por coluna.
+- **Rolagem vertical da área de conteúdo** (`QScrollArea` em volta da pilha de páginas): em 600 px de
+  altura os formulários do PDV rolam em vez de se sobrepor.
+- **`ajustar_dialogo()`**: login, autorização, primeiro uso e conferência de gaveta não nascem maiores
+  do que a tela disponível.
+- **`FluxoDeAcoes`**: fileiras de botões (Usuários, Permissões, Manutenção, Parâmetros, Marca,
+  Dependências) quebram em várias linhas em vez de sair pela borda — a fileira de sete botões de
+  Usuários ficava cortada em 800 px.
+- **`GradeDeCartoes`**: os dois blocos de "Marca e tema" (identidade e prévia) empilham em janela
+  estreita; os quinze botões de cor passam de duas colunas para uma.
+- **Rolagem vertical também na área administrativa**, que passou a usar `PilhaDePaginas`: antes a
+  seção mais larga (856 px) impunha largura mínima a todas e "Marca e tema" era cortada em 800×600.
+- **`ferramentas/verificar_responsivo.py`** (`make responsivo`): mede as duas janelas em 800×600,
+  1024×768, 1280×800, 1366×768 e 1920×1080 e falha se algo estourar.
+- **Capturas novas** em 800×600 (`docs/capturas/21_pdv_800x600.png`, `22_produtos_800x600.png`) ao lado
+  das capturas em 1280×820.
+- **25 testes** em `tests/test_ui_responsivo.py`; suíte em **563**.
+
+### Corrigido
+
+- **Página de Produtos exigia 949 px de largura mínima** (título + subtítulo + "Exportar" lado a lado) e
+  era cortada em 1024×768.
+- **Cartões de indicador se sobrepunham em 800×600**: a grade refluía para duas linhas sem crescer a
+  altura mínima, e o segundo cartão era desenhado sobre o primeiro.
+- **Grupos do PDV ficavam por baixo uns dos outros** em janela baixa, sem rolagem.
+- **Coluna elástica colapsava**: em janela estreita o cabeçalho "Descrição" aparecia como "›escriçã" e
+  "Saldo" saía da área visível, sem rolagem.
+- **Janela não podia ser reduzida**: mínimo declarado agora é 720×480 (operação) e 700×460 (administração).
+
 ## [0.6.1] — 2026-11-11 — correção: botão "Criar instalação" mudo e pasta de dados escolhível
 
 ### Corrigido

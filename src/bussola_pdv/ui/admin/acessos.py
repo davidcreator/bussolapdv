@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
-    QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
@@ -24,6 +23,7 @@ from ...aplicacao.contexto import Contexto
 from ...aplicacao.permissoes import ServicoPermissoes
 from ...aplicacao.usuarios import ServicoUsuarios, UsuarioResumo
 from ...dominio.usuario import Acao, Perfil, Usuario, acoes_por_categoria
+from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
 
@@ -60,7 +60,7 @@ class SecaoUsuarios(QWidget):
         self.tabela.itemSelectionChanged.connect(self._selecionado)
         layout.addWidget(self.tabela, 1)
 
-        linha_acoes = QHBoxLayout()
+        linha_acoes = FluxoDeAcoes()  # quebra em linhas em janela estreita
         self.combo_perfil = QComboBox()
         self.botao_perfil = QPushButton("Aplicar perfil")
         self.botao_perfil.setObjectName("secundario")
@@ -78,13 +78,17 @@ class SecaoUsuarios(QWidget):
         self.botao_master.setObjectName("secundario")
         self.botao_master.clicked.connect(self._transferir)
         self.botao_master.setVisible(usuario.eh_master)
-        linha_acoes.addWidget(self.combo_perfil, 1)
-        linha_acoes.addWidget(self.botao_perfil)
-        linha_acoes.addWidget(self.botao_ativar)
-        linha_acoes.addWidget(self.botao_desativar)
-        linha_acoes.addWidget(self.botao_senha)
-        linha_acoes.addWidget(self.botao_master)
-        layout.addLayout(linha_acoes)
+        self.combo_perfil.setMinimumWidth(190)
+        for acao in (
+            self.combo_perfil,
+            self.botao_perfil,
+            self.botao_ativar,
+            self.botao_desativar,
+            self.botao_senha,
+            self.botao_master,
+        ):
+            linha_acoes.adicionar(acao)
+        layout.addWidget(linha_acoes)
 
         grupo = QGroupBox("Novo usuário")
         formulario = QFormLayout(grupo)
@@ -313,7 +317,7 @@ class SecaoPermissoes(QWidget):
             cabecalho.setSectionResizeMode(coluna, QHeaderView.ResizeMode.ResizeToContents)
         layout.addWidget(self.tabela, 1)
 
-        botoes = QHBoxLayout()
+        botoes = FluxoDeAcoes()
         self.botao_salvar = QPushButton("Salvar matriz")
         self.botao_salvar.clicked.connect(self._salvar)
         self.botao_padrao = QPushButton("Restaurar padrão")
@@ -321,10 +325,10 @@ class SecaoPermissoes(QWidget):
         self.botao_padrao.clicked.connect(self._restaurar)
         self.rotulo_excecoes = QLabel("")
         self.rotulo_excecoes.setObjectName("textoAjuda")
-        botoes.addWidget(self.botao_salvar)
-        botoes.addWidget(self.botao_padrao)
-        botoes.addWidget(self.rotulo_excecoes, 1)
-        layout.addLayout(botoes)
+        botoes.adicionar(self.botao_salvar)
+        botoes.adicionar(self.botao_padrao)
+        botoes.adicionar(self.rotulo_excecoes)
+        layout.addWidget(botoes)
 
         self.mensagem = Mensagem()
         layout.addWidget(self.mensagem)

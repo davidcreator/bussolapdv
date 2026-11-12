@@ -2,7 +2,7 @@ PYTHON ?= python3
 export QT_QPA_PLATFORM ?= offscreen
 export PYTHONPATH := src
 
-.PHONY: ajuda instalar test test-rapido lint tipos capturas demo ui backup limpar
+.PHONY: ajuda instalar test test-rapido lint tipos capturas responsivo demo ui backup limpar
 
 ajuda:
 	@echo "make instalar  - cria venv e instala dependências de desenvolvimento"
@@ -12,6 +12,7 @@ ajuda:
 	@echo "make demo      - cria base fictícia em dados/demo.db"
 	@echo "make ui        - abre a interface na base de demonstração"
 	@echo "make capturas  - gera docs/capturas/*.png sem servidor gráfico"
+	@echo "make responsivo- mede a interface em 800×600 até 1920×1080 e aponta o que estoura"
 	@echo "make limpar    - remove caches"
 
 instalar:
@@ -42,6 +43,9 @@ backup:
 
 capturas:
 	$(PYTHON) ferramentas/captura_telas.py
+
+responsivo:
+	$(PYTHON) ferramentas/verificar_responsivo.py
 
 limpar:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache __pycache__ */__pycache__ */*/__pycache__ */*/*/__pycache__

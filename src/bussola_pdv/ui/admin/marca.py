@@ -9,7 +9,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -24,6 +23,7 @@ from ...aplicacao.contexto import Contexto
 from ...aplicacao.marca import ServicoMarca
 from ...dominio.marca import PRESET_PERSONALIZADO, Marca, Paleta
 from ...dominio.usuario import Acao, Usuario
+from ..responsivo import FluxoDeAcoes, GradeDeCartoes, GradeQueReflui
 from .comum import Mensagem, descrever_erro
 
 ROTULOS_COR = {
@@ -102,22 +102,22 @@ class SecaoMarca(QWidget):
             )
         )
 
-        linha = QHBoxLayout()
-        linha.addWidget(self._grupo_identidade(), 1)
-        linha.addWidget(self._grupo_previa(), 1)
-        layout.addLayout(linha)
+        # Identidade e prévia lado a lado em tela ampla; empilhadas quando não cabe
+        # (em 800 px de janela a prévia era cortada na borda).
+        layout.addWidget(
+            GradeDeCartoes((self._grupo_identidade(), self._grupo_previa()))
+        )
         layout.addWidget(self._grupo_cores())
 
-        botoes = QHBoxLayout()
+        botoes = FluxoDeAcoes()
         self.botao_salvar = QPushButton("Salvar alterações")
         self.botao_salvar.clicked.connect(self._salvar)
         self.botao_padrao = QPushButton("Restaurar padrão")
         self.botao_padrao.setObjectName("secundario")
         self.botao_padrao.clicked.connect(self._restaurar)
-        botoes.addWidget(self.botao_salvar)
-        botoes.addWidget(self.botao_padrao)
-        botoes.addStretch(1)
-        layout.addLayout(botoes)
+        botoes.adicionar(self.botao_salvar)
+        botoes.adicionar(self.botao_padrao)
+        layout.addWidget(botoes)
 
         self.mensagem = Mensagem()
         layout.addWidget(self.mensagem)
@@ -228,15 +228,19 @@ class SecaoMarca(QWidget):
         linha.addWidget(self.campo_fonte)
         layout.addLayout(linha)
 
-        grade = QGridLayout()
         self.botoes_cor: dict[str, BotaoCor] = {}
-        for indice, nome in enumerate(Paleta.__slots__):
+        for nome in Paleta.__slots__:
             botao = BotaoCor(nome, getattr(self.marca.paleta, nome))
             botao.cor_alterada.connect(self._cor_alterada)
             botao.setEnabled(self.pode_tema)
             self.botoes_cor[nome] = botao
-            grade.addWidget(botao, indice // 2, indice % 2)
-        layout.addLayout(grade)
+        # Duas colunas de cor em tela ampla, uma em janela estreita: cada botão
+        # carrega o hex e o nome do token, e dois lado a lado pedem ~660 px.
+        layout.addWidget(
+            GradeQueReflui(
+                list(self.botoes_cor.values()), largura_minima=320, maximo_por_linha=2
+            )
+        )
         self.combo_preset.setEnabled(self.pode_tema)
         self.campo_fonte.setEnabled(self.pode_tema)
         return grupo

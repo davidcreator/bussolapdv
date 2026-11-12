@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -17,6 +16,7 @@ from PySide6.QtWidgets import (
 from ...aplicacao.administracao import ServicoAdministracao, StatusDiagnostico
 from ...aplicacao.contexto import Contexto
 from ...dominio.usuario import Acao, Usuario
+from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
 _CORES = {
@@ -55,7 +55,7 @@ class SecaoDependencias(QWidget):
         cabecalho.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         layout.addWidget(self.tabela, 1)
 
-        botoes = QHBoxLayout()
+        botoes = FluxoDeAcoes()
         self.botao_atualizar = QPushButton("Reexecutar checagens")
         self.botao_atualizar.clicked.connect(self.atualizar)
         self.botao_integridade = QPushButton("Verificar integridade")
@@ -64,11 +64,10 @@ class SecaoDependencias(QWidget):
         self.botao_otimizar = QPushButton("Otimizar base")
         self.botao_otimizar.setObjectName("secundario")
         self.botao_otimizar.clicked.connect(self._otimizar)
-        botoes.addWidget(self.botao_atualizar)
-        botoes.addWidget(self.botao_integridade)
-        botoes.addWidget(self.botao_otimizar)
-        botoes.addStretch(1)
-        layout.addLayout(botoes)
+        botoes.adicionar(self.botao_atualizar)
+        botoes.adicionar(self.botao_integridade)
+        botoes.adicionar(self.botao_otimizar)
+        layout.addWidget(botoes)
 
         self.mensagem = Mensagem()
         layout.addWidget(self.mensagem)
