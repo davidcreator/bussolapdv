@@ -327,3 +327,129 @@ class TestAjusteDeDialogo:
         responsivo.ajustar_dialogo(dialogo, largura_preferida=560, altura_preferida=760)
         assert dialogo.minimumWidth() <= 560
         assert dialogo.maximumHeight() <= 760
+
+
+
+class TestTamanhoInicialDaJanela:
+    """A janela abre **dentro** da tela — o tamanho pedido é um teto, não uma promessa.
+
+    Era o defeito relatado: `resize(1280, 820)` fixo. Num notebook 1366×768 com
+    escala de 150% o Windows oferece 911×512 de espaço lógico e a janela nascia
+    maior do que a tela.
+    """
+
+    def test_cabe_na_area_disponivel(self, app):
+        from PySide6.QtCore import QRect
+        from PySide6.QtWidgets import QWidget
+
+        janela = QWidget()
+        janela.setMinimumSize(640, 440)
+        area = QRect(0, 0, 911, 512)  # 1366×768 com escala de 150%
+        tamanho = responsivo.abrir_no_tamanho_da_tela(janela, 1280, 820, area=area)
+        assert tamanho.width() <= 911
+        assert tamanho.height() <= 512
+        assert janela.size() == tamanho
+
+    def test_nunca_menor_que_o_minimo_declarado(self, app):
+        from PySide6.QtCore import QRect
+        from PySide6.QtWidgets import QWidget
+
+        janela = QWidget()
+        janela.setMinimumSize(640, 440)
+        area = QRect(0, 0, 500, 400)  # tela minúscula: o mínimo manda
+        tamanho = responsivo.abrir_no_tamanho_da_tela(janela, 1280, 820, area=area)
+        assert tamanho.width() >= 640
+        assert tamanho.height() >= 440
+
+    def test_tela_grande_respeita_o_pedido_e_centraliza(self, app):
+        from PySide6.QtCore import QRect
+        from PySide6.QtWidgets import QWidget
+
+        janela = QWidget()
+        janela.setMinimumSize(640, 440)
+        area = QRect(0, 0, 1920, 1080)
+        tamanho = responsivo.abrir_no_tamanho_da_tela(janela, 1280, 820, area=area)
+        assert tamanho.width() == 1280
+        assert tamanho.height() == 820
+        assert janela.x() == (1920 - 1280) // 2
+
+    def test_janelas_do_app_abrem_no_tamanho_da_tela(self, cenario):
+        from bussola_pdv.ui.admin.janela import JanelaAdmin
+        from bussola_pdv.ui.janela import JanelaPrincipal
+
+        janela = JanelaPrincipal(cenario.ctx, cenario.master)
+        try:
+            assert janela.minimumWidth() <= 640
+            assert janela.tamanho_inicial.width() >= janela.minimumWidth()
+        finally:
+            janela.close()
+        admin = JanelaAdmin(cenario.ctx, cenario.master)
+        try:
+            assert admin.minimumWidth() <= 640
+            assert admin.tamanho_inicial.height() >= admin.minimumHeight()
+        finally:
+            admin.close()
+
+
+class TestRotuloElastico:
+    """Rótulo de rodapé/topo corta com "…" em vez de alargar a janela."""
+
+    def test_texto_completo_fica_guardado(self, app):
+        rotulo = widgets.RotuloElastico("Bússola PDV · dados locais")
+        assert rotulo.text() == "Bússola PDV · dados locais"
+        assert rotulo.texto_completo() == "Bússola PDV · dados locais"
+        assert rotulo.toolTip() == "Bússola PDV · dados locais"
+
+    def test_nao_impõe_largura_minima_ao_layout(self, app):
+        """O que importa é o que o layout cobra — e ele ignora o texto do rótulo."""
+        from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+
+        rotulo = widgets.RotuloElastico("x" * 400)
+        caixa = QWidget()
+        linha = QHBoxLayout(caixa)
+        linha.addWidget(rotulo)
+        assert caixa.minimumSizeHint().width() < 200
+
+        comum = QWidget()
+        linha_comum = QHBoxLayout(comum)
+        linha_comum.addWidget(QLabel("x" * 400))
+        assert comum.minimumSizeHint().width() > caixa.minimumSizeHint().width()
+
+    def test_encurta_o_pintado_sem_perder_o_texto(self, app):
+        rotulo = widgets.RotuloElastico("Bússola PDV · " + "detalhe " * 30)
+        rotulo.resize(90, 24)
+        assert rotulo.text().startswith("Bússola PDV")
+        assert rotulo.text().endswith("detalhe " * 30)  # .text() segue completo
+        from PySide6.QtCore import Qt
+
+        corte = rotulo.fontMetrics().elidedText(
+            rotulo.text(), Qt.TextElideMode.ElideRight, 90
+        )
+        assert corte.endswith("…")
+
+    def test_rodape_e_topo_usam_o_rotulo_elastico(self, app):
+        from bussola_pdv.ui.widgets import BarraSuperior, Rodape
+
+        rodape = Rodape("esquerda longa " * 10, "direita")
+        assert isinstance(rodape.esquerda, widgets.RotuloElastico)
+        topo = BarraSuperior("PDV")
+        assert isinstance(topo.rotulo_pagina, widgets.RotuloElastico)
+
+
+class TestCamposDoPDV:
+    """Campos proporcionais: nem 760 px de caixa em 1920, nem ilegíveis no compacto."""
+
+    def test_quantidade_nao_e_mais_fixa_em_80(self, app, cenario):
+        from bussola_pdv.ui.tela_pdv import TelaPDV
+
+        tela = TelaPDV(cenario.ctx, cenario.gerente)
+        try:
+            assert tela.campo_quantidade.minimumWidth() < 80
+            assert tela.campo_quantidade.maximumWidth() <= 96
+            for forma, valor in tela.linhas_pagamento:
+                assert forma.maximumWidth() <= 300
+                assert valor.maximumWidth() <= 420
+                assert forma.minimumWidth() >= 100
+            assert tela.formulario_pagamento.maximumWidth() <= 620
+        finally:
+            tela.close()

@@ -121,13 +121,41 @@ Peças que reagem à largura:
 - **`ajustar_dialogo()`** — login, autorização, primeiro uso e conferência de gaveta nunca nascem
   maiores do que a tela.
 
-A janela recusa ficar menor que 720×480 (operação) e 700×460 (administração): abaixo disso a operação
-deixa de ser segura, e é melhor um limite honesto do que um layout quebrado.
+### Abrir dentro da tela (v0.9.1)
+
+- **`abrir_no_tamanho_da_tela()`** — o tamanho inicial vem de
+  `QGuiApplication.primaryScreen().availableGeometry()`, não de um número fixo. Pedir 1280×820 num
+  notebook 1366×768 com escala de **150%** (espaço lógico 911×512) fazia a janela nascer **maior do
+  que o monitor**: o Windows a cortava e o rodapé e os botões da direita desapareciam. Agora o pedido é
+  um **teto** — 92% da área útil, centralizada, nunca abaixo do mínimo declarado.
+- As duas janelas recusam ficar menores que **640×440**, e esse mínimo cabe em 911×512 (1366×768 a
+  150%) e em 1024×768. Antes, o piso **real** era 737 px (operação) e 946 px (administração) — este
+  último maior do que a tela de um notebook a 125%, por causa das larguras mínimas somadas de rodapé,
+  cabeçalho e cartões.
+- **`RotuloElastico`** — rodapé, barra superior, nome da loja e nome do operador cortam com "…" e
+  guardam o texto completo no `toolTip`. Um `QLabel` comum exige a largura do texto: o rodapé sozinho
+  pedia 585 px e virava o piso da janela administrativa. `.text()` continua devolvendo o texto inteiro.
+- **`Cartao.minimumSizeHint()`** — o cabeçalho do cartão (título + ferramentas) sempre cabe empilhado,
+  então não é ele que dita o mínimo; valia a soma dos dois (614 px na Auditoria).
+- **`FluxoDeAcoes` no "04 · Finalizar"** do PDV — total e três botões lado a lado somavam 731 px e
+  passavam da página; agora descem de linha.
+- **`RolagemDeCartao`** — os diálogos de login, autorização e primeiro uso ficam dentro de uma rolagem
+  que pede a altura do cartão e aceita ser encolhida: em 512 px lógicos o formulário de primeiro uso
+  era cortado em cima e embaixo, sem barra para chegar ao resto.
+- **Campos proporcionais** — o combo de forma de pagamento e o campo de valor recebiam 760 px cada um
+  em 1920 (caixa enorme, texto perdido no meio, valor longe do rótulo). O bloco de pagamento passou a
+  ter teto de **620 px**, o combo até 300 e o valor até 420; a quantidade saiu da largura fixa de 80 px
+  para a faixa 56–88.
+- **`CaixaInfo`** com altura mínima de 74 px: o valor em corpo grande vem do QSS, e o `sizeHint` do
+  `QLabel` é medido antes de a folha ser aplicada — com 56 px o número aparecia cortado embaixo quando
+  a grade refluía para duas colunas.
 
 Medido, não só olhado: `make responsivo` (`ferramentas/verificar_responsivo.py`) abre as duas janelas em
-800×600, 1024×768, 1280×800, 1366×768 e 1920×1080 e falha se alguma página pedir mais largura do que
-tem, se uma coluna descer do mínimo legível, se a sidebar recolher sem motivo ou se a faixa não bater
-com a largura. Hoje: **OK nas cinco resoluções**.
+**640×440, 800×600, 911×512 (1366×768 a 150%), 1024×768, 1280×800, 1366×768, 1920×1080 e 2560×1440** e
+falha se alguma página pedir mais largura do que tem, se uma coluna descer do mínimo legível, se a
+sidebar recolher sem motivo, se a faixa não bater com a largura, se o campo de pagamento esticar além do
+teto, se a janela abrir maior do que a área útil da tela ou menor do que o próprio mínimo. Hoje: **OK nas
+oito resoluções**.
 
 ## Regras que a interface respeita
 
@@ -149,7 +177,8 @@ fechamento, **clientes**, **crediário**, **estoque**, auditoria, login, as seis
 administrativas, tema personalizado, menu recolhido e **primeiro uso** (tela onde se escolhe a
 pasta dos dados). As capturas `21`, `22` e `23` são o mesmo PDV, Produtos e Caixa em **800×600**: ficam
 ao lado das de 1280×820 para mostrar a interface se reorganizando (sidebar só de ícones, indicadores 2
-por linha, ferramentas do cartão na segunda linha, tabela rolando na horizontal).
+por linha, ferramentas do cartão na segunda linha, tabela rolando na horizontal). As capturas `28` e
+`29` são o PDV e Vendas em **911×512** — o que sobra de tela em 1366×768 com escala de 150% do Windows.
 
 As capturas de fechamento, clientes, crediário, estoque e do caixa com exportação usam a sessão de
 gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —

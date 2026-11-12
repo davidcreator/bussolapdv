@@ -200,6 +200,7 @@ def main() -> int:
     primeiro.close()
 
     capturar_compacto(app, banco)
+    capturar_escala(app, banco)
 
     ctx.fechar()
     QTimer.singleShot(0, app.quit)
@@ -235,6 +236,32 @@ def capturar_compacto(app, banco: Path) -> None:
     capturar_apos("21_pdv_800x600", "PDV")
     capturar_apos("22_produtos_800x600", "Produtos")
     capturar_apos("23_caixa_800x600", "Caixa")
+    janela.close()
+    ctx.fechar()
+
+
+def capturar_escala(app, banco: Path) -> None:
+    """Capturas em 911×512 — o que sobra de tela em 1366×768 com escala de 150%.
+
+    É a prova visual de que a janela abre **dentro** do monitor e de que o conteúdo
+    acompanha: sidebar na faixa média, indicadores em 3 colunas, pagamento e
+    finalização legíveis, nada cortado na borda.
+    """
+    ctx = Contexto.abrir(banco, relogio=relogio_demo())
+    janela = JanelaPrincipal(ctx, ctx.usuarios.por_login("gerente"))
+    janela.resize(911, 512)
+    janela.show()
+    fim = time.monotonic() + 0.4
+    while time.monotonic() < fim:
+        app.processEvents()
+    janela.grab().save(str(SAIDA / "28_pdv_911x512.png"))
+    print("captura:", SAIDA / "28_pdv_911x512.png")
+    janela._selecionar("Vendas")
+    fim = time.monotonic() + 0.4
+    while time.monotonic() < fim:
+        app.processEvents()
+    janela.grab().save(str(SAIDA / "29_vendas_911x512.png"))
+    print("captura:", SAIDA / "29_vendas_911x512.png")
     janela.close()
     ctx.fechar()
 

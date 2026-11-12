@@ -21,9 +21,9 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, ClassVar
 
-from PySide6.QtCore import QRect, QSize
+from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QResizeEvent
-from PySide6.QtWidgets import QDialog, QGridLayout, QSizePolicy, QWidget
+from PySide6.QtWidgets import QDialog, QGridLayout, QScrollArea, QSizePolicy, QWidget
 
 if TYPE_CHECKING:  # evita ciclo: widgets não conhece a camada responsiva
     from .widgets import BarraLateral, BarraSuperior, CabecalhoConteudo, Rodape
@@ -213,6 +213,45 @@ class GradeDeCartoes(GradeQueReflui):
     MAXIMO_POR_LINHA: ClassVar[int] = 2
 
 
+def abrir_no_tamanho_da_tela(
+    janela: QWidget,
+    largura_preferida: int,
+    altura_preferida: int,
+    *,
+    fracao: float = 0.92,
+    area: QRect | None = None,
+) -> QSize:
+    """Abre a janela **dentro da tela** — o pedido é um teto, não uma promessa.
+
+    `resize(1280, 820)` ignora a tela: num notebook 1366×768 com escala de 125%
+    (1093×614 px lógicos) ou 150% (911×512) a janela nasce maior do que o monitor
+    e o Windows a corta — o operador perde o rodapé e os botões da direita. Aqui o
+    tamanho pedido é reduzido até caber na área disponível (descontando a barra de
+    tarefas) e a janela é centralizada. Nunca abaixo do mínimo declarado.
+    """
+    from PySide6.QtGui import QGuiApplication
+
+    alvo = QSize(max(320, largura_preferida), max(240, altura_preferida))
+    if area is None:
+        tela = QGuiApplication.primaryScreen()
+        area = tela.availableGeometry() if tela is not None else None
+    if area is not None:
+        alvo = QSize(
+            min(alvo.width(), max(320, int(area.width() * fracao))),
+            min(alvo.height(), max(240, int(area.height() * fracao))),
+        )
+        minimo = janela.minimumSize()
+        alvo = QSize(max(alvo.width(), minimo.width()), max(alvo.height(), minimo.height()))
+        janela.resize(alvo)
+        janela.move(
+            area.x() + max(0, (area.width() - alvo.width()) // 2),
+            area.y() + max(0, (area.height() - alvo.height()) // 2),
+        )
+        return alvo
+    janela.resize(alvo)  # pragma: no cover - sem servidor gráfico
+    return alvo
+
+
 def ajustar_dialogo(
     dialogo: QDialog,
     *,
@@ -234,12 +273,52 @@ def ajustar_dialogo(
         return dialogo
     area = tela.availableGeometry()
     dialogo.setMinimumWidth(max(280, min(largura_preferida, area.width() - margem)))
+    # Altura: o diálogo não pode passar da tela, mas também não pode fixar um
+    # mínimo que estoure em tela baixa (600 px de balcão, 512 lógicos a 150%).
+    dialogo.setMinimumHeight(min(240, max(180, area.height() - margem)))
     if altura_preferida is not None:
         dialogo.setMaximumHeight(max(240, min(altura_preferida, area.height() - margem)))
     else:
         dialogo.setMaximumHeight(max(240, area.height() - margem))
     dialogo.setSizeGripEnabled(True)
     return dialogo
+
+
+class RolagemDeCartao(QScrollArea):
+    """Rolagem que **pede** a altura do cartão e aceita ser encolhida.
+
+    `QScrollArea` devolve um `sizeHint` miúdo (o do visor): com o cartão de login
+    dentro dela o diálogo abria com 286 px e o formulário aparecia cortado, com
+    barra, mesmo sobrando tela. Aqui o tamanho natural é o do conteúdo; quando a
+    tela é menor, o teto de `ajustar_dialogo` manda e a barra entra em ação.
+    """
+
+    def sizeHint(self) -> QSize:
+        dica = super().sizeHint()
+        interno = self.widget()
+        if interno is None:
+            return dica
+        return QSize(
+            max(dica.width(), interno.sizeHint().width()),
+            max(dica.height(), interno.sizeHint().height()),
+        )
+
+
+def envolver_em_rolagem(cartao: QWidget) -> QWidget:
+    """Põe um cartão de diálogo dentro de uma rolagem, centralizado.
+
+    Diálogos de login, primeiro uso e autorização têm altura de formulário (600 px
+    ou mais). Em tela baixa — notebook 1366×768 com escala de 150%, cujo espaço
+    lógico é 911×512 — o cartão era cortado em cima e embaixo, sem barra nenhuma.
+    Com a rolagem o conteúdo continua inteiro; quando cabe, não aparece barra.
+    """
+    area = RolagemDeCartao()
+    area.setObjectName("rolagemDialogo")
+    area.setFrameShape(QScrollArea.Shape.NoFrame)
+    area.setWidgetResizable(True)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    area.setWidget(cartao)
+    return area
 
 
 class CascaResponsiva:
@@ -321,13 +400,15 @@ __all__ = [
     "PONTO_MEDIO",
     "CascaResponsiva",
     "FluxoDeAcoes",
-
     "GradeDeCartoes",
     "GradeDeIndicadores",
     "GradeQueReflui",
+    "RolagemDeCartao",
+    "abrir_no_tamanho_da_tela",
     "ajustar_dialogo",
     "classe_de_largura",
     "colunas_para",
+    "envolver_em_rolagem",
 ]
 
 

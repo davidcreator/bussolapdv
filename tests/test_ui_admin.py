@@ -80,8 +80,11 @@ class TestAcessoAsSecoes:
         with pytest.raises(AutorizacaoNegada):
             janela_admin(cenario.operador)
 
-    def test_menu_mostra_apenas_o_que_o_perfil_alcanca(self, janela_admin, cenario):
+    def test_menu_mostra_apenas_o_que_o_perfil_alcanca(self, app, janela_admin, cenario):
         janela = janela_admin(cenario.admin)
+        janela.show()
+        janela.resize(1400, 900)  # na faixa compacta o menu fica só com ícones
+        app.processEvents()
         rotulos = [janela.menu.item(i).text() for i in range(janela.menu.count())]
         assert "Perfis e permissões" not in rotulos
         assert "Usuários" in rotulos

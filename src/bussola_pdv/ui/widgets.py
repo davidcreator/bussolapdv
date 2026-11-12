@@ -92,6 +92,10 @@ class Selo(QLabel):
             self.definir_tonalidade(tonalidade)
 
 
+#: Altura mínima de um `CaixaInfo`: rótulo + valor (corpo grande) + legenda + margens.
+ALTURA_CAIXA_INFO = 74
+
+
 class CaixaInfo(QFrame):
     """`small-box` do AdminLTE: número grande, rótulo e ícone d'água à direita."""
 
@@ -107,7 +111,10 @@ class CaixaInfo(QFrame):
         super().__init__(parent)
         self.setObjectName("caixaInfo")
         self.setProperty("tonalidade", tonalidade)
-        self.setMinimumHeight(56)
+        # 74 px, não 56: o valor em corpo grande vem do QSS, e o `sizeHint` do
+        # `QLabel` é medido antes de a folha de estilo ser aplicada — com 56 o
+        # número ficava cortado embaixo na grade de duas colunas (janela compacta).
+        self.setMinimumHeight(ALTURA_CAIXA_INFO)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.rotulo = QLabel(rotulo)
@@ -138,6 +145,10 @@ class CaixaInfo(QFrame):
 
         self._icone_nome = icone_nome
         self._pintar_icone()
+
+    def sizeHint(self) -> QSize:
+        dica = super().sizeHint()
+        return QSize(dica.width(), max(dica.height(), ALTURA_CAIXA_INFO))
 
     def _pintar_icone(self) -> None:
         from .tema import cor_da_tonalidade
@@ -235,6 +246,20 @@ class Cartao(QFrame):
         return widget
 
     # -- responsividade -----------------------------------------------------
+    def minimumSizeHint(self) -> QSize:
+        """O cabeçalho **sempre** cabe em uma coluna, então ele não dita o mínimo.
+
+        Antes da primeira exibição o cabeçalho ainda está lado a lado e o mínimo do
+        cartão virava a soma título + ferramentas (614 px na Auditoria, 522 px em
+        Parâmetros). Isso virava o piso da janela inteira — mais larga do que a tela
+        de um notebook com escala. Aqui vale a maior peça isolada: título largo ou
+        a ferramenta mais larga, nunca as duas somadas.
+        """
+        dica = super().minimumSizeHint()
+        ferramentas = self.ferramentas.minimumSizeHint().width()
+        largura = max(ferramentas, self.titulo.minimumSizeHint().width(), 240) + 34
+        return QSize(min(dica.width(), largura), dica.height())
+
     def resizeEvent(self, evento: QResizeEvent) -> None:
         super().resizeEvent(evento)
         self._reorganizar_cabecalho(evento.size().width())
@@ -303,15 +328,64 @@ class CabecalhoConteudo(QWidget):
             self.trilha.setText("  ›  ".join(trilha))
 
 
+#: Folga em pixels antes de cortar um rótulo com "…".
+TOLERANCIA_DE_ELIPSE = 4
+
+
+class RotuloElastico(QLabel):
+    """Rótulo que **encolhe** com reticências em vez de empurrar o layout.
+
+    Um `QLabel` comum exige a largura do texto no mínimo: o rodapé
+    ("Loja · dados locais, sem emissão fiscal" + "Bússola PDV · pré-alfa") somava
+    585 px e virava o piso da janela administrativa inteira — 946 px, mais do que
+    a tela de um notebook com escala de 125%. Aqui o texto completo fica guardado
+    (`texto_completo`) e o pintado é a versão cortada com "…".
+    """
+
+    def __init__(self, texto: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._completo = ""
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setText(texto)
+
+    def setText(self, texto: str) -> None:
+        self._completo = texto
+        self.setToolTip(texto)
+        super().setText(texto)
+        self._ajustar_elipse()
+
+    def text(self) -> str:
+        return self._completo
+
+    def texto_completo(self) -> str:
+        return self._completo
+
+    def resizeEvent(self, evento: QResizeEvent) -> None:
+        super().resizeEvent(evento)
+        self._ajustar_elipse()
+
+    def _ajustar_elipse(self) -> None:
+        disponivel = self.width()
+        if disponivel <= 0 or not self._completo:
+            return
+        # Tolerância de 4 px: `elidedText` reserva a largura do "…" e cortava nomes
+        # que cabiam por um fio (o da loja na sidebar virava "Loja de Demonstr…").
+        cortado = self.fontMetrics().elidedText(
+            self._completo, Qt.TextElideMode.ElideRight, disponivel + TOLERANCIA_DE_ELIPSE
+        )
+        if cortado != super().text():
+            super().setText(cortado)
+
+
 class Rodape(QWidget):
     """Rodapé discreto com o que precisa estar sempre visível."""
 
     def __init__(self, esquerda: str = "", direita: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("rodape")
-        self.esquerda = QLabel(esquerda)
+        self.esquerda = RotuloElastico(esquerda)
         self.esquerda.setObjectName("rodapeTexto")
-        self.direita = QLabel(direita)
+        self.direita = RotuloElastico(direita)
         self.direita.setObjectName("rodapeTexto")
         self.direita.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout = QHBoxLayout(self)
@@ -360,9 +434,10 @@ class BarraLateral(QFrame):
         self.monograma.setObjectName("monograma")
         self.monograma.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.monograma.setFixedSize(30, 30)
-        self.rotulo_marca = QLabel(nome_loja)
+        # Nome da loja e do operador comem a largura da sidebar (240 px) e o nome
+        # comprido saía cortado na borda: com o rótulo elástico vira "Loja de Demo…".
+        self.rotulo_marca = RotuloElastico(nome_loja)
         self.rotulo_marca.setObjectName("marcaNome")
-        self.rotulo_marca.setWordWrap(False)
         self.rotulo_versao_marca = QLabel("PDV · pré-alfa")
         self.rotulo_versao_marca.setObjectName("marcaVersao")
         textos_marca = QVBoxLayout()
@@ -383,9 +458,9 @@ class BarraLateral(QFrame):
         self.avatar.setObjectName("avatar")
         self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.avatar.setFixedSize(32, 32)
-        self.rotulo_usuario = QLabel(usuario)
+        self.rotulo_usuario = RotuloElastico(usuario)
         self.rotulo_usuario.setObjectName("usuarioNome")
-        self.rotulo_perfil = QLabel(perfil)
+        self.rotulo_perfil = RotuloElastico(perfil)
         self.rotulo_perfil.setObjectName("usuarioPerfil")
         textos_usuario = QVBoxLayout()
         textos_usuario.setContentsMargins(0, 0, 0, 0)
@@ -504,7 +579,7 @@ class BarraSuperior(QFrame):
         self.botao_menu.clicked.connect(self.recolher_pedido.emit)
         self.definir_cor_icone(Paleta().texto_suave)
 
-        self.rotulo_pagina = QLabel(titulo)
+        self.rotulo_pagina = RotuloElastico(titulo)
         self.rotulo_pagina.setObjectName("barraSuperiorTitulo")
         self.chip_usuario = QLabel(f"{usuario} · {perfil}")
         self.chip_usuario.setObjectName("chipUsuario")

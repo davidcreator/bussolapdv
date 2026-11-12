@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.9.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.9.1).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -43,6 +43,9 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
 - **Auditoria append-only** com triggers que abortam `UPDATE`/`DELETE` e cadeia SHA-256 verificável.
 - **Segurança**: Argon2id, bloqueio por tentativas, autorização por ação exige autenticação de outro
   usuário com permissão.
+- **Janela que se mede pela tela do Windows**: o tamanho inicial vem da área útil do monitor (nunca
+  maior do que ela) e o piso é 640×440 — cabe em 1366×768 com escala de 150%. Campos têm teto e piso,
+  textos longos cortam com "…" em vez de alargar a janela, e `make responsivo` mede oito resoluções.
 - **Hierarquia de cinco perfis** (`ADMIN_MASTER > ADMIN > GERENTE > CONTABILIDADE > ATENDENTE`) com
   matriz de permissões editável **apenas pelo Admin Master**, aplicada na hora e auditada.
 - **Marca e tema da loja** editáveis no painel (nome, razão social, CNPJ, endereço, rodapé do cupom,
@@ -323,7 +326,7 @@ make test        # pytest (Qt em modo offscreen)
 make lint        # ruff
 make tipos       # mypy
 make capturas    # gera docs/capturas/*.png sem servidor gráfico
-make responsivo  # mede a interface de 800×600 a 1920×1080 e aponta o que estoura
+make responsivo  # mede a interface de 640×440 a 2560×1440 e aponta o que estoura
 make limpar      # remove caches
 ```
 
@@ -352,7 +355,7 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             664 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+tests/             673 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação, impressão (documento, PDF, ESC/POS, CLI) e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,

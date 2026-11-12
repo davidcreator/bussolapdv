@@ -288,6 +288,13 @@ class TestCascaDaJanela:
 
         janela = JanelaPrincipal(cenario.ctx, cenario.master)
         try:
+            # O tamanho inicial vem da tela (e, no offscreen, ela é pequena: a janela
+            # abre na faixa compacta, com a sidebar recolhida). Aqui a intenção é
+            # testar o botão, então a janela é colocada numa largura ampla.
+            janela.show()
+            janela.resize(1400, 900)
+            app.processEvents()
+            assert janela.classe_da_casca == "ampla"
             assert janela.barra_lateral.recolhida is False
             janela.barra_superior.botao_menu.click()
             assert janela.barra_lateral.recolhida is True

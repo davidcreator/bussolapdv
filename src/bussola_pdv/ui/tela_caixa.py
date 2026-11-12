@@ -138,6 +138,9 @@ class TelaCaixa(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(7)
         self.rotulo_status = QLabel()
+        # O status do turno tem caixa, data, fundo e data de negócio numa linha só:
+        # 600 px de largura mínima que viravam o piso da janela inteira.
+        self.rotulo_status.setWordWrap(True)
         self.mensagem = QLabel("")
         self.mensagem.setObjectName("mensagemAlerta")
         self.mensagem.setWordWrap(True)
@@ -201,6 +204,7 @@ class TelaCaixa(QWidget):
         self.rotulo_resumo = QLabel()
         self.rotulo_resumo.setObjectName("totalCupom")
         self.rotulo_resumo.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.rotulo_resumo.setWordWrap(True)
 
         layout.addWidget(self.rotulo_status)
         layout.addWidget(self.mensagem)

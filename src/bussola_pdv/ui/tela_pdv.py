@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -43,10 +44,13 @@ from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from ..infra.sqlite.repositorio_vendas import VendaRegistrada
 from .impressao import DialogoPreviaImpressao
 from .login import DialogoAutorizacao
-from .responsivo import GradeDeIndicadores
+from .responsivo import FluxoDeAcoes, GradeDeIndicadores
 from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
 
 COLUNAS = ["Código", "Descrição", "Qtd", "Un.", "Preço", "Desc.", "Total"]
+#: Teto de largura do bloco de pagamento (forma + valor); acima disso o campo só
+#: fica comprido sem ganhar legibilidade.
+LARGURA_MAXIMA_PAGAMENTO = 620
 COLUNAS_PAGAMENTO = [
     FormaPagamento.DINHEIRO,
     FormaPagamento.PIX,
@@ -118,7 +122,10 @@ class TelaPDV(QWidget):
         self.campo_codigo.setPlaceholderText("código interno ou código de barras")
         self.campo_codigo.returnPressed.connect(self._adicionar_item)
         self.campo_quantidade = QLineEdit("1")
-        self.campo_quantidade.setFixedWidth(80)
+        # Faixa em vez de largura fixa: 80 px fixos comiam o código do produto em
+        # janela estreita e sobravam enormes em tela larga.
+        self.campo_quantidade.setMinimumWidth(56)
+        self.campo_quantidade.setMaximumWidth(88)
         self.campo_quantidade.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.campo_quantidade.returnPressed.connect(self._adicionar_item)
         self.botao_adicionar = QPushButton("Adicionar")
@@ -136,6 +143,12 @@ class TelaPDV(QWidget):
         self.tabela.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.tabela.setMinimumHeight(92)  # cabe ~3 linhas mesmo em janela baixa
         preparar_tabela(self.tabela)
+        # Altura `Ignored`: o `sizeHint` do `QTableWidget` (256×192) inflava a altura
+        # natural da página e o PDV passava a rolar em 1280×820 mesmo sobrando tela.
+        # O mínimo de 92 px continua valendo — a tabela encolhe até ele, não abaixo.
+        self.tabela.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored
+        )
         ajustar_colunas(self.tabela, 1)
 
         layout_itens.addLayout(linha_codigo)
@@ -146,6 +159,14 @@ class TelaPDV(QWidget):
         layout_pagamento = QVBoxLayout(grupo_pagamento)
         self.linhas_pagamento: list[tuple[QComboBox, QLineEdit]] = []
         self._pagamento_manual = False
+        # As três linhas ficam numa coluna com teto de largura. Soltas na página
+        # inteira, forma e valor esticavam até 760 px cada um em tela larga (caixa
+        # enorme, valor longe do rótulo) e sobrava um vão no meio da fileira.
+        self.formulario_pagamento = QWidget()
+        self.formulario_pagamento.setMaximumWidth(LARGURA_MAXIMA_PAGAMENTO)
+        coluna_pagamento = QVBoxLayout(self.formulario_pagamento)
+        coluna_pagamento.setContentsMargins(0, 0, 0, 0)
+        coluna_pagamento.setSpacing(6)
         for _ in range(3):
             linha = QHBoxLayout()
             forma = QComboBox()
@@ -154,22 +175,34 @@ class TelaPDV(QWidget):
             valor = QLineEdit()
             valor.setPlaceholderText("valor")
             valor.setAlignment(Qt.AlignmentFlag.AlignRight)
+            # O combo com `stretch=1` virava uma caixa de 760 px com o texto
+            # centralizado perdido no meio; os dois ficam proporcionais e limitados.
+            forma.setMinimumWidth(120)
+            forma.setMaximumWidth(300)
+            valor.setMinimumWidth(120)
+            valor.setMaximumWidth(420)
             valor.textChanged.connect(self._atualizar_troco)
             valor.textEdited.connect(self._marcar_edicao_manual)
             linha.addWidget(QLabel("Forma:"))
-            linha.addWidget(forma, 1)
+            linha.addWidget(forma, 2)
             linha.addWidget(QLabel("Valor:"))
-            linha.addWidget(valor, 1)
-            layout_pagamento.addLayout(linha)
+            linha.addWidget(valor, 3)
+            coluna_pagamento.addLayout(linha)
             self.linhas_pagamento.append((forma, valor))
 
         self.rotulo_troco = QLabel("Troco: R$ 0,00")
         self.rotulo_troco.setObjectName("mensagemAlerta")
-        layout_pagamento.addWidget(self.rotulo_troco)
+        coluna_pagamento.addWidget(self.rotulo_troco)
+        # preenche a largura até o teto (`maximumWidth`), sem alinhamento fixo: com
+        # `AlignLeft` o bloco encolhia até o `sizeHint` (~400 px) e ficava acanhado
+        layout_pagamento.addWidget(self.formulario_pagamento)
 
         # 04 — finalização
         grupo_final = QGroupBox("04 · Finalizar")
-        layout_final = QHBoxLayout(grupo_final)
+        layout_final = QVBoxLayout(grupo_final)
+        # Um `QHBoxLayout` com total + três botões somava 731 px e passava da página
+        # em janela estreita; no fluxo as ações descem de linha.
+        self.acoes_finais = FluxoDeAcoes(espaco=8)
         self.rotulo_total = QLabel("R$ 0,00")
         self.rotulo_total.setObjectName("totalCupom")
         self.rotulo_total.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -183,10 +216,18 @@ class TelaPDV(QWidget):
         self.botao_reimprimir.setEnabled(False)
         self.botao_finalizar = QPushButton("Finalizar venda (F4)")
         self.botao_finalizar.clicked.connect(self._finalizar)
-        layout_final.addWidget(self.rotulo_total, 1)
-        layout_final.addWidget(self.botao_reimprimir)
-        layout_final.addWidget(self.botao_limpar)
-        layout_final.addWidget(self.botao_finalizar)
+        self.rotulo_total.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        for acao in (self.botao_reimprimir, self.botao_limpar, self.botao_finalizar):
+            self.acoes_finais.adicionar(acao)
+        # Botões à esquerda (quebram de linha quando não cabem) e total à direita,
+        # com a largura do próprio número — antes o total esticava e virava uma
+        # caixa de 500 px com o valor perdido à direita.
+        linha_final = QHBoxLayout()
+        linha_final.addWidget(self.acoes_finais, 1)
+        linha_final.addWidget(self.rotulo_total, 0, Qt.AlignmentFlag.AlignRight)
+        layout_final.addLayout(linha_final)
 
         layout.addWidget(self.rotulo_turno)
         layout.addWidget(self.mensagem)

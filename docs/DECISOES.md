@@ -399,6 +399,45 @@ capturas, que agora rodam com paleta escura forçada para provar isso. Custo: qu
 
 ---
 
+## ADR-025 — A janela se mede pela tela do Windows, não por um número no código
+
+**Contexto.** O relato: *"a janela não está tendo todas as alterações de tamanhos e ajustes responsivos
+do Windows"*. A ADR-021 já fazia a interface reagir à largura, mas ela reagia a uma largura que o
+programa **inventava**: `resize(1280, 820)` e `setMinimumSize(720, 480)` fixos, medidos numa tela
+grande. Medindo as duas janelas, o piso real era outro:
+
+| Janela | Mínimo declarado | Mínimo **real** (o que o layout cobrava) |
+|---|---|---|
+| Operação | 720×480 | **737×210** |
+| Administração | 700×460 | **946×203** |
+
+946 px não cabem em 1366×768 com escala de 125% (1093×614 lógicos) com folga, e muito menos a 150%
+(911×512). O que somava essa largura não era conteúdo: era **texto**. Rodapé (585 px), cabeçalho do
+cartão (título + ferramentas: 614 px na Auditoria), status do turno do caixa (600 px) e a fileira do
+"04 · Finalizar" do PDV (731 px).
+
+**Decisão.**
+
+1. O tamanho inicial vem de `availableGeometry()` (`abrir_no_tamanho_da_tela()`): 92% da área útil,
+   centralizado, e **nunca abaixo do mínimo** — o pedido é teto, não promessa.
+2. O mínimo das duas janelas é **640×440**, que cabe em 911×512 (1366×768 a 150%) e em 1024×768.
+3. Texto longo não dita largura: `RotuloElastico` corta com "…" (rodapé, barra superior, nome da loja e
+   do operador) e o status do turno ganhou quebra de linha.
+4. O que pode empilhar não soma: `Cartao.minimumSizeHint()` considera título **ou** ferramentas, nunca
+   os dois; a fileira de finalização do PDV virou `FluxoDeAcoes`.
+5. Campo largo não é campo melhor: o bloco de pagamento tem teto de 620 px (combo ≤ 300, valor ≤ 420) e
+   a quantidade saiu de 80 px fixos para a faixa 56–88.
+6. Diálogos altos rolam (`RolagemDeCartao`) em vez de serem cortados em tela baixa.
+
+**Consequências.** A janela passa a abrir inteira em qualquer combinação de resolução e escala do
+Windows, e `make responsivo` mede isso em oito tamanhos, incluindo 640×440 e 911×512 — e falha se a
+janela abrir maior do que a área útil. Custo aceito: em tela menor que 640 px de largura a janela não
+encolhe mais (abaixo disso a operação deixa de ser segura) e o conteúdo passa a rolar na vertical, o que
+já era o comportamento. Nada disso substitui o teste no Windows real com escala de 125% e 150% — a
+medição é offscreen, e o offscreen limita a tela a 800×800.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |
@@ -414,3 +453,4 @@ capturas, que agora rodam com paleta escura forçada para provar isso. Custo: qu
 | P9 | Backup criptografado | Backup com manifesto e `sha256`; **sem criptografia** (v0.9.0) | decisão de chave e proteção |
 | P11 | Recuperação do Admin Master | Sem tela de recuperação; única saída é procedimento no banco | procedimento aceito pela loja (quem guarda a senha mestra) |
 | P10 | Importação da planilha | Não implementada | mapeamento e validação aprovados |
+| P12 | Escala do Windows medida de verdade | `make responsivo` mede offscreen (tela de 800×800 do Qt); escala simulada só por cálculo | teste em máquina Windows com 100/125/150% e duas resoluções |

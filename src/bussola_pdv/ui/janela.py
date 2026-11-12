@@ -24,7 +24,7 @@ from .. import __version__
 from ..aplicacao.contexto import Contexto
 from ..dominio.usuario import Acao, Usuario
 from .admin.janela import JanelaAdmin, contexto_marca
-from .responsivo import CascaResponsiva
+from .responsivo import CascaResponsiva, abrir_no_tamanho_da_tela
 from .tela_caixa import TelaCaixa
 from .tela_pdv import TelaPDV
 from .telas_clientes import TelaClientes
@@ -88,9 +88,10 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             self.modulos.append(MODULO_ADMIN)
 
         self.setWindowTitle(f"{self.marca.nome_fantasia} · Bússola PDV")
-        self.resize(1280, 820)
-        # Abaixo disso a operação deixa de ser confortável: a janela não encolhe mais.
-        self.setMinimumSize(720, 480)
+        # Abaixo disso a operação deixa de ser confortável: a janela não encolhe mais
+        # (640×440 cabe em 1366×768 com escala de 150%, cujo espaço lógico é 911×512).
+        self.setMinimumSize(640, 440)
+        self.tamanho_inicial = abrir_no_tamanho_da_tela(self, 1280, 820)
 
         self.tela_pdv = TelaPDV(contexto, usuario)
         self.tela_caixa = TelaCaixa(contexto, usuario)

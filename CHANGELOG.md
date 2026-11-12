@@ -2,6 +2,56 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.9.1] — 2026-11-11 — a janela se ajusta à tela do Windows
+
+O relato: *"a janela não está tendo todas as alterações de tamanhos e ajustes responsivos do Windows"*.
+A interface já reagia à largura (v0.8.0), mas reagia a uma largura que o programa inventava: tamanho
+inicial de 1280×820 e minimums de 720×480 / 700×460 escritos no código, medidos numa tela grande.
+
+### Corrigido — a janela cabe na tela
+
+- **Tamanho inicial derivado do monitor.** `abrir_no_tamanho_da_tela()` usa
+  `primaryScreen().availableGeometry()`: até 92% da área útil, centralizado. Em 1366×768 com escala de
+  150% o Windows oferece 911×512 de espaço lógico, e a janela nascia **maior do que a tela** — o rodapé
+  e os botões da direita ficavam fora. O pedido agora é teto, nunca promessa.
+- **Piso real de 946 px virou 640×440.** Medindo, o layout cobrava 737 px da janela de operação e
+  **946 px** da administração, por causa de textos longos, não de conteúdo: rodapé (585 px), cabeçalho
+  de cartão com título + ferramentas (614 px na Auditoria), status do turno do caixa (600 px) e a
+  fileira "04 · Finalizar" do PDV (731 px).
+- **`RotuloElastico`** para rodapé, barra superior, nome da loja e nome do operador: cortam com "…" e
+  mostram o texto inteiro no `toolTip`; `.text()` continua devolvendo o texto completo.
+- **`Cartao.minimumSizeHint()`**: o cabeçalho sempre cabe empilhado, então o mínimo é o maior dos dois
+  (título **ou** ferramentas), não a soma.
+- **Status do turno do caixa** com quebra de linha; **"04 · Finalizar"** virou `FluxoDeAcoes` (total e
+  botões descem de linha em vez de passar da página).
+
+### Corrigido — campos e conteúdo proporcionais
+
+- **Bloco de pagamento do PDV com teto de 620 px**: combo de forma até 300, valor até 420. Em 1920 os
+  dois recebiam **760 px cada** — caixa larguíssima com o texto perdido no meio e o valor longe do
+  rótulo.
+- **Quantidade** saiu da largura fixa de 80 px para a faixa 56–88.
+- **`CaixaInfo`** com 74 px de altura mínima: o valor em corpo grande vem do QSS e o `sizeHint` do
+  `QLabel` é medido antes de a folha ser aplicada; com 56 px o número aparecia cortado embaixo quando a
+  grade refluía para duas colunas.
+- **Diálogos altos rolam** (`RolagemDeCartao`): em 512 px lógicos o formulário de primeiro uso era
+  cortado em cima e embaixo, sem barra para chegar ao resto. `ajustar_dialogo()` também não fixa mais
+  altura mínima que estoure em tela baixa.
+
+### Verificação
+
+- `make responsivo` mede agora **640×440, 800×600, 911×512 (1366×768 a 150%), 1024×768, 1280×800,
+  1366×768, 1920×1080 e 2560×1440** e falha se a janela abrir maior do que a área útil, menor do que o
+  próprio mínimo, se algum campo de pagamento passar do teto ou se uma página pedir mais largura do que
+  tem. Resultado: **OK nas oito resoluções**.
+- Novas capturas `28_pdv_911x512.png` e `29_vendas_911x512.png`.
+- 673 testes passando, 8 pulados; `ruff` e `mypy` limpos.
+
+### Nota
+
+A medição é offscreen, onde a tela do Qt tem 800×800. Falta o teste no Windows real com escala de 125%
+e 150% — é o próximo passo do responsivo, e está registrado como pendência.
+
 ## [0.9.0] — 2026-11-11 — contraste legível e backup que sobrevive à reinstalação
 
 Dois relatos de campo nesta rodada: "as cores de algumas áreas do PDV estão

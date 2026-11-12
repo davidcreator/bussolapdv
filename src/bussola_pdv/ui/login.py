@@ -27,7 +27,7 @@ from ..aplicacao.contexto import Contexto
 from ..dominio.erros import ErroBussola
 from ..dominio.usuario import Acao, Usuario
 from .icones import icone
-from .responsivo import ajustar_dialogo
+from .responsivo import ajustar_dialogo, envolver_em_rolagem
 from .widgets import Rodape
 
 
@@ -55,13 +55,22 @@ def _finalizar_cartao(
     interno.addWidget(faixa)
     interno.addLayout(corpo)
     cartao.setMaximumWidth(430)
+    # O cartão fica dentro de uma rolagem centralizada: em tela baixa (notebook
+    # 1366×768 a 150% = 512 px lógicos) o formulário de primeiro uso passava da
+    # tela e era cortado em cima e embaixo, sem barra para chegar ao resto.
+    conteudo = QWidget()
+    interno_rolagem = QVBoxLayout(conteudo)
+    interno_rolagem.setContentsMargins(0, 0, 0, 0)
+    interno_rolagem.addStretch(1)
     linha = QHBoxLayout()
     linha.addStretch(1)
     linha.addWidget(cartao, 0)
     linha.addStretch(1)
-    corpo_janela.addStretch(1)
-    corpo_janela.addLayout(linha)
-    corpo_janela.addStretch(1)
+    interno_rolagem.addLayout(linha)
+    interno_rolagem.addStretch(1)
+    rolagem = envolver_em_rolagem(conteudo)
+    rolagem.setStyleSheet("background: transparent")
+    corpo_janela.addWidget(rolagem, 1)
 
 
 def _faixa(titulo: str) -> QLabel:

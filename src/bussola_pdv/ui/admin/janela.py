@@ -28,7 +28,7 @@ from ...aplicacao.contexto import Contexto
 from ...dominio.erros import AutorizacaoNegada
 from ...dominio.marca import Marca
 from ...dominio.usuario import Acao, Usuario
-from ..responsivo import CascaResponsiva
+from ..responsivo import CascaResponsiva, abrir_no_tamanho_da_tela
 from ..tema import folha_estilo_da_marca
 from ..widgets import (
     BarraLateral,
@@ -124,8 +124,8 @@ class JanelaAdmin(QDialog, CascaResponsiva):
         self.usuario = usuario
         self.marca = contexto_marca(contexto)
         self.setWindowTitle(f"Administração · {usuario.perfil.rotulo}")
-        self.resize(1180, 800)
-        self.setMinimumSize(700, 460)
+        self.setMinimumSize(640, 440)
+        self.tamanho_inicial = abrir_no_tamanho_da_tela(self, 1180, 800)
         self._iniciar_casca()
         self.setStyleSheet(folha_estilo_da_marca(self.marca))
 
