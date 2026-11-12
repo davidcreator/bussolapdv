@@ -438,6 +438,41 @@ medição é offscreen, e o offscreen limita a tela a 800×800.
 
 ---
 
+## ADR-026 — Cor calculada em todo lugar, e nunca folha de estilo por widget
+
+**Contexto.** Dois prints do Windows: a faixa "Bússola Sistema PDV" do login em branco sobre branco
+(com o botão "Entrar" idem) e o campo de quantidade da conferência de gaveta cortado, com o dígito
+debaixo das setas.
+
+A faixa tinha **duas** causas somadas: `color: #FFFFFF` fixo no QSS e — a principal — uma folha de
+estilo local que a v0.9.1 pôs no `QScrollArea` do cartão do diálogo (`background: transparent`). No Qt,
+uma folha definida num widget **vale para aquele widget e para todos os filhos**: o `background:
+transparent` apagava o fundo da faixa e dos botões. Nada no código dizia "branco"; o fundo é que tinha
+desaparecido, e a tinta branca do texto ficou sobre o branco do cartão (1,0:1).
+
+O campo de quantidade estava numa coluna dimensionada por `ResizeToContents`, que olha o **texto das
+células** e não o `cellWidget`: a coluna ficava com a largura do cabeçalho "Quantidade" (~70 px) e o
+`QSpinBox` era desenhado maior do que a célula.
+
+**Decisão.**
+
+1. **Nada de `setStyleSheet()` em widget com filhos** para mudar fundo/aparência de conjunto — regra
+   global na folha, por `objectName`. A única folha local aceita é a de um widget-folha (uma `QLabel`
+   sem filhos, como a prévia de cor).
+2. **Tinta é calculada, nunca literal**: `tinta_sobre()` no QSS (`#loginMarca`, botões) e
+   `tinta_do_botao()` para ícones, que lê a paleta em vigor (`Highlight` = primária, `WindowText` =
+   texto da loja).
+3. **Coluna com `cellWidget` tem largura própria**, não `ResizeToContents`: 132 px para o campo de
+   quantidade, com mínimo de 96×30 e `padding-right` para as setas do `QSpinBox`.
+4. **Tabela de conferência abre mostrando as 13 denominações**; em tela baixa o teto do
+   `ajustar_dialogo()` volta a mandar.
+
+**Consequências.** Um teste percorre os filhos do diálogo de login e falha se algum tiver folha local —
+o defeito não volta sem alguém perceber. Custo: mais regras na folha global (com `objectName`), e a
+necessidade de lembrar do `#rolagemDialogo` ao criar outro diálogo rolável.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

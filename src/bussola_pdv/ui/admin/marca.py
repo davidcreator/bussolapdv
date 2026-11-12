@@ -277,15 +277,21 @@ class SecaoMarca(QWidget):
 
     def _pintar_previa(self, paleta: Paleta, nome: str, fonte: str) -> None:
         self.previa_titulo.setText(nome or "Nome da loja")
+        # Tinta por contraste, não branco fixo: numa marca de primária clara o
+        # texto de exemplo (e o botão) sumia — justo na tela em que se escolhe cor.
+        tinta_primaria = tinta_sobre(paleta.primaria, escura=paleta.texto)
+        tinta_secundaria = tinta_sobre(paleta.secundaria, escura=paleta.texto)
         self.previa_titulo.setStyleSheet(
-            f"background: {paleta.primaria}; color: #FFFFFF; padding: 12px;"
+            f"background: {paleta.primaria}; color: {tinta_primaria}; padding: 12px;"
             f" font-family: '{fonte}'; border-radius: 4px;"
         )
         self.previa_faixa.setStyleSheet(
-            f"background: {paleta.secundaria}; color: #FFFFFF; padding: 6px; border-radius: 4px;"
+            f"background: {paleta.secundaria}; color: {tinta_secundaria}; padding: 6px;"
+            f" border-radius: 4px;"
         )
         self.previa_botao.setStyleSheet(
-            f"background: {paleta.primaria}; color: #FFFFFF; padding: 7px; border-radius: 4px;"
+            f"background: {paleta.primaria}; color: {tinta_primaria}; padding: 7px;"
+            f" border-radius: 4px;"
         )
         self.previa_entrada.setStyleSheet(
             f"background: {paleta.entrada}; border: 1px solid {paleta.destaque};"

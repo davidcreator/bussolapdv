@@ -2,6 +2,45 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.9.2] — 2026-11-11 — textos e campos que voltaram a aparecer
+
+Dois relatos com print do Windows: *"na janela de login o botão de login não aparece texto"* e
+*"na conferência e fechamento de turno a quantidade de notas fica difícil de entender e os campos não
+aumentam"*.
+
+### Corrigido — login com fundo apagado
+
+- **Faixa do título e botão "Entrar" brancos sobre branco.** A causa não era a paleta: era a folha de
+  estilo local que a v0.9.1 pôs no `QScrollArea` do cartão (`background: transparent`). No Qt, folha
+  definida num widget **vale também para os filhos** — ela apagava o fundo da faixa do título e dos
+  botões do diálogo, deixando texto branco sobre o branco do cartão. A folha local saiu; o fundo do
+  diálogo passou a ser regra global por `objectName` (`QScrollArea#rolagemDialogo`).
+- **Tinta da faixa por contraste**: `#loginMarca` usava `color: #FFFFFF` fixo. Com marca de primária
+  clara (rosa, areia, cinza) o título sumia. Agora sai de `tinta_sobre()` — a mesma régua WCAG do resto.
+- **Ícone do botão principal** deixou de ser branco fixo: `tinta_do_botao()` escolhe a cor pela paleta
+  em vigor (login e primeiro uso).
+- **Prévia de *Marca e tema*** usa tinta calculada nos três retângulos de exemplo; antes o texto de
+  exemplo podia ficar invisível justo na tela em que a cor é escolhida.
+
+### Corrigido — conferência de gaveta
+
+- **Campo de quantidade cortado.** A coluna "Quantidade" era dimensionada pelo cabeçalho (~70 px) e o
+  `QSpinBox` não cabia: o dígito ficava debaixo das setas e a seta direita caía fora da célula. Agora
+  a coluna tem largura fixa de 132 px, o campo tem mínimo de 96×30, alinhamento à direita e
+  `padding-right` de 16 px para as setas não cobrirem o número.
+- **As 13 denominações aparecem de uma vez**: a tabela abre com a altura das 13 linhas (antes abria com
+  5 e o conferente precisava rolar para terminar de contar a gaveta). Em tela baixa o teto de
+  `ajustar_dialogo()` manda e a rolagem volta, como deve ser.
+
+### Verificação
+
+- 678 testes passando, 8 pulados; `ruff` e `mypy` limpos; `make responsivo` OK.
+- Testes novos: o diálogo de login não pode ter folha local (é o defeito que apagava os fundos), a faixa
+  do login tem de usar tinta com ≥ 4,5:1 em qualquer paleta, o ícone do botão acompanha a paleta, e os
+  campos/tabela da conferência têm de caber sem corte e sem rolagem.
+- Capturas `07_login`, `20_primeiro_uso`, `14_tema_personalizado`, `24_impressao_previa` e demais
+  regeradas com o tema da loja aplicado.
+
 ## [0.9.1] — 2026-11-11 — a janela se ajusta à tela do Windows
 
 O relato: *"a janela não está tendo todas as alterações de tamanhos e ajustes responsivos do Windows"*.

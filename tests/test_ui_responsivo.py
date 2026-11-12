@@ -453,3 +453,107 @@ class TestCamposDoPDV:
             assert tela.formulario_pagamento.maximumWidth() <= 620
         finally:
             tela.close()
+
+
+class TestDialogosLegiveis:
+    """Rótulo e botão com fundo **pintado** e tinta legível, em qualquer paleta.
+
+    Relato: no Windows, a faixa "Bússola Sistema PDV" do login aparecia em branco
+    sobre branco e o botão "Entrar" idem. A causa foi uma folha de estilo local
+    (`background: transparent`) no `QScrollArea` do cartão: folha definida num
+    widget vale também para os filhos e apagava o fundo da faixa e dos botões.
+    """
+
+    def test_dialogo_de_login_nao_tem_folha_local(self, app, cenario):
+        from PySide6.QtWidgets import QWidget
+
+        from bussola_pdv.ui.login import DialogoLogin
+
+        dialogo = DialogoLogin(cenario.ctx)
+        try:
+            com_folha = [
+                filho
+                for filho in dialogo.findChildren(QWidget)
+                if filho.styleSheet().strip()
+            ]
+            assert com_folha == [], [
+                f"{f.__class__.__name__}[{f.objectName()}]" for f in com_folha
+            ]
+        finally:
+            dialogo.close()
+
+    def test_faixa_do_login_usa_tinta_legivel(self, app, cenario):
+        from bussola_pdv.dominio.marca import Paleta, razao_contraste, tinta_sobre
+        from bussola_pdv.ui.tema import folha_estilo
+
+        # Paleta de primária claríssima: é onde branco fixo desaparece (1,14:1).
+        paleta = Paleta(primaria="#FDECEF")
+        folha = folha_estilo(paleta)
+        trecho = folha.split("#loginMarca {", 1)[1].split("}", 1)[0]
+        esperada = tinta_sobre(paleta.primaria, escura=paleta.texto)
+        assert esperada.lower() in trecho.lower()
+        assert razao_contraste(esperada, paleta.primaria) >= 4.5
+
+    def test_tinta_do_botao_acompanha_a_paleta(self, app, cenario):
+        from PySide6.QtGui import QColor
+        from PySide6.QtWidgets import QPushButton
+
+        from bussola_pdv.dominio.marca import Paleta, razao_contraste
+        from bussola_pdv.ui.app import fixar_aparencia_clara
+        from bussola_pdv.ui.tema import tinta_do_botao
+
+        botao = QPushButton("Entrar")
+        antes = app.palette()
+        try:
+            for primaria in ("#0D6EFD", "#FDECEF", "#FFC107", "#198754"):
+                paleta = Paleta(primaria=primaria)
+                fixar_aparencia_clara(app, paleta)
+                botao.setPalette(app.palette())
+                tinta = tinta_do_botao(botao)
+                assert razao_contraste(tinta, primaria) >= 3.0, (primaria, tinta)
+                assert tinta.upper() != QColor(primaria).name().upper()
+        finally:
+            app.setPalette(antes)
+
+
+class TestConferenciaDeGaveta:
+    """Campos da conferência com largura para o número e para as setas."""
+
+    def test_campo_de_quantidade_nao_fica_cortado(self, app, cenario):
+        from PySide6.QtWidgets import QSpinBox
+
+        from bussola_pdv.dominio.caixa import DENOMINACOES_BRL
+        from bussola_pdv.dominio.dinheiro import Dinheiro
+        from bussola_pdv.ui.tela_caixa import DialogoFechamentoCaixa
+
+        dialogo = DialogoFechamentoCaixa(cenario.ctx, Dinheiro(9000))
+        try:
+            dialogo.show()
+            app.processEvents()
+            campos = dialogo.findChildren(QSpinBox)
+            assert len(campos) == len(DENOMINACOES_BRL)
+            for campo in campos:
+                assert campo.width() >= campo.minimumSizeHint().width()
+                assert campo.width() >= 96
+                assert campo.minimumHeight() >= 30
+        finally:
+            dialogo.close()
+
+    def test_tabela_mostra_todas_as_denominacoes(self, app, cenario):
+        from PySide6.QtWidgets import QTableWidget
+
+        from bussola_pdv.dominio.caixa import DENOMINACOES_BRL
+        from bussola_pdv.dominio.dinheiro import Dinheiro
+        from bussola_pdv.ui.tela_caixa import DialogoFechamentoCaixa
+
+        dialogo = DialogoFechamentoCaixa(cenario.ctx, Dinheiro(9000))
+        try:
+            dialogo.show()
+            for _ in range(4):
+                app.processEvents()
+            tabela = dialogo.findChildren(QTableWidget)[0]
+            assert tabela.rowCount() == len(DENOMINACOES_BRL)
+            # sem rolagem: as 12 linhas cabem na altura reservada
+            assert tabela.verticalScrollBar().maximum() == 0
+        finally:
+            dialogo.close()

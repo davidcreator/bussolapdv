@@ -28,6 +28,7 @@ from ..dominio.erros import ErroBussola
 from ..dominio.usuario import Acao, Usuario
 from .icones import icone
 from .responsivo import ajustar_dialogo, envolver_em_rolagem
+from .tema import tinta_do_botao
 from .widgets import Rodape
 
 
@@ -69,7 +70,10 @@ def _finalizar_cartao(
     interno_rolagem.addLayout(linha)
     interno_rolagem.addStretch(1)
     rolagem = envolver_em_rolagem(conteudo)
-    rolagem.setStyleSheet("background: transparent")
+    # Nada de `rolagem.setStyleSheet(...)`: folha definida num widget vale também
+    # para os filhos, e "background: transparent" apagava o fundo da faixa do
+    # título e dos botões — o "Entrar" ficava branco sobre branco. O fundo do
+    # diálogo vem da folha global por `objectName` (ver `tema.folha_estilo`).
     corpo_janela.addWidget(rolagem, 1)
 
 
@@ -118,7 +122,9 @@ class DialogoLogin(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         botoes.button(QDialogButtonBox.StandardButton.Ok).setText("Entrar")
-        botoes.button(QDialogButtonBox.StandardButton.Ok).setIcon(icone("saida", "#FFFFFF", 16))
+        botoes.button(QDialogButtonBox.StandardButton.Ok).setIcon(
+            icone("saida", tinta_do_botao(self), 16)
+        )
         botoes.button(QDialogButtonBox.StandardButton.Cancel).setText("Sair")
         botoes.button(QDialogButtonBox.StandardButton.Cancel).setObjectName("secundario")
         botoes.accepted.connect(self._entrar)

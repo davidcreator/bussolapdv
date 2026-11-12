@@ -120,6 +120,13 @@ Peças que reagem à largura:
   quando não cabem.
 - **`ajustar_dialogo()`** — login, autorização, primeiro uso e conferência de gaveta nunca nascem
   maiores do que a tela.
+- **Diálogos sem folha de estilo própria** (v0.9.2): no Qt, folha definida num widget vale também para
+  os filhos — um `background: transparent` no `QScrollArea` do cartão apagava o fundo da faixa do
+  título e do botão "Entrar", deixando texto branco sobre branco. O fundo do diálogo rolável é regra
+  global (`QScrollArea#rolagemDialogo`).
+- **Tinta calculada, nunca literal**: `#loginMarca` e os ícones dos botões principais usam
+  `tinta_sobre()`/`tinta_do_botao()`, então uma marca de primária clara continua legível. A conferência
+  de gaveta tem coluna de quantidade com largura própria (132 px) e abre mostrando as 13 denominações.
 
 ### Abrir dentro da tela (v0.9.1)
 

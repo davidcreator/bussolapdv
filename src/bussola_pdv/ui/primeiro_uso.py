@@ -43,6 +43,7 @@ from ..dominio.usuario import Perfil, Usuario
 from .icones import icone
 from .login import _cartao_modal, _faixa, _finalizar_cartao
 from .responsivo import ajustar_dialogo
+from .tema import tinta_do_botao
 
 
 def precisa_de_configuracao(caminho: Path) -> bool:
@@ -145,7 +146,7 @@ class DialogoPrimeiroUso(QDialog):
         )
         self.botao_criar = botoes.button(QDialogButtonBox.StandardButton.Ok)
         self.botao_criar.setText("Criar instalação")
-        self.botao_criar.setIcon(icone("saida", "#FFFFFF", 16))
+        self.botao_criar.setIcon(icone("saida", tinta_do_botao(self), 16))
         botoes.button(QDialogButtonBox.StandardButton.Cancel).setText("Sair")
         botoes.button(QDialogButtonBox.StandardButton.Cancel).setObjectName("secundario")
         botoes.accepted.connect(self._criar)

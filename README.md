@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.9.1).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.9.2).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -355,7 +355,7 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             673 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+tests/             678 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação, impressão (documento, PDF, ESC/POS, CLI) e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,

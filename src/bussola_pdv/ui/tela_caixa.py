@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -42,31 +43,61 @@ from .login import DialogoAutorizacao
 from .responsivo import FluxoDeAcoes, GradeDeIndicadores, ajustar_dialogo
 from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
 
+#: Largura da coluna "Quantidade" na conferência de gaveta: cabe "9999" com as
+#: setas do `QSpinBox`, sem o dígito ficar debaixo delas.
+LARGURA_COLUNA_QUANTIDADE = 132
+#: Altura de cada linha da conferência: cabe o campo de quantidade sem apertar.
+ALTURA_LINHA_CONFERENCIA = 34
+
 
 class DialogoFechamentoCaixa(QDialog):
     def __init__(self, contexto: Contexto, esperado: Dinheiro, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Conferência e fechamento do turno")
-        ajustar_dialogo(self, largura_preferida=420, altura_preferida=640)
+        ajustar_dialogo(self, largura_preferida=460, altura_preferida=780)
         self.campos: dict[int, QSpinBox] = {}
 
         tabela = QTableWidget(len(DENOMINACOES_BRL), 2)
         tabela.setHorizontalHeaderLabels(["Denominação", "Quantidade"])
         tabela.verticalHeader().setVisible(False)
-        ajustar_colunas(tabela, 0)
+        tabela.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        tabela.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        # Colunas fixas por papel: a denominação estica e a quantidade tem largura
+        # própria. Com `ajustar_colunas` a coluna da quantidade ficava do tamanho do
+        # cabeçalho (~70 px) e o `QSpinBox` era cortado — o dígito sumia debaixo das
+        # setas e a seta direita ficava fora da célula.
+        cabecalho = tabela.horizontalHeader()
+        cabecalho.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        cabecalho.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        tabela.setColumnWidth(1, LARGURA_COLUNA_QUANTIDADE)
+        tabela.verticalHeader().setDefaultSectionSize(ALTURA_LINHA_CONFERENCIA)
+        tabela.horizontalHeader().setMinimumSectionSize(LARGURA_COLUNA_QUANTIDADE // 2)
         for linha, denominacao in enumerate(DENOMINACOES_BRL):
             tabela.setItem(linha, 0, QTableWidgetItem(ROTULOS_DENOMINACAO[denominacao]))
             campo = QSpinBox()
             campo.setRange(0, 9_999)
+            campo.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            campo.setMinimumWidth(96)
+            campo.setMinimumHeight(30)
+            campo.setFixedHeight(32)
+            campo.setToolTip(f"Quantas cédulas/moedas de {ROTULOS_DENOMINACAO[denominacao]}?")
             campo.valueChanged.connect(self._recalcular)
             self.campos[denominacao] = campo
             tabela.setCellWidget(linha, 1, campo)
+        # Altura para as 12 denominações de uma vez: antes abria com 5 linhas e o
+        # conferente tinha de rolar a tabela para contar o resto da gaveta. Em tela
+        # baixa o teto de `ajustar_dialogo` manda e a rolagem volta a aparecer.
+        altura_linha = max(tabela.verticalHeader().defaultSectionSize(), 28)
+        tabela.setMinimumHeight(
+            max(cabecalho.height(), 28) + altura_linha * len(DENOMINACOES_BRL) + 6
+        )
 
         self.rotulo_contado = QLabel()
         self.rotulo_diferenca = QLabel()
         self.rotulo_esperado = QLabel(esperado.formatado())
         self.campo_motivo = QLineEdit()
         self.campo_motivo.setPlaceholderText("motivo da diferença (obrigatório se houver diferença)")
+        self.campo_motivo.setMinimumWidth(240)
         self.esperado = esperado
 
         resumo = QFormLayout()

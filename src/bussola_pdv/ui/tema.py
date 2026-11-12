@@ -407,6 +407,9 @@ QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
     color: {suave};
 }}
 QComboBox {{ padding-right: 20px; }}
+/* Respiro no `QSpinBox`: as setas ficam dentro da moldura e o dígito não passa
+   por baixo delas (relato da conferência de gaveta, campo de quantidade cortado). */
+QSpinBox, QDoubleSpinBox {{ padding-right: 16px; min-height: 20px; }}
 QComboBox QAbstractItemView {{
     background: {p.superficie};
     border: 1px solid {p.borda};
@@ -512,9 +515,14 @@ QToolTip {{
     border: 1px solid {sombra_linha};
     border-radius: 6px;
 }}
+QScrollArea#rolagemDialogo, QScrollArea#rolagemDialogo > QWidget > QWidget {{
+    background: transparent;
+    border: none;
+}}
+
 #loginMarca {{
     background: {p.primaria};
-    color: {branco};
+    color: {texto_botao};
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     padding: 16px;
@@ -523,6 +531,24 @@ QToolTip {{
 }}
 #loginSubtitulo {{ color: {suave}; font-size: 8.5pt; }}
 """
+
+
+def tinta_do_botao(widget: object) -> str:
+    """Cor de texto/ícone legível sobre a cor primária, na paleta em vigor.
+
+    O ícone do botão principal era branco fixo: com uma marca de primária clara
+    (rosa claro, areia, cinza) ele sumia no fundo — o mesmo defeito que a faixa do
+    título do login tinha. `QPalette.Highlight` guarda a primária da loja e
+    `WindowText` o texto; a escolha é por razão de contraste (WCAG).
+    """
+    from PySide6.QtGui import QPalette
+
+    from ..dominio.marca import tinta_sobre
+
+    paleta = widget.palette()  # type: ignore[attr-defined]
+    primaria = paleta.color(QPalette.ColorRole.Highlight).name().upper()
+    texto = paleta.color(QPalette.ColorRole.WindowText).name().upper()
+    return tinta_sobre(primaria, escura=texto)
 
 
 def folha_estilo_da_marca(marca: Marca) -> str:
