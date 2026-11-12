@@ -511,6 +511,29 @@ próxima abertura o programa volta ao assistente de primeiro uso.
 
 ---
 
+## Reinstalar o programa sem perder os dados
+
+A base **não** fica na pasta do programa (fica em `%LOCALAPPDATA%\BussolaPDV` ou
+na pasta escolhida no primeiro uso). Desinstalar e reinstalar não apaga os dados.
+Para não depender da sorte:
+
+1. **Antes de desinstalar**, gere uma cópia: `Backup\backup_externo.bat` (na
+   pasta do programa) ou *Administração › Manutenção › Gerar cópia agora*.
+2. **Leve a cópia para fora da máquina** (pen drive). A pasta de dados também
+   pode ser copiada inteira com o programa fechado.
+3. Anote a pasta de dados em uso: `bussola dados --mostrar`.
+4. Desinstale/reinstale. O instalador não toca na pasta de dados.
+5. Abra o programa; se ele não achar a base esperada, aponte a pasta em
+   *Administração › Manutenção › Alterar pasta dos dados…*.
+6. Confira **Vendas** do dia e **Fechamento do dia** antes de voltar a vender.
+
+Se o programa **não abrir**, o backup continua possível: `Backup\backup_externo.bat`
+usa só o Python padrão e não depende do aplicativo. O guia completo, com
+recuperação de base danificada e migração para outro computador, está em
+[docs/BACKUP.md](BACKUP.md).
+
+---
+
 ## Fuso horário (a causa do `WinError 32` no primeiro uso)
 
 O PDV grava instantes em UTC e mostra tudo no fuso da loja
@@ -563,6 +586,8 @@ Se aparecer `Aviso: … falta o pacote tzdata`, rode `python -m pip install tzda
 | `ImportError: DLL load failed while importing QtCore` | falta o *Visual C++ Redistributable* ou wheel corrompido | instale `vc_redist.x64.exe`; depois `python -m pip install --force-reinstall PySide6-Essentials` |
 | Duplo clique no `.exe` não abre nada | erro silencioso em app sem console | rode `BussolaPDV-console.exe` no Prompt de Comando e leia a mensagem |
 | `database is locked` | outra instância aberta, ou base em pasta sincronizada/rede | feche as outras instâncias; mova a base para disco local |
+| “Nenhuma cópia automática” em Manutenção | pasta de cópias sem permissão de escrita (por exemplo, escolhida dentro de `Program Files`) | escolha outra pasta em *Manutenção › Destino das cópias* |
+| Ainda tenho os dados, mas o programa não abre | base corrompida ou atualização interrompida | `Backup\backup_externo.bat recuperar` e depois `verificar`; se não servir, restaure a cópia mais recente ([docs/BACKUP.md](BACKUP.md)) |
 | `ModuleNotFoundError: No module named 'tzdata'` ou `ZoneInfoNotFoundError: No time zone found with key America/Sao_Paulo` | Python do Windows sem a base IANA de fusos | `python -m pip install tzdata` (ou reinstale com `pip install -e .`). Nas versões até 0.8.1 o erro aparecia como **`PermissionError: [WinError 32] … pdv.db já está sendo usado`** — era só o sintoma |
 | Mensagem `A base anterior não estava utilizável … guardada como pdv.db.antigo-AAAA…DB` | a base aberta não era um SQLite válido (instalação interrompida) | se havia vendas nela, pare o programa, renomeie o `.antigo-…` de volta para `pdv.db` e peça suporte; senão, ignore |
 | “Não há nenhum usuário” na tela de login | base criada mas sem Admin Master | rode `bussola init --forcar` (apaga a base) ou, no executável, apague `pdv.db` e reabra |

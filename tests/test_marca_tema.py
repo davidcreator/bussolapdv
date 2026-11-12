@@ -13,7 +13,9 @@ from bussola_pdv.dominio.marca import (
     PRESET_PERSONALIZADO,
     Marca,
     Paleta,
+    garantir_contraste,
     razao_contraste,
+    tinta_sobre,
 )
 from bussola_pdv.ui.tema import folha_estilo, folha_estilo_da_marca
 
@@ -192,6 +194,93 @@ class TestServicoMarca:
         restaurada = servico.restaurar_padrao(cenario.admin)
         assert restaurada.nome_fantasia == Marca.padrao().nome_fantasia
         assert restaurada.preset == "BUSSOLA"
+
+
+class TestContrasteDasCores:
+    """Relato de campo: áreas com texto ilegível (Windows em modo escuro e
+    amostras de cor com tinta branca sobre amarelo)."""
+
+    def test_tinta_sobre_amarelo_e_escura(self):
+        # #FFC107 com branco dava 1,63:1 — na prática, texto invisível.
+        assert razao_contraste("#FFFFFF", "#FFC107") < 2.0
+        assert tinta_sobre("#FFC107") == "#1F1F1F"
+        assert razao_contraste(tinta_sobre("#FFC107"), "#FFC107") >= 4.5
+
+    def test_tinta_sobre_azul_escuro_e_branca(self):
+        assert tinta_sobre("#0D6EFD") == "#FFFFFF"
+        assert tinta_sobre("#343A40") == "#FFFFFF"
+
+    def test_tinta_sobre_verde_agua_escurece_o_texto(self):
+        assert tinta_sobre("#17A2B8") == "#1F1F1F"  # branco dava 3,04:1
+
+    @pytest.mark.parametrize(
+        "cor",
+        ["#6C757D", "#9AA0A6", "#B0B0B0", "#FFC107", "#ADB5BD"],
+    )
+    def test_texto_suave_claro_e_corrigido_ate_a_legibilidade(self, cor):
+        ajustada = garantir_contraste(cor, "#F4F6F9")
+        assert razao_contraste(ajustada, "#F4F6F9") >= 4.5
+
+    def test_garantir_contraste_nao_mexe_no_que_ja_passa(self):
+        assert garantir_contraste("#212529", "#F4F6F9") == "#212529"
+
+    def test_fundo_escuro_clareia_o_texto(self):
+        assert razao_contraste(garantir_contraste("#555555", "#101010"), "#101010") >= 4.5
+
+    def test_folha_usa_o_texto_suave_corrigido(self):
+        escura = folha_estilo(Paleta(texto_suave="#B0B0B0"))
+        assert "#B0B0B0" not in escura  # a tinta fraca não vai para a tela
+        assert f"color: {Paleta().texto_suave}" in folha_estilo()  # ≥ 4,5:1 no fundo
+
+    def test_folha_pinta_o_fundo_da_rolagem(self):
+        """Sem isto, o Windows em modo escuro deixava preto atrás dos cartões."""
+        css = folha_estilo()
+        assert "QScrollArea > QWidget > QWidget { background: #F4F6F9; }" in css
+        assert "#pagina, #paginaRolavel { background: #F4F6F9; }" in css
+
+    def test_aviso_quando_o_texto_secundario_ficaria_ilegivel(self):
+        paleta = Paleta(texto_suave="#B0B0B0")
+        assert any("secundário" in aviso for aviso in paleta.avisos())
+
+
+class TestPaletaDoQt:
+    """A paleta do Qt é fixada pela marca — o tema do Windows não manda."""
+
+    def test_paleta_do_tema_usa_as_cores_da_loja(self):
+        from bussola_pdv.ui.tema import paleta_do_tema
+
+        pytest.importorskip("PySide6.QtGui", reason="Qt ausente")
+        from PySide6.QtGui import QPalette
+
+        paleta = Paleta(primaria="#0057B7", fundo="#FAFAFA", texto="#101010")
+        qt = paleta_do_tema(paleta)
+        assert qt.color(QPalette.ColorRole.Window).name().lower() == "#fafafa"
+        assert qt.color(QPalette.ColorRole.WindowText).name().lower() == "#101010"
+        assert qt.color(QPalette.ColorRole.Highlight).name().lower() == "#0057b7"
+
+    def test_criar_aplicacao_ignora_o_tema_escuro_do_sistema(self):
+        pytest.importorskip("PySide6.QtWidgets", reason="Qt ausente")
+        import os
+
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PySide6.QtGui import QColor, QPalette
+        from PySide6.QtWidgets import QApplication
+
+        from bussola_pdv.ui.app import criar_aplicacao
+
+        app = criar_aplicacao()
+        assert isinstance(app, QApplication)
+        # simula o Windows entregando a paleta escura DEPOIS da criação
+        escura = QPalette()
+        escura.setColor(QPalette.ColorRole.Window, QColor("#202020"))
+        escura.setColor(QPalette.ColorRole.Base, QColor("#2B2B2B"))
+        app.setPalette(escura)
+
+        from bussola_pdv.ui.app import fixar_aparencia_clara
+
+        fixar_aparencia_clara(app)
+        assert app.palette().color(QPalette.ColorRole.Window).name().lower() == "#f4f6f9"
+        assert app.palette().color(QPalette.ColorRole.Base).name().lower() == "#ffffff"
 
 
 class TestFolhaDeEstilo:

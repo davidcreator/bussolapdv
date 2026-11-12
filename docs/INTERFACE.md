@@ -42,7 +42,8 @@ Tudo sai de `dominio/marca.Paleta` e vira QSS em `ui/tema.py`. A skin padrão é
 | `destaque` | `#FFC107` | item ativo da navegação, avisos |
 | `fundo` | `#F4F6F9` | fundo do conteúdo |
 | `superficie` | `#FFFFFF` | cartões, tabelas, barra superior |
-| `texto` / `texto_suave` | `#212529` / `#6C757D` | texto principal / secundário |
+| `texto` / `texto_suave` | `#212529` / `#5F686F` | texto principal / secundário (cinza corrigido para ≥4,5:1 sobre o fundo) |
+| primária sobre texto | decisão automática | `tinta_sobre(cor)` escolhe branco ou quase-preto pela razão de contraste |
 | `sucesso` / `alerta` / `erro` | `#198754` / `#856404` / `#B02A37` | estados |
 | `borda` | `#DEE2E6` | bordas e divisórias |
 | `entrada` | `#FFFFFF` | fundo de campos |
@@ -92,6 +93,15 @@ Peças que reagem à largura:
 - **`CascaResponsiva`** — herdado por `JanelaPrincipal` e `JanelaAdmin`: recolhe a sidebar na faixa
   compacta, esconde os complementos e ajusta margens. O botão do menu continua valendo: a escolha
   manual do operador dura até a janela mudar de faixa.
+- **Contraste é requisito, não acabamento.** Antes e depois, com a paleta escura do Windows
+  aplicada de propósito:
+  ![antes](capturas/26_tema_escuro_antes.png)
+  ![depois](capturas/27_tema_escuro_depois.png) `criar_aplicacao()` fixa estilo `Fusion` e uma
+  `QPalette` clara derivada da marca (`tema.paleta_do_tema`): com o Windows em modo escuro, o Qt
+  entregava paleta escura e o `QScrollArea` transparente mostrava preto atrás dos cartões. A folha
+  pinta `QScrollArea`, o viewport e `#pagina`. A tinta de rótulo sobre cor (`tinta_sobre`) e o cinza
+  do texto secundário (`garantir_contraste`) saem da **razão de contraste WCAG** — 4,5:1 para texto
+  pequeno —, não de luminosidade média.
 - **`Cartao`** — cabeçalho em grade: abaixo de 640 px de cartão, as ferramentas ("Exportar", resumo da
   consulta) descem para a segunda linha em vez de alargar a página. Dentro da moldura de ferramentas há
   um `FluxoDeAcoes`: com "Exportar" **e** "Imprimir" lado a lado a soma das larguras voltava a impor

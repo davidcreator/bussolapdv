@@ -27,6 +27,7 @@ from pathlib import Path
 
 from . import __app_name__, __version__
 from .aplicacao.autenticacao import ServicoAutenticacao
+from .aplicacao.backup import ServicoBackup, inspecionar
 from .aplicacao.contexto import Contexto
 from .aplicacao.exportacao import ServicoExportacao
 from .aplicacao.impressao import ServicoImpressao
@@ -49,7 +50,7 @@ from .dominio.relatorio import Relatorio
 from .dominio.relogio import FUSO_PADRAO, RelogioFixo, RelogioSistema, avisos_de_fuso
 from .dominio.usuario import Acao, Perfil
 from .infra.massa_demo import popular, relogio_demo
-from .infra.sqlite.conexao import abrir_conexao, fazer_backup, verificar_integridade
+from .infra.sqlite.conexao import abrir_conexao, fazer_backup
 
 
 def _contexto(args: argparse.Namespace) -> Contexto:
@@ -130,23 +131,97 @@ def cmd_info(args: argparse.Namespace) -> int:
 
 
 def cmd_backup(args: argparse.Namespace) -> int:
+    """Cópia de segurança: criar, listar, verificar, restaurar ou recuperar.
+
+    O padrão continua sendo criar uma cópia verificada. `--restaurar` e
+    `--recuperar` existem para o dia em que a interface não abre: são a mesma
+    operação do `ferramentas/backup_externo.py`, mas com o pacote instalado.
+    """
+    if args.verificar:
+        return _verificar_copia(args)
+    if args.listar:
+        return _listar_copias(args)
+    if args.restaurar:
+        return _restaurar_copia(args)
+    if args.recuperar:
+        return _recuperar_base(args)
+
     _exigir_banco(args.banco)
-    origem = abrir_conexao(args.banco, somente_leitura=True)
-    destino = Path(args.destino)
-    if destino.is_dir() or not destino.suffix:
-        carimbo = ctx_stamp()
-        destino = destino / f"bussola-{carimbo}.db"
-    caminho = fazer_backup(origem, destino)
-    origem.close()
-    # Confere a cópia abrindo o arquivo gerado em modo somente leitura.
-    copia = abrir_conexao(caminho, somente_leitura=True)
-    integro, problemas = verificar_integridade(copia)
-    copia.close()
-    print(f"Backup gravado: {caminho.resolve()}")
-    print(f"Verificação da cópia: {'OK' if integro else 'FALHA'}")
-    for problema in problemas:
-        print(f"  - {problema}")
-    return 0 if integro else 1
+    ctx = Contexto.abrir(Path(args.banco))
+    try:
+        servico = ServicoBackup(ctx)
+        copia = (
+            servico.automatico(destino=args.destino, manter=args.manter)
+            if args.automatico
+            else servico.criar(rotulo="manual", destino=args.destino)
+        )
+    finally:
+        ctx.fechar()
+    if copia is None:
+        print("Já existe cópia automática recente; nada a fazer.")
+        return 0
+    print(f"Backup gravado: {copia.arquivo.resolve()}")
+    print(f"  {copia.resumo()}")
+    print(f"  registros: {copia.contagens}")
+    print(f"  manifesto: {copia.manifesto.name} (sha256 {copia.sha256[:16]}…)")
+    return 0
+
+
+def _verificar_copia(args: argparse.Namespace) -> int:
+    info = inspecionar(args.verificar)
+    print(f"Arquivo: {info.arquivo}")
+    print(f"Integridade: {'OK' if info.integro else 'FALHA'} — {info.detalhe}")
+    print(f"  {info.resumo()}")
+    print(f"  registros: {info.contagens}")
+    return 0 if info.integro else 2
+
+
+def _listar_copias(args: argparse.Namespace) -> int:
+    pasta = Path(args.destino)
+    for arquivo in sorted(pasta.glob("*.db")):
+        info = inspecionar(arquivo)
+        print(f"{info.nome}  {'íntegra' if info.integro else 'COM PROBLEMAS'}")
+        print(f"  {info.resumo()}")
+    return 0
+
+
+def _restaurar_copia(args: argparse.Namespace) -> int:
+    _exigir_banco(args.banco)
+    ctx = Contexto.abrir(Path(args.banco))
+    copia = inspecionar(args.restaurar)
+    if not copia.integro:
+        print(f"Cópia inválida: {copia.detalhe}", file=sys.stderr)
+        ctx.fechar()
+        return 2
+    seguranca = ServicoBackup(ctx).restaurar_arquivo(args.restaurar)
+    print(f"Base restaurada a partir de {args.restaurar}")
+    print(f"Base anterior guardada em {seguranca}")
+    print("Abra o programa e confira o fechamento do dia antes de voltar a vender.")
+    return 0
+
+
+def _recuperar_base(args: argparse.Namespace) -> int:
+    origem = Path(args.recuperar)
+    destino = origem.with_name(f"{origem.stem}-recuperado.db")
+    ctx = Contexto.abrir(Path(args.banco)) if Path(args.banco).exists() else None
+    try:
+        if ctx is not None:
+            copia = ServicoBackup(ctx).recuperar(origem, destino)
+        else:  # sem base saudável por perto, cria um contexto temporário para o relógio
+            from .aplicacao.contexto import Contexto as _Contexto
+
+            temporario = _Contexto.em_memoria()
+            try:
+                copia = ServicoBackup(temporario).recuperar(origem, destino)
+            finally:
+                temporario.fechar()
+    finally:
+        if ctx is not None:
+            ctx.fechar()
+    print(f"Base recuperada: {copia.arquivo}")
+    print(f"  {copia.detalhe}")
+    print(f"  {copia.resumo()}")
+    return 0 if copia.integro else 1
 
 
 def cmd_fechamento(args: argparse.Namespace) -> int:
@@ -426,9 +501,20 @@ def construir_parser() -> argparse.ArgumentParser:
     p_info.add_argument("--banco", default="dados/bussola.db")
     p_info.set_defaults(func=cmd_info)
 
-    p_backup = sub.add_parser("backup", help="backup consistente com verificação")
+    p_backup = sub.add_parser(
+        "backup",
+        help="cópia de segurança verificada (criar, listar, verificar, restaurar, recuperar)",
+    )
     p_backup.add_argument("--banco", default="dados/bussola.db")
-    p_backup.add_argument("--destino", default="copias/")
+    p_backup.add_argument(
+        "--destino", default=None, help="pasta das cópias (padrão: <dados>/copias)"
+    )
+    p_backup.add_argument("--listar", action="store_true", help="lista as cópias da pasta")
+    p_backup.add_argument("--automatico", action="store_true", help="só cria se a última tiver 24 h")
+    p_backup.add_argument("--manter", type=int, default=14, help="quantas automáticas guardar")
+    p_backup.add_argument("--restaurar", default=None, metavar="ARQUIVO")
+    p_backup.add_argument("--verificar", default=None, metavar="ARQUIVO")
+    p_backup.add_argument("--recuperar", default=None, metavar="ARQUIVO")
     p_backup.set_defaults(func=cmd_backup)
 
     p_fech = sub.add_parser("fechamento", help="relatório de fechamento do dia")

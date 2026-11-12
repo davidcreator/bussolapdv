@@ -50,6 +50,44 @@ def razao_contraste(cor_a: str, cor_b: str) -> float:
     return round((brilho_a + 0.05) / (brilho_b + 0.05), 2)
 
 
+def tinta_sobre(fundo: str, *, clara: str = "#FFFFFF", escura: str = "#1F1F1F") -> str:
+    """Cor de texto legível sobre `fundo`: a de maior contraste, não a "mais bonita".
+
+    A heurística antiga era luminosidade média (`lightnessF() > 0.6`), que erra
+    justamente nas tintas em que a leitura falha: no amarelo de destaque
+    `#FFC107` ela escolhia texto branco — 1,63:1, praticamente invisível. Aqui a
+    decisão é a razão de contraste WCAG.
+    """
+    return clara if razao_contraste(clara, fundo) >= razao_contraste(escura, fundo) else escura
+
+
+def garantir_contraste(cor: str, fundo: str, *, alvo: float = 4.5, passos: int = 20) -> str:
+    """Escurece (fundo claro) ou clareia (fundo escuro) `cor` até passar de `alvo`.
+
+    Serve para o texto secundário de uma loja que escolheu um cinza claro demais:
+    em vez de exibir ajuda e rodapé ilegíveis, a interface aproxima a tinta do
+    preto (ou do branco) o mínimo necessário — e só o mínimo, para não perder a
+    hierarquia visual.
+    """
+    if razao_contraste(cor, fundo) >= alvo:
+        return cor
+    destino = "#000000" if _luminancia(fundo) > 0.5 else "#FFFFFF"
+    for passo in range(1, passos + 1):
+        candidata = _misturar_hex(cor, destino, passo / passos)
+        if razao_contraste(candidata, fundo) >= alvo:
+            return candidata
+    return destino
+
+
+def _misturar_hex(cor: str, outra: str, fator: float) -> str:
+    canais = []
+    for inicio in (1, 3, 5):
+        a = int(cor[inicio : inicio + 2], 16)
+        b = int(outra[inicio : inicio + 2], 16)
+        canais.append(round(a + (b - a) * fator))
+    return "#" + "".join(f"{canal:02X}" for canal in canais)
+
+
 @dataclass(frozen=True, slots=True)
 class Paleta:
     """Cores da interface. Nomes funcionais, não nomes de tinta."""
@@ -64,7 +102,10 @@ class Paleta:
     fundo: str = "#F4F6F9"
     superficie: str = "#FFFFFF"
     texto: str = "#212529"
-    texto_suave: str = "#6C757D"
+    # Cinza do Bootstrap 5 escurecido: o #6C757D original dá 4,33:1 sobre o fundo
+    # #F4F6F9 — abaixo de WCAG AA (4,5:1) para texto pequeno, que é onde ele é
+    # usado (ajuda, rodapé, descrição de seção). Ver `garantir_contraste`.
+    texto_suave: str = "#5F686F"
     sucesso: str = "#198754"
     alerta: str = "#856404"
     erro: str = "#B02A37"
@@ -97,6 +138,15 @@ class Paleta:
             mensagens.append(
                 f"Contraste branco/primária de {self.contraste_branco_primaria}:1 "
                 "deixa títulos e cabeçalhos ilegíveis."
+            )
+        # O texto secundário aparece sobre o fundo da janela (ajuda, rodapé,
+        # descrição de seção) e sobre os cartões brancos. WCAG AA pede 4,5:1 nos
+        # dois: a interface corrige automaticamente, mas a loja precisa saber.
+        if razao_contraste(self.texto_suave, self.fundo) < 4.5:
+            mensagens.append(
+                f"Texto secundário sobre o fundo: "
+                f"{razao_contraste(self.texto_suave, self.fundo)}:1 "
+                "(a interface escurece até 4,5:1)."
             )
         if razao_contraste(self.texto_suave, self.superficie) < 3.0:
             mensagens.append("Texto suave com contraste baixo; ajuda e rodapés ficarão ilegíveis.")

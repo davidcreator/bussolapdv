@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...aplicacao.administracao import ServicoAdministracao
+from ...aplicacao.backup import ServicoBackup
 from ...aplicacao.contexto import Contexto
 from ...caminhos import (
     banco_em,
@@ -32,7 +33,20 @@ from ...dominio.usuario import Acao, Usuario
 from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
-PASTA_PADRAO = Path("copias")
+
+def pasta_padrao_das_copias() -> Path:
+    """Pasta sugerida: dentro da pasta de dados, nunca relativa ao diretório atual.
+
+    A versão anterior usava `Path("copias")` — relativo ao diretório de trabalho
+    do processo, que num instalador em `Program Files` não aceita escrita. Ou
+    seja: o botão "Gerar cópia agora" falhava justamente em quem mais precisa.
+    """
+    from ...caminhos import pasta_de_copias
+
+    try:
+        return pasta_de_copias()
+    except OSError:  # pragma: no cover - pasta de dados somente leitura
+        return Path.home() / "BussolaPDV" / "copias"
 
 
 class SecaoManutencao(QWidget):
@@ -77,7 +91,7 @@ class SecaoManutencao(QWidget):
 
         grupo_destino = QGroupBox("Destino das cópias")
         linha_destino = QHBoxLayout(grupo_destino)
-        self.campo_destino = QLineEdit(str(PASTA_PADRAO))
+        self.campo_destino = QLineEdit(str(pasta_padrao_das_copias()))
         self.botao_pasta = QPushButton("Escolher pasta…")
         self.botao_pasta.setObjectName("secundario")
         self.botao_pasta.clicked.connect(self._escolher_pasta)
@@ -88,6 +102,34 @@ class SecaoManutencao(QWidget):
         linha_destino.addWidget(self.botao_pasta)
         linha_destino.addWidget(self.botao_backup)
         layout.addWidget(grupo_destino)
+
+        grupo_auto = QGroupBox("Cópias automáticas (para reinstalar sem perder nada)")
+        layout_auto = QVBoxLayout(grupo_auto)
+        self.rotulo_auto = QLabel()
+        self.rotulo_auto.setObjectName("textoAjuda")
+        self.rotulo_auto.setWordWrap(True)
+        linha_auto = QHBoxLayout()
+        self.botao_auto = QPushButton("Criar cópia automática agora")
+        self.botao_auto.setObjectName("secundario")
+        self.botao_auto.clicked.connect(self._gerar_automatica)
+        self.botao_auto.setToolTip(
+            "O programa já cria uma por dia ao abrir. Este botão força a de agora."
+        )
+        linha_auto.addStretch(1)
+        linha_auto.addWidget(self.botao_auto)
+        layout_auto.addWidget(self.rotulo_auto)
+        self.rotulo_externo = QLabel(
+            "Se o programa não abrir, use o backup externo instalado junto "
+            "(pasta Backup do programa): backup_externo.bat — ele usa só o Python "
+            "padrão e não depende do Bússola PDV. Guia: docs/BACKUP.md."
+        )
+        # sem quebra de linha, este texto sozinho exigia 1354 px de página
+        self.rotulo_externo.setWordWrap(True)
+        self.rotulo_externo.setObjectName("textoAjuda")
+        layout_auto.addWidget(self.rotulo_externo)
+        layout_auto.addLayout(linha_auto)
+        layout.addWidget(grupo_auto)
+        self._atualizar_automatica()
 
         self.tabela = QTableWidget(0, 3)
         self.tabela.setHorizontalHeaderLabels(["Arquivo", "Tamanho", "Modificado"])
@@ -131,6 +173,37 @@ class SecaoManutencao(QWidget):
                 "Restaurar é exclusivo do Admin Master: substitui todos os dados."
             )
         self._copias: list[dict[str, object]] = []
+        self._listar()
+
+    # -- cópias automáticas --------------------------------------------------
+    def _atualizar_automatica(self) -> None:
+        servico = ServicoBackup(self.ctx)
+        ultima = servico.ultima_automatica(self.campo_destino.text())
+        if ultima is None:
+            self.rotulo_auto.setText(
+                "Nenhuma cópia automática nesta pasta. O programa cria uma por dia ao abrir "
+                "e mantém as 14 últimas — desde que a pasta aceite escrita."
+            )
+            return
+        quando = ultima.criado_em.strftime("%d/%m/%Y %H:%M") if ultima.criado_em else "?"
+        self.rotulo_auto.setText(
+            f"Última cópia automática: {quando} · {ultima.nome} · {ultima.resumo()}"
+        )
+
+    def _gerar_automatica(self) -> None:
+        if not self.usuario.pode(Acao.BACKUP_EXECUTAR):
+            self.mensagem.erro("Seu perfil não pode gerar cópias de segurança.")
+            return
+        try:
+            copia = ServicoBackup(self.ctx).automatico(destino=self.campo_destino.text())
+        except Exception as exc:
+            self.mensagem.erro(descrever_erro(exc))
+            return
+        if copia is None:
+            self.mensagem.alerta("Já existe uma cópia automática das últimas 24 horas.")
+        else:
+            self.mensagem.ok(f"Cópia automática criada e verificada: {copia.nome}.")
+        self._atualizar_automatica()
         self._listar()
 
     # -- pasta de dados -----------------------------------------------------

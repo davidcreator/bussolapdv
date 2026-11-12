@@ -20,7 +20,7 @@
 ;  * Sem tarefa agendada, sem serviço, sem acesso à rede: o app é offline.
 
 #ifndef AppVersion
-  #define AppVersion "0.8.2"
+  #define AppVersion "0.9.0"
 #endif
 #define AppName "Bússola Sistema PDV"
 #define AppShortName "BussolaPDV"
@@ -76,6 +76,11 @@ Name: "quicklaunchicon"; Description: "Criar atalho na barra de &tarefas"; Group
 Source: "..\dist\{#AppShortName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "AVISO.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LEIA-ME.txt"; DestDir: "{app}"; Flags: ignoreversion
+; Ferramenta de backup que NAO depende do programa (só biblioteca padrão do
+; Python): é o caminho quando o aplicativo não abre. Ver docs/BACKUP.md.
+Source: "..\ferramentas\backup_externo.py"; DestDir: "{app}\Backup"; Flags: ignoreversion
+Source: "..\ferramentas\backup_externo.bat"; DestDir: "{app}\Backup"; Flags: ignoreversion
+Source: "..\docs\BACKUP.md"; DestDir: "{app}\Backup"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"; Comment: "Abrir o PDV"

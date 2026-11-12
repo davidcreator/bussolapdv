@@ -2,6 +2,64 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.9.0] — 2026-11-11 — contraste legível e backup que sobrevive à reinstalação
+
+Dois relatos de campo nesta rodada: "as cores de algumas áreas do PDV estão
+gerando problemas de leitura" e "gere um recurso de backup caso seja preciso
+reinstalar, mesmo que o programa não esteja funcionando".
+
+### Corrigido — leitura
+
+- **Fundo preto atrás do conteúdo no Windows em modo escuro.** O Qt 6.5+ segue o
+  tema do sistema: com o Windows escuro, a paleta padrão vinha escura e o
+  `QScrollArea` (deixado transparente na v0.8.0) mostrava o preto atrás dos
+  cartões — descrição de seção, rodapé e faixas ficavam ilegíveis. Agora
+  `criar_aplicacao()` fixa estilo `Fusion` + `QPalette` clara derivada da marca
+  (`paleta_do_tema`), e a folha pinta `QScrollArea`, o viewport e `#pagina`.
+- **Texto branco sobre amarelo/verde-água nas amostras de cor.** A tinta do
+  rótulo vinha de luminosidade média (`lightnessF() > 0.6`), que erra no amarelo:
+  `#FFC107` com branco dá **1,63:1**. Agora a escolha é por **razão de contraste
+  WCAG** (`tinta_sobre`), a mesma regra usada nos botões.
+- **Cinza do texto secundário abaixo de AA**: `#6C757D` sobre `#F4F6F9` dava
+  **4,33:1**. O padrão passou a `#5F686F` (5,25:1) e a folha **corrige qualquer
+  paleta** nessa situação (`garantir_contraste`), aproximando a tinta do preto só
+  o necessário.
+- A prévia de acessibilidade em *Marca e tema* mostra as três medidas
+  (texto/superfície, branco/primária, secundário/fundo) e explica quando corrige.
+
+### Adicionado — backup
+
+- **`aplicacao/backup.py`: cópia com manifesto.** `ServicoBackup` cria a cópia
+  pela API do SQLite, verifica `integrity_check` + tabelas obrigatórias e grava
+  `*.manifesto.json` com data, versão do app, versão do esquema, contagem de
+  registros e `sha256`. O manifesto é legível sem o programa — de propósito.
+- **Cópia automática diária** ao abrir o programa (uma por 24 h, mantendo as 14
+  últimas; manual nunca é podada). Falha de backup não impede a loja de abrir:
+  vira aviso em `logs/erros.log`.
+- **`ferramentas/backup_externo.py` + `backup_externo.bat`**: backup que **não
+  depende do aplicativo** — só biblioteca padrão. Verbos `criar`, `listar`,
+  `verificar`, `restaurar` e `recuperar` (base danificada via `iterdump`).
+  Shipado nas pastas `Backup\` do executável e do instalador.
+- **CLI**: `bussola backup --listar | --verificar ARQ | --restaurar ARQ |
+  --recuperar ARQ | --automatico | --manter N`.
+- **Manutenção (interface)**: grupo "Cópias automáticas" com a última cópia, botão
+  para forçar a do dia e o caminho do backup externo. A pasta sugerida deixou de
+  ser `copias` relativa (que não aceita escrita em `Program Files`) e passou a ser
+  `<pasta de dados>\copias`.
+- **`docs/BACKUP.md`**: onde ficam os dados, os três tipos de cópia, recuperação
+  de base danificada e o **checklist de reinstalação** sem perder nada.
+
+### Verificado
+
+- 664 testes (28 novos), `ruff`, `mypy` (90 arquivos) e `make responsivo` verdes.
+- O tema foi conferido com a **paleta escura do sistema forçada** e as telas
+  capturadas (PDV, Caixa e Administração › Marca e tema) saem claras e legíveis.
+- A ferramenta externa roda em **processo separado com `PYTHONPATH` vazio**:
+  criar, listar, verificar (inclusive arquivo inválido → código 2), restaurar e
+  recuperar foram exercitados contra uma base de demonstração.
+- **Limite declarado**: nada disto rodou em Windows real; o `.bat` não tem teste
+  automatizado (o conteúdo é verificado só por leitura).
+
 ## [0.8.2] — 2026-11-11 — primeiro uso no Windows: fuso horário e base preservada
 
 Correção do erro relatado em campo: `PermissionError: [WinError 32] O arquivo já

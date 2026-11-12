@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
 
 from ..aplicacao.contexto import Contexto
-from ..diagnostico import registrar_aviso
+from ..diagnostico import registrar_aviso, resumo_do_erro
 from ..dominio.relogio import avisos_de_fuso
 from .admin.janela import contexto_marca
 from .janela import JanelaPrincipal
 from .login import DialogoLogin
-from .tema import FOLHA_ESTILO, folha_estilo_da_marca
+from .tema import FOLHA_ESTILO, folha_estilo_da_marca, paleta_do_tema
 
 
 def criar_aplicacao(argv: list[str] | None = None) -> QApplication:
@@ -25,16 +25,60 @@ def criar_aplicacao(argv: list[str] | None = None) -> QApplication:
     app = existente if isinstance(existente, QApplication) else QApplication(argv or sys.argv)
     app.setApplicationName("Bússola Sistema PDV Open Source")
     app.setOrganizationName("Bússola Sistema PDV Open Source")
+    fixar_aparencia_clara(app)
     app.setStyleSheet(FOLHA_ESTILO)
     return app
+
+
+def fixar_aparencia_clara(app: QApplication, paleta: object | None = None) -> None:
+    """Neutraliza o tema do sistema: a cor da interface é a da loja.
+
+    Windows 11 em modo escuro entrega ao Qt 6.5+ uma paleta escura. Sem fixar
+    estilo e paleta, o `QScrollArea` transparente mostrava o preto do sistema
+    atrás dos cartões e textos de seção ficavam ilegíveis — foi o relato do
+    contraste. `Fusion` desenha a partir da paleta (e não do tema nativo), então
+    o resultado é o mesmo em qualquer máquina.
+    """
+    from PySide6.QtWidgets import QStyleFactory
+
+    disponivel = {str(nome).lower() for nome in QStyleFactory.keys()}  # noqa: SIM118 - QStyleFactory é API Qt
+    if "fusion" in disponivel and app.style().objectName().lower() != "fusion":
+        app.setStyle(QStyleFactory.create("Fusion"))
+    app.setPalette(paleta_do_tema(paleta))  # type: ignore[arg-type]
 
 
 def aplicar_tema_da_loja(app: QApplication, contexto: Contexto) -> None:
     """Aplica a marca gravada no banco depois que a base foi aberta."""
     try:
-        app.setStyleSheet(folha_estilo_da_marca(contexto_marca(contexto)))
+        marca = contexto_marca(contexto)
+        fixar_aparencia_clara(app, marca.paleta)
+        app.setStyleSheet(folha_estilo_da_marca(marca))
     except Exception:  # pragma: no cover - tema corrompido não impede operar
+        fixar_aparencia_clara(app)
         app.setStyleSheet(FOLHA_ESTILO)
+
+
+def _backup_do_dia(contexto: Contexto) -> None:
+    """Cópia automática ao abrir: uma por dia, sem clique e sem travar a abertura.
+
+    Falha de backup nunca impede a loja de abrir — vira aviso no log. O que não se
+    aceita é o silêncio: quem não tem cópia não tem volta.
+    """
+    from ..aplicacao.backup import ServicoBackup
+
+    try:
+        copia = ServicoBackup(contexto).automatico()
+    except Exception as exc:  # disco cheio, pasta sem permissão, base em memória
+        registrar_aviso(
+            f"cópia automática não foi criada: {resumo_do_erro(exc)}",
+            contexto="inicialização: backup automático",
+        )
+        return
+    if copia is not None:
+        registrar_aviso(
+            f"cópia automática criada em {copia.arquivo} ({copia.bytes} bytes)",
+            contexto="inicialização: backup automático",
+        )
 
 
 def executar(
@@ -47,6 +91,7 @@ def executar(
     # chegar ao log: a loja continua abrindo, mas a data comercial usa UTC-3 fixo.
     for aviso in avisos_de_fuso():
         registrar_aviso(aviso, contexto="inicialização: fuso horário")
+    _backup_do_dia(contexto)
     aplicar_tema_da_loja(app, contexto)
 
     if login_automatico:

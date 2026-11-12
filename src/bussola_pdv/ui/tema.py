@@ -16,7 +16,12 @@ Duas garantias continuam valendo, como no resto do projeto:
 
 from __future__ import annotations
 
-from ..dominio.marca import FONTE_PADRAO, Marca, Paleta
+from typing import TYPE_CHECKING
+
+from ..dominio.marca import FONTE_PADRAO, Marca, Paleta, garantir_contraste, tinta_sobre
+
+if TYPE_CHECKING:  # a paleta só é construída quando há Qt de verdade
+    from PySide6.QtGui import QPalette
 
 #: Paleta padrão exposta como constantes para telas e testes que precisam de cor solta.
 _PADRAO = Paleta()
@@ -94,7 +99,12 @@ def folha_estilo(paleta: Paleta | None = None, fonte: str | None = None) -> str:
     familia = fonte or FONTE_PADRAO
 
     branco = "#FFFFFF"
-    texto_botao = branco if p.contraste_branco_primaria >= 3.0 else p.texto
+    # Tinta do botão pela razão de contraste: dourado/verde-claro pedem texto
+    # escuro; azul escuro pede texto branco. Antes o critério era só "3:1".
+    texto_botao = tinta_sobre(p.primaria, escura=p.texto)
+    # Texto secundário nunca abaixo de 4,5:1 sobre o fundo da janela (o pior caso,
+    # porque cartões são brancos). Vale para qualquer paleta que a loja escolher.
+    suave = garantir_contraste(p.texto_suave, p.fundo, alvo=4.5)
     # Derivadas da sidebar (o AdminLTE escurece/clareia a mesma tinta).
     lateral = p.primaria_escura
     lateral_hover = _misturar(lateral, branco, 0.10)
@@ -208,7 +218,7 @@ QListWidget#navegacao::item:selected {{
 }}
 #chipUsuario {{
     background: {p.fundo};
-    color: {p.texto_suave};
+    color: {suave};
     border: 1px solid {p.borda};
     border-radius: 11px;
     padding: 3px 10px;
@@ -230,11 +240,11 @@ QPushButton#botaoMenu:hover {{ background: {p.fundo}; }}
     font-weight: 600;
 }}
 #descricaoConteudo {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 8.5pt;
 }}
 #trilhaConteudo {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 8pt;
     padding-top: 4px;
 }}
@@ -257,11 +267,11 @@ QPushButton#botaoMenu:hover {{ background: {p.fundo}; }}
     font-weight: 600;
 }}
 #cartaoSubtitulo {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 8pt;
 }}
 #tituloSecao {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 7.5pt;
     font-weight: 700;
     padding: 2px 0;
@@ -282,7 +292,7 @@ QGroupBox::title {{
     left: 10px;
     top: 7px;
     padding: 0 6px;
-    color: {p.texto_suave};
+    color: {suave};
     background: {p.superficie};
     font-size: 8pt;
     font-weight: 700;
@@ -303,7 +313,7 @@ QGroupBox::title {{
 #caixaInfo[tonalidade="erro"] {{ border-left-color: {p.erro}; }}
 #caixaInfo[tonalidade="destaque"] {{ border-left-color: {p.destaque}; }}
 #caixaInfoRotulo {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 7.5pt;
     font-weight: 700;
 }}
@@ -313,7 +323,7 @@ QGroupBox::title {{
     font-weight: 700;
 }}
 #caixaInfoLegenda {{
-    color: {p.texto_suave};
+    color: {suave};
     font-size: 8pt;
 }}
 #caixaInfoIcone {{ background: transparent; }}
@@ -327,7 +337,7 @@ QGroupBox::title {{
 }}
 #selo[tonalidade="claro"] {{
     background: {p.fundo};
-    color: {p.texto_suave};
+    color: {suave};
     border: 1px solid {p.borda};
 }}
 #selo[tonalidade="primaria"] {{ background: {_misturar(p.primaria, "#FFFFFF", 0.86)}; color: {p.primaria}; }}
@@ -355,7 +365,7 @@ QPushButton:focus {{ border: 1px solid {p.destaque}; }}
 QPushButton:disabled {{
     background: {desabilitado};
     border-color: {p.borda};
-    color: {p.texto_suave};
+    color: {suave};
 }}
 QPushButton#secundario {{
     background: {p.superficie};
@@ -394,7 +404,7 @@ QLineEdit:read-only, QLineEdit[calculado="true"] {{
 }}
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
     background: {desabilitado};
-    color: {p.texto_suave};
+    color: {suave};
 }}
 QComboBox {{ padding-right: 20px; }}
 QComboBox QAbstractItemView {{
@@ -421,7 +431,7 @@ QTableWidget, QTableView, QTreeWidget, QListWidget#listaSimples {{
 QTableWidget::item, QTableView::item {{ padding: 4px 6px; }}
 QHeaderView::section {{
     background: {cabecalho_tabela};
-    color: {p.texto_suave};
+    color: {suave};
     padding: 6px 8px;
     border: none;
     border-bottom: 1px solid {p.borda};
@@ -433,7 +443,7 @@ QTableCornerButton::section {{ background: {cabecalho_tabela}; border: none; }}
 QTabWidget::pane {{ border: 1px solid {sombra_linha}; border-radius: 4px; background: {p.superficie}; }}
 QTabBar::tab {{
     background: {p.fundo};
-    color: {p.texto_suave};
+    color: {suave};
     padding: 6px 14px;
     border: 1px solid {sombra_linha};
     border-bottom: none;
@@ -455,7 +465,7 @@ QTabBar::tab:selected {{ background: {p.superficie}; color: {p.texto}; font-weig
 #mensagemOk {{ color: {p.sucesso}; font-weight: 600; }}
 #mensagemAlerta {{ color: {p.alerta}; font-weight: 600; }}
 #mensagemErro {{ color: {p.erro}; font-weight: 600; }}
-#textoAjuda {{ color: {p.texto_suave}; font-size: 8.5pt; }}
+#textoAjuda {{ color: {suave}; font-size: 8.5pt; }}
 #destaqueAdmin {{ color: {p.primaria}; font-weight: 700; font-size: 12pt; }}
 
 /* ---------- rodapé, status e diversos ---------- */
@@ -463,17 +473,23 @@ QTabBar::tab:selected {{ background: {p.superficie}; color: {p.texto}; font-weig
     background: {p.superficie};
     border-top: 1px solid {sombra_linha};
 }}
-#rodapeTexto {{ color: {p.texto_suave}; font-size: 8pt; }}
-QStatusBar {{ background: {p.superficie}; color: {p.texto_suave}; border-top: 1px solid {sombra_linha}; }}
-QStatusBar QLabel {{ color: {p.texto_suave}; background: transparent; }}
-QScrollArea {{ border: none; background: transparent; }}
+#rodapeTexto {{ color: {suave}; font-size: 8pt; }}
+QStatusBar {{ background: {p.superficie}; color: {suave}; border-top: 1px solid {sombra_linha}; }}
+QStatusBar QLabel {{ color: {suave}; background: transparent; }}
+/* Rolagem: o fundo é da loja, NUNCA o do tema do sistema. Com o Windows em
+   modo escuro o `QScrollArea` transparente deixava o preto do sistema aparecer
+   atrás dos cartões, e o texto do rodapé/cabeçalho de seção ficava ilegível. */
+QScrollArea {{ border: none; background: {p.fundo}; }}
+QScrollArea > QWidget > QWidget {{ background: {p.fundo}; }}
+QAbstractScrollArea::corner {{ background: {p.fundo}; }}
+#pagina, #paginaRolavel {{ background: {p.fundo}; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}
 QScrollBar::handle:vertical {{
     background: {_misturar(p.borda, "#000000", 0.12)};
     border-radius: 5px;
     min-height: 28px;
 }}
-QScrollBar::handle:vertical:hover {{ background: {p.texto_suave}; }}
+QScrollBar::handle:vertical:hover {{ background: {suave}; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 0; }}
 QScrollBar::handle:horizontal {{
@@ -505,12 +521,59 @@ QToolTip {{
     font-size: 13pt;
     font-weight: 700;
 }}
-#loginSubtitulo {{ color: {p.texto_suave}; font-size: 8.5pt; }}
+#loginSubtitulo {{ color: {suave}; font-size: 8.5pt; }}
 """
 
 
 def folha_estilo_da_marca(marca: Marca) -> str:
     return folha_estilo(marca.paleta, marca.fonte)
+
+
+def paleta_do_tema(paleta: Paleta | None = None) -> QPalette:
+    """`QPalette` clara derivada da marca, para o que o QSS não pinta.
+
+    O Qt 6.5+ segue o tema do Windows: com o sistema em modo escuro, a paleta
+    padrão vem escura e todo widget sem regra de folha de estilo (páginas dentro
+    do `QScrollArea`, fundo de diálogos, menus de combo, *placeholder* de campo)
+    ficava preto com texto escuro — ilegível. Fixar a paleta aqui mantém a
+    interface previsível em qualquer tema do sistema, e a cor continua sendo dado
+    (vem de `Marca`).
+    """
+    from PySide6.QtGui import QColor, QPalette
+
+    p = paleta or Paleta()
+    q = QPalette()
+    papel = QPalette.ColorRole
+    grupo = QPalette.ColorGroup
+    for ativo in (grupo.Active, grupo.Inactive):
+        q.setColor(ativo, papel.Window, QColor(p.fundo))
+        q.setColor(ativo, papel.WindowText, QColor(p.texto))
+        q.setColor(ativo, papel.Base, QColor(p.superficie))
+        q.setColor(ativo, papel.AlternateBase, QColor(_misturar(p.fundo, "#000000", 0.02)))
+        q.setColor(ativo, papel.Text, QColor(p.texto))
+        q.setColor(ativo, papel.Button, QColor(p.superficie))
+        q.setColor(ativo, papel.ButtonText, QColor(p.texto))
+        q.setColor(ativo, papel.BrightText, QColor("#FFFFFF"))
+        q.setColor(ativo, papel.Highlight, QColor(p.primaria))
+        q.setColor(ativo, papel.HighlightedText, QColor("#FFFFFF"))
+        q.setColor(ativo, papel.ToolTipBase, QColor(p.primaria_escura))
+        q.setColor(ativo, papel.ToolTipText, QColor("#FFFFFF"))
+        q.setColor(ativo, papel.PlaceholderText, QColor(garantir_contraste(p.texto_suave, p.superficie)))
+        q.setColor(ativo, papel.Light, QColor(p.superficie))
+        q.setColor(ativo, papel.Midlight, QColor(p.fundo))
+        q.setColor(ativo, papel.Mid, QColor(p.borda))
+        q.setColor(ativo, papel.Dark, QColor(_misturar(p.borda, "#000000", 0.25)))
+        q.setColor(ativo, papel.Shadow, QColor("#000000"))
+        q.setColor(ativo, papel.Link, QColor(p.primaria))
+        q.setColor(ativo, papel.LinkVisited, QColor(p.primaria_escura))
+    # Desabilitado: texto suave e fundo neutro, mas ainda legível (≥ 4.5:1).
+    q.setColor(grupo.Disabled, papel.Window, QColor(p.fundo))
+    q.setColor(grupo.Disabled, papel.WindowText, QColor(garantir_contraste(p.texto_suave, p.fundo)))
+    q.setColor(grupo.Disabled, papel.Base, QColor(p.superficie))
+    q.setColor(grupo.Disabled, papel.Text, QColor(garantir_contraste(p.texto_suave, p.superficie)))
+    q.setColor(grupo.Disabled, papel.Button, QColor(p.fundo))
+    q.setColor(grupo.Disabled, papel.ButtonText, QColor(garantir_contraste(p.texto_suave, p.fundo)))
+    return q
 
 
 #: Compatibilidade: folha padrão calculada uma vez.

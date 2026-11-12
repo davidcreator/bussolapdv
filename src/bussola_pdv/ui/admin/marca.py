@@ -21,7 +21,13 @@ from PySide6.QtWidgets import (
 
 from ...aplicacao.contexto import Contexto
 from ...aplicacao.marca import ServicoMarca
-from ...dominio.marca import PRESET_PERSONALIZADO, Marca, Paleta
+from ...dominio.marca import (
+    PRESET_PERSONALIZADO,
+    Marca,
+    Paleta,
+    razao_contraste,
+    tinta_sobre,
+)
 from ...dominio.usuario import Acao, Usuario
 from ..responsivo import FluxoDeAcoes, GradeDeCartoes, GradeQueReflui
 from .comum import Mensagem, descrever_erro
@@ -59,8 +65,9 @@ class BotaoCor(QPushButton):
 
     def _pintar(self, cor: str) -> None:
         self.cor = cor
-        claro = QColor(cor).lightnessF() > 0.6
-        tinta = "#1F1F1F" if claro else "#FFFFFF"
+        # Tinta pela razão de contraste (WCAG), não pela luminosidade média:
+        # no amarelo #FFC107 a heurística antiga escolhia branco (1,63:1).
+        tinta = tinta_sobre(cor)
         self.setText(f"{cor}  ·  {ROTULOS_COR[self.nome]}")
         self.setStyleSheet(
             f"QPushButton {{ background: {cor}; color: {tinta}; border: 1px solid #888;"
@@ -285,9 +292,11 @@ class SecaoMarca(QWidget):
             f" color: {paleta.texto}; padding: 5px; border-radius: 4px;"
         )
         avisos = paleta.avisos()
+        suave_no_fundo = razao_contraste(paleta.texto_suave, paleta.fundo)
         texto = (
-            f"Contraste texto/superfície: {paleta.contraste_texto_superficie}:1 · "
-            f"branco/primária: {paleta.contraste_branco_primaria}:1"
+            f"Texto/superfície: {paleta.contraste_texto_superficie}:1 · "
+            f"branco/primária: {paleta.contraste_branco_primaria}:1 · "
+            f"secundário/fundo: {suave_no_fundo}:1"
         )
         if avisos:
             self.rotulo_contraste.setText(texto + "\n⚠ " + " ".join(avisos))

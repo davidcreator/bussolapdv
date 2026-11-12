@@ -338,6 +338,67 @@ certo por loja.
 
 ---
 
+## ADR-023 — Backup em arquivo + manifesto, e uma ferramenta que não depende do app
+
+**Contexto.** O relato foi direto: *"gere um recurso para backups caso seja necessário reinstalar o
+programa e gere uma forma de fazer backup mesmo que o programa não esteja funcionando ou corrompeu"*.
+Até a v0.8.2 existia cópia manual verificada, mas ela morava dentro do aplicativo — o que é
+exatamente o pior lugar quando o aplicativo é o que quebrou.
+
+**Decisão.**
+
+1. **A cópia é um arquivo SQLite + um JSON ao lado.** Nada de formato proprietário, nada de índice
+   interno: `pdv-AAAAMMDD-HHMMSS.db` e `*.manifesto.json`. Qualquer ferramenta SQLite abre; qualquer
+   editor de texto lê o manifesto.
+2. **Manifesto com o que se pergunta no desespero:** quando, de que versão, de que esquema, quantos
+   registros e `sha256`. Sem o manifesto, quem acha o arquivo no pen drive três meses depois não sabe
+   se ele serve.
+3. **Cópia automática diária** ao abrir (uma por 24 h, mantendo as 14 últimas). Manual nunca é podada
+   pelo programa — quem guardou, guardou por algum motivo.
+4. **A ferramenta de recuperação não importa o pacote.** `ferramentas/backup_externo.py` usa só a
+   biblioteca padrão (Python 3.9+) e é o que vai na pasta `Backup\` do programa. Custo aceito:
+   duplicar ~200 linhas de descoberta de pasta e verificação; benefício: continua funcionando quando
+   `bussola_pdv` não importa, quando a atualização parou no meio e quando o Python do sistema mudou.
+5. **Instalação e dados nunca se misturam.** Reinstalar não apaga a base porque a base não mora na
+   pasta do programa (ADR anterior). O checklist está em `docs/BACKUP.md`.
+
+**Consequências.** O app ganha 4 arquivos novos e um serviço; a pasta `copias` deixa de ser relativa
+(não havia escrita em `Program Files`) e passa a `<pasta de dados>\copias`. A restauração com o
+programa aberto continua sendo do `ServicoManutencao` (API do SQLite, auditada); a do backup externo é
+de arquivo e **exige o programa fechado** — está escrito nos dois lugares.
+
+**Não decidido aqui:** criptografia da cópia (P9 continua aberta) e envio automático para fora da
+máquina (o projeto é offline por princípio).
+
+---
+
+## ADR-024 — Cor com contraste medido, não com luminosidade "a olho"
+
+**Contexto.** O relato: *"as cores de algumas áreas do PDV estão gerando problemas de leitura"*. Duas
+causas distintas, ambas de leitura:
+
+1. **Tema do sistema vazando.** O Qt 6.5+ segue o modo escuro do Windows. Como a folha de estilo
+   deixava `QScrollArea` transparente, o preto do sistema aparecia atrás dos cartões e atrás das
+   faixas de título de seção — com texto escuro por cima, ou claro demais.
+2. **Tinta escolhida por luminosidade média.** `lightnessF() > 0.6` no amarelo `#FFC107` dá 0,51 e
+   escolhia texto branco: **1,63:1**. Legível no papel do código, invisível na tela.
+
+**Decisão.**
+
+- A aplicação **fixa** estilo `Fusion` e `QPalette` clara derivada da marca; a folha pinta
+  `QScrollArea`, o viewport e `#pagina`. O tema do sistema deixa de influenciar.
+- A tinta de texto sobre cor vem de `tinta_sobre()` (maior razão de contraste WCAG), não de
+  luminosidade.
+- O cinza do texto secundário é **corrigido até 4,5:1** por `garantir_contraste()`: a loja continua
+  livre para escolher o cinza que quiser, mas a interface não deixa o texto cair abaixo de AA.
+- O valor padrão de `texto_suave` passou de `#6C757D` (4,33:1 sobre o fundo) para `#5F686F` (5,25:1).
+
+**Consequências.** As telas ficam iguais em qualquer tema do Windows — inclusive nos testes e nas
+capturas, que agora rodam com paleta escura forçada para provar isso. Custo: quem quiser o
+"cinza Bootstrap exato" não vai vê-lo na tela; ganha-se legibilidade.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |
@@ -350,6 +411,6 @@ certo por loja.
 | P6 | Retenção/LGPD | Dados mínimos; documento mascarado na UI | prazo de guarda e base legal |
 | P7 | Licença/titularidade | GPL-2.0-or-later declarada no `pyproject` | confirmar titular e imagens de referência |
 | P8 | Distribuição | Não empacotada nesta entrega | escolha PyInstaller/MSI + assinatura |
-| P9 | Backup criptografado | Backup com verificação; sem criptografia | decisão de chave e proteção |
+| P9 | Backup criptografado | Backup com manifesto e `sha256`; **sem criptografia** (v0.9.0) | decisão de chave e proteção |
 | P11 | Recuperação do Admin Master | Sem tela de recuperação; única saída é procedimento no banco | procedimento aceito pela loja (quem guarda a senha mestra) |
 | P10 | Importação da planilha | Não implementada | mapeamento e validação aprovados |

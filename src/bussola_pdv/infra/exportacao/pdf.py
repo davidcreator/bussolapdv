@@ -38,7 +38,7 @@ RESOLUCAO = 300
 ALTURA_RODAPE = 34  # pixels de dispositivo reservados ao rodapé
 COR_DESTAQUE = "#0D6EFD"
 COR_TEXTO = "#212529"
-COR_SUAVE = "#6C757D"
+COR_SUAVE = "#5F686F"  # mesmo cinza legível da interface (WCAG AA)
 COR_BORDA = "#DEE2E6"
 COR_ZEBRA = "#F4F6F9"
 

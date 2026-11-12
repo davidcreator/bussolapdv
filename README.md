@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.8.2).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.9.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -10,6 +10,8 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)), inclusive das telas de clientes, crediário, estoque e
 > do turno de caixa. Também imprime em **impressora comum (A4)** e em **térmica de bobina 58/80 mm**,
 > com prévia, corte, gaveta e código de barras ([docs/IMPRESSAO.md](docs/IMPRESSAO.md)).
+> Tem **backup automático diário com manifesto verificado**, restauração na interface e uma
+> ferramenta de backup que **não depende do programa** ([docs/BACKUP.md](docs/BACKUP.md)).
 > **Não é homologado para operação real**,
 > não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
 > sistema fiscal certificado.
@@ -50,10 +52,17 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
 - **Consultas de operação**: telas de **Clientes** (limite, em aberto, disponível, vencido),
   **Crediário** (parcelas, atraso em dias, saldo por título) e **Estoque** (saldo, mínimo, ponto de
   pedido, situação, valor a custo), cada uma com busca e exportação em Excel/PDF.
+- **Leitura garantida por contraste**: a paleta do Qt é fixada pela marca (tema escuro do Windows não
+  deixa faixa preta atrás dos cartões), a tinta de cada etiqueta colorida vem da razão de contraste
+  WCAG e o texto secundário é corrigido até 4,5:1 — mesmo quando a loja escolhe um cinza fraco.
 - **Interface no vocabulário do AdminLTE**: barra lateral recolhível com ícones desenhados no
   projeto, barra superior, trilha de navegação, cartões, indicadores (*small-box*), etiquetas de
   status e rodapé — tudo pintado pela paleta da loja.
-- **Backup consistente** pela API do SQLite, com verificação de integridade e teste de restauração.
+- **Backup que sobrevive à reinstalação**: cópia pela API do SQLite com **manifesto** (data, versões,
+  contagem de registros e `sha256`), **automática uma vez por dia** ao abrir o programa (mantém as 14
+  últimas), restauração na interface guardando a base anterior — e `ferramentas/backup_externo.py`,
+  que faz tudo isso **sem depender do programa** (só biblioteca padrão), inclusive recuperar base
+  danificada. Ver [docs/BACKUP.md](docs/BACKUP.md).
 - **Pasta de dados escolhível**: na primeira execução (com validação de escrita), depois em
   *Administração → Manutenção* ou por `bussola dados --definir "D:\PDV" --mover`; a escolha fica em
   `%APPDATA%\BussolaPDV\instalacao.json` e a origem é sempre reportada.
@@ -299,7 +308,10 @@ bussola info --banco dados/demo.db
 bussola relogio                      # fuso, data de negócio e aviso de `tzdata`
 bussola relogio --banco dados/demo.db
 bussola fechamento --banco dados/demo.db --data 2026-11-11
-bussola backup --banco dados/demo.db --destino copias/
+bussola backup --banco dados/demo.db            # cópia + manifesto, na pasta de dados
+bussola backup --listar                         # cópias, tamanho e integridade
+bussola backup --verificar copias/pdv-....db    # confere antes de confiar
+bussola backup --restaurar copias/pdv-....db    # (feche o programa antes)
 ```
 
 Sem instalar o pacote: `PYTHONPATH=src python -m bussola_pdv.cli <comando>`.
@@ -340,7 +352,7 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             636 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+tests/             664 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação, impressão (documento, PDF, ESC/POS, CLI) e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,
