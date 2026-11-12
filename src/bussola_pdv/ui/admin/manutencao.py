@@ -21,6 +21,13 @@ from PySide6.QtWidgets import (
 
 from ...aplicacao.administracao import ServicoAdministracao
 from ...aplicacao.contexto import Contexto
+from ...caminhos import (
+    banco_em,
+    definir_diretorio_de_dados,
+    diretorio_de_dados,
+    origem_do_diretorio,
+)
+from ...dominio.auditoria import AcaoAuditoria, EventoAuditoria
 from ...dominio.usuario import Acao, Usuario
 from .comum import Mensagem, descrever_erro
 
@@ -43,6 +50,29 @@ class SecaoManutencao(QWidget):
         ajuda.setWordWrap(True)
         ajuda.setObjectName("textoAjuda")
         layout.addWidget(ajuda)
+
+        # -- pasta de dados da instalação (a escolha também existe no primeiro uso)
+        grupo_dados = QGroupBox("Pasta de dados da instalação")
+        layout_dados = QVBoxLayout(grupo_dados)
+        self.rotulo_dados = QLabel()
+        self.rotulo_dados.setObjectName("textoAjuda")
+        self.rotulo_dados.setWordWrap(True)
+        linha_dados = QHBoxLayout()
+        self.botao_dados = QPushButton("Alterar pasta dos dados…")
+        self.botao_dados.setObjectName("secundario")
+        self.botao_dados.clicked.connect(self._alterar_pasta_dados)
+        self.botao_dados.setEnabled(usuario.eh_master)
+        if not usuario.eh_master:
+            self.botao_dados.setToolTip(
+                "Mudar a pasta de dados afeta todas as estações: só o Admin Master altera."
+            )
+        linha_dados.addStretch(1)
+        linha_dados.addWidget(self.botao_dados)
+        layout_dados.addWidget(self.rotulo_dados)
+        layout_dados.addLayout(linha_dados)
+        layout.addWidget(grupo_dados)
+        self._pasta_trocada_agora = False
+        self._atualizar_pasta_dados()
 
         grupo_destino = QGroupBox("Destino das cópias")
         linha_destino = QHBoxLayout(grupo_destino)
@@ -102,6 +132,69 @@ class SecaoManutencao(QWidget):
             )
         self._copias: list[dict[str, object]] = []
         self._listar()
+
+    # -- pasta de dados -----------------------------------------------------
+    def _atualizar_pasta_dados(self) -> None:
+        """Mostra a pasta em uso; o aviso de "reabra" só aparece após uma troca aqui."""
+        pasta = diretorio_de_dados()
+        origem = {
+            "BUSSOLA_DADOS": "definida pela variável de ambiente BUSSOLA_DADOS",
+            "configuracao": "escolhida na instalação",
+            "padrao": "padrão do sistema",
+        }.get(origem_do_diretorio(), origem_do_diretorio())
+        aviso = ""
+        if self._pasta_trocada_agora:
+            aviso = (
+                "<br><b>Esta sessão continua na base anterior.</b> Copie a base para "
+                "a pasta nova e reabra o programa."
+            )
+        self.rotulo_dados.setText(
+            f"<b>{pasta}</b> ({origem})<br>"
+            f"Base: {banco_em(pasta)} · cópias, relatórios e logs ficam em subpastas "
+            f"desta mesma pasta.{aviso}"
+        )
+
+    def _alterar_pasta_dados(self) -> None:
+        atual = diretorio_de_dados()
+        escolhida = QFileDialog.getExistingDirectory(
+            self, "Escolha a nova pasta de dados", str(atual)
+        )
+        if not escolhida:
+            return
+        try:
+            nova = definir_diretorio_de_dados(escolhida)
+        except Exception as exc:
+            self.mensagem.erro(descrever_erro(exc))
+            return
+        self._registrar_mudanca(atual, nova)
+        self._pasta_trocada_agora = True
+        self._atualizar_pasta_dados()
+        self.mensagem.ok(
+            f"Pasta de dados agora é {nova}. Copie a base atual para lá "
+            "(ou use `bussola dados --mover`) e reabra o programa — esta sessão "
+            "continua na base antiga."
+        )
+
+    def _registrar_mudanca(self, anterior: Path, nova: Path) -> None:
+        """Mudar onde os dados moram é decisão auditável (ADR-020)."""
+        agora = self.ctx.agora()
+        try:
+            with self.ctx.em_transacao():
+                self.ctx.auditoria.registrar(
+                    EventoAuditoria(
+                        acao=AcaoAuditoria.PARAMETRO_ALTERADO,
+                        criado_em_utc=agora,
+                        data_negocio=self.ctx.relogio.data_negocio(),
+                        ator_id=self.usuario.id,
+                        entidade="pasta_de_dados",
+                        entidade_id=str(nova),
+                        antes={"pasta": str(anterior)},
+                        depois={"pasta": str(nova)},
+                        motivo="Alteração da pasta de dados da instalação",
+                    )
+                )
+        except Exception as exc:  # auditoria não pode derrubar a tela
+            self.mensagem.alerta(f"Pasta alterada, mas o evento não foi auditado: {exc}")
 
     # -- ações --------------------------------------------------------------
     def _escolher_pasta(self) -> None:

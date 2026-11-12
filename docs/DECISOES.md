@@ -210,6 +210,44 @@ inteiro aparecem iguais no widget e na planilha.
 
 ---
 
+## ADR-020 — Pasta de dados escolhível, ponteiro fora dela e falha sempre visível
+
+**Contexto.** Duas queixas de quem instalou o programa: (1) clicar em **Criar instalação** não fazia
+nada; (2) não havia como escolher onde os dados ficam. A causa da primeira não era o botão: o diálogo
+só tratava `ErroBussola`, e qualquer outra exceção (permissão de pasta, arquivo travado por
+antivírus, base corrompida de uma tentativa anterior) escapava do slot do Qt. O PySide6 imprime isso
+no `stderr` — e o executável do Windows roda **sem console**. O erro existia; ninguém podia vê-lo.
+
+**Decisão.**
+
+1. **Toda falha de inicialização é visível.** `ui/primeiro_uso._criar` captura `Exception`, mostra tipo
+   e mensagem na própria caixa, grava o traceback em `logs/erros.log`; `ui/entrada.main` instala um
+   `sys.excepthook` (`diagnostico.instalar_captura_de_erros`) que faz o mesmo para qualquer exceção não
+   tratada. "Nada acontece" deixa de ser um estado possível.
+2. **A pasta de dados é escolhida na instalação** e pode ser trocada depois (CLI `bussola dados`,
+   Administração → Manutenção).
+3. **O ponteiro da escolha mora fora da pasta de dados** (`%APPDATA%\BussolaPDV\instalacao.json`;
+   `~/.config/bussola-pdv` no Linux). Se estivesse dentro da pasta de dados, mover os dados perderia o
+   ponteiro e a instalação voltaria ao padrão em silêncio.
+4. **Precedência fixa e explicável**: `BUSSOLA_DADOS` > pasta escolhida > padrão do sistema, com
+   `origem_do_diretorio()` para a tela/CLI dizerem qual das três está valendo.
+5. **A pasta é testada antes de abrir o banco.** Escolher uma pasta sem escrita falha com mensagem em
+   português, não com `unable to open database file`.
+
+**Alternativas descartadas.** *Guardar a escolha em tabela do próprio banco* — impossível: é preciso
+saber onde está o banco para lê-la. *Config em arquivo dentro da pasta de dados* — quebra ao mover a
+pasta. *Registro do Windows* — mais uma superfície específica de plataforma e sem ganho. *Mover os
+arquivos automaticamente ao trocar a pasta* — decide sobre dados do lojista sem confirmação; a escolha
+é registrar + avisar, e a cópia fica em `bussola dados --mover`, com verificação de integridade e sem
+apagar a origem.
+
+**Consequência.** O programa deixa de ter um diretório único e implícito: quem dá suporte precisa
+rodar `bussola dados` para saber onde a base está (e por quê). Em troca, o dado pode morar na unidade
+que o lojista quiser, sobrevive à desinstalação do programa e a instalação deixa de poder falhar em
+silêncio.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

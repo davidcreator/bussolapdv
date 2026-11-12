@@ -152,6 +152,23 @@ def main() -> int:
     capturar("14_tema_personalizado")
 
     janela.close()
+
+    # Primeiro uso: a tela onde se escolhe a pasta de dados (v0.6.1).
+    from bussola_pdv.ui.primeiro_uso import DialogoPrimeiroUso
+
+    primeiro = DialogoPrimeiroUso(SAIDA.parent.parent / "dados-exemplo" / "pdv.db")
+    primeiro.campo_loja.setText("Loja de Demonstração")
+    primeiro.campo_login.setText("master")
+    primeiro.campo_nome.setText("Dora Proprietária")
+    primeiro.campo_senha.setText("exemplo-ficticio")
+    primeiro.campo_senha2.setText("exemplo-ficticio")
+    primeiro.show()
+    app.processEvents()
+    app.processEvents()
+    primeiro.grab().save(str(SAIDA / "20_primeiro_uso.png"))
+    print("captura:", SAIDA / "20_primeiro_uso.png")
+    primeiro.close()
+
     ctx.fechar()
     QTimer.singleShot(0, app.quit)
     return 0

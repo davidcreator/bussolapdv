@@ -326,26 +326,78 @@ Transparência sobre este repositório:
 
 ---
 
-## Onde ficam os dados (e como não perdê-los)
+## Onde ficam o programa e os dados (e como escolher)
 
-| O quê | Caminho |
+São **duas** escolhas diferentes, e é de propósito:
+
+| O quê | Padrão | Dá para escolher? |
+| --- | --- | --- |
+| **Programa** (`.exe`, DLLs) | `%LOCALAPPDATA%\Programs\BussolaPDV` | **Sim**, na tela “Selecionar pasta de destino” do instalador |
+| **Dados** (base, cópias, relatórios, logs) | `%LOCALAPPDATA%\BussolaPDV` | **Sim**, na tela de primeiro uso (“Pasta dos dados”) ou depois em *Administração → Manutenção* |
+| Código + `.venv` (Caminho B) | onde você clonou | Sim, é só a pasta de onde você roda |
+
+Por que separar: atualizar ou desinstalar o programa não pode levar junto a base
+da loja. Por isso o dado mora fora da pasta do programa — e por isso também a
+desinstalação **não apaga** a base por padrão.
+
+### Escolher a pasta do programa (instalador)
+
+Ao rodar `BussolaPDV-<versão>-setup.exe`, o assistente mostra “Selecionar pasta
+de destino”. Troque ali para a unidade que quiser, por exemplo
+`D:\Programas\BussolaPDV`. O padrão (`%LOCALAPPDATA%\Programs`) não pede senha
+de administrador; pastas em `C:\Program Files` pedem UAC e **não** são
+recomendadas para instalação por usuário.
+
+### Escolher a pasta dos dados (primeiro uso)
+
+Na primeira execução, o campo **Pasta dos dados** já vem preenchido com o padrão e
+tem o botão *Procurar…*. Escolha, por exemplo, `D:\BussolaDados` (outra unidade,
+um SSD separado, uma pasta sincronizada). A escolha é validada na hora — se a
+pasta não aceita escrita, aparece o motivo antes de criar qualquer coisa — e fica
+gravada em `%APPDATA%\BussolaPDV\instalacao.json`, **fora** da pasta de dados.
+
+Base, cópias, relatórios e logs passam a ficar em subpastas dessa pasta:
+
+| O quê | Caminho típico |
 | --- | --- |
-| Banco do PDV (SQLite, com WAL) | `%LOCALAPPDATA%\BussolaPDV\pdv.db` |
-| Cópias de segurança | `%LOCALAPPDATA%\BussolaPDV\copias\` |
-| Relatórios exportados (Excel/PDF) | `%LOCALAPPDATA%\BussolaPDV\relatorios\` |
-| Programa instalado (Caminho A/C) | `%LOCALAPPDATA%\Programs\BussolaPDV` |
-| Código + `.venv` (Caminho B) | onde você clonou, por exemplo `%USERPROFILE%\bussolapdv` |
+| Banco do PDV (SQLite, com WAL) | `<pasta escolhida>\pdv.db` |
+| Cópias de segurança | `<pasta escolhida>\copias\` |
+| Relatórios exportados (Excel/PDF) | `<pasta escolhida>\relatorios\` |
+| Logs de erro | `<pasta escolhida>\logs\erros.log` |
 
 Para abrir a pasta de dados rapidamente: tecle `Win+R`, cole
-`%LOCALAPPDATA%\BussolaPDV` e `Enter`.
+`%LOCALAPPDATA%\BussolaPDV` (ou a pasta escolhida) e `Enter`.
 
-Você pode mover a base para outro lugar definindo a variável de ambiente
-`BUSSOLA_DADOS` (a pasta indicada passa a ser a raiz dos dados):
+### Mudar depois de instalado
+
+1. Salve e feche o programa (a sessão aberta continua na base antiga).
+2. Copie a base para a pasta nova — o comando faz isso com verificação de
+   integridade e **não apaga** a pasta antiga:
+
+```bat
+BussolaPDV-console.exe dados --definir "D:\BussolaDados" --mover
+```
+
+3. Abra o programa de novo. `BussolaPDV-console.exe dados` mostra onde está a
+   base e **por que** está ali (`padrao`, `configuracao` ou `BUSSOLA_DADOS`).
+4. Para voltar ao padrão: `BussolaPDV-console.exe dados --padrao`.
+
+Quem prefere a interface: *Administração → Manutenção → Pasta de dados da
+instalação → Alterar pasta dos dados…* (só o Admin Master; a mudança fica na
+trilha de auditoria).
+
+A variável de ambiente `BUSSOLA_DADOS` continua ganhando de tudo — é o que
+permite rodar duas instalações lado a lado ou uma demonstração em pendrive:
 
 ```bat
 set BUSSOLA_DADOS=D:\BussolaDados
 bussola-pdv
 ```
+
+### Atalho no Menu Iniciar continua funcionando?
+
+Sim. O atalho aponta para o **programa**, não para a base: mudar a pasta de dados
+não quebra atalho nem desinstalação.
 
 ### Backup
 

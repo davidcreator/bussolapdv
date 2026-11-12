@@ -89,7 +89,8 @@ pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tel
 `docs/capturas/` é gerado por `make capturas` (`ferramentas/captura_telas.py`, Qt offscreen, sem
 servidor gráfico): PDV vazio e com itens, caixa (e o caixa com o *Exportar* do turno), produtos,
 fechamento, **clientes**, **crediário**, **estoque**, auditoria, login, as seis seções
-administrativas, tema personalizado e menu recolhido.
+administrativas, tema personalizado, menu recolhido e **primeiro uso** (tela onde se escolhe a
+pasta dos dados).
 
 As capturas de fechamento, clientes, crediário, estoque e do caixa com exportação usam a sessão de
 gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —

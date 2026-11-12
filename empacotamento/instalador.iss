@@ -12,12 +12,15 @@
 ;  * Instalação por usuário (PrivilegesRequired=lowest): não pede senha de
 ;    administrador, o que é a realidade de balcão de loja. Instala em
 ;    %LOCALAPPDATA%\Programs, que não exige UAC.
+;  * A pasta do programa é ESCOLHIDA na tela "Selecionar pasta de destino"
+;    (DisableDirPage=no). O padrão continua sendo %LOCALAPPDATA%\Programs, mas
+;    quem quiser outra unidade (D:\Programas\BussolaPDV) troca ali.
 ;  * Os dados NUNCA ficam na pasta do programa: ficam em %LOCALAPPDATA%\BussolaPDV.
 ;    Por isso a desinstalação não apaga a base por padrão — só remove o programa.
 ;  * Sem tarefa agendada, sem serviço, sem acesso à rede: o app é offline.
 
 #ifndef AppVersion
-  #define AppVersion "0.6.0"
+  #define AppVersion "0.6.1"
 #endif
 #define AppName "Bússola Sistema PDV"
 #define AppShortName "BussolaPDV"
@@ -39,6 +42,10 @@ VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=Instalador do {#AppName}
 VersionInfoCopyright=GPL-2.0-or-later
 DefaultDirName={localappdata}\Programs\{#AppShortName}
+; Escolher onde o PROGRAMA fica é decisão de quem instala (outra unidade, por
+; exemplo). Onde ficam os DADOS é escolhido no primeiro uso do app — e é lá que
+; ficam base, cópias, relatórios e logs.
+DisableDirPage=no
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest

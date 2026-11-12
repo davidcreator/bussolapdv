@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.6.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.6.1).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -52,6 +52,11 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
   projeto, barra superior, trilha de navegação, cartões, indicadores (*small-box*), etiquetas de
   status e rodapé — tudo pintado pela paleta da loja.
 - **Backup consistente** pela API do SQLite, com verificação de integridade e teste de restauração.
+- **Pasta de dados escolhível**: na primeira execução (com validação de escrita), depois em
+  *Administração → Manutenção* ou por `bussola dados --definir "D:\PDV" --mover`; a escolha fica em
+  `%APPDATA%\BussolaPDV\instalacao.json` e a origem é sempre reportada.
+- **Falha nunca é silenciosa**: erro na inicialização aparece em tela e vai para `logs/erros.log` —
+  o executável não tem console para mostrar traceback.
 - **Demonstração offline** com 16 produtos, 5 clientes, 16 vendas em 3 dias, uma venda cancelada e um
   crediário de 3 parcelas — tudo fictício.
 
@@ -274,8 +279,9 @@ src/bussola_pdv/
   infra/exportacao/ escritores .xlsx (biblioteca padrão) e .pdf (Qt), mais formatação pt-BR
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
-  caminhos.py      onde ficam os dados por sistema operacional (%LOCALAPPDATA% no Windows)
-tests/             505 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+  caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
+  diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
+tests/             538 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, instalação no

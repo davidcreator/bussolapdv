@@ -125,3 +125,214 @@ class TestDialogo:
         assert dialogo.mensagem.text() != ""
         assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
         dialogo.deleteLater()
+
+
+# -- pasta dos dados e falhas visíveis (v0.6.1) ---------------------------------
+@pytest.fixture
+def ambiente(tmp_path, monkeypatch):
+    """Isola configuração e dados: escolher pasta não pode tocar a máquina real."""
+    monkeypatch.delenv("BUSSOLA_DADOS", raising=False)
+    monkeypatch.setenv("BUSSOLA_CONFIG", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    return tmp_path
+
+
+class TestPastaDosDados:
+    def test_campo_ja_vem_com_a_pasta_do_banco(self, app, tmp_path):
+        dialogo = DialogoPrimeiroUso(tmp_path / "dados" / "pdv.db")
+        assert dialogo.campo_pasta.text() == str(tmp_path / "dados")
+        assert "pdv.db" in dialogo.caminho.text()
+        dialogo.deleteLater()
+
+    def test_escolher_outra_pasta_cria_a_base_la_e_grava_a_escolha(self, app, ambiente):
+        from bussola_pdv import caminhos
+
+        outra = ambiente / "outra_unidade" / "PDV"
+        dialogo = DialogoPrimeiroUso(caminhos.banco_padrao())
+        _preencher(dialogo)
+        dialogo.campo_pasta.setText(str(outra))
+        dialogo._criar()
+
+        assert dialogo.result() == DialogoPrimeiroUso.DialogCode.Accepted
+        assert (outra / "pdv.db").exists()
+        assert caminhos.banco_padrao() == (outra / "pdv.db").resolve()
+        assert caminhos.origem_do_diretorio() == "configuracao"
+        dialogo.deleteLater()
+
+    def test_pasta_vazia_e_recusada_com_mensagem(self, app, ambiente):
+        from bussola_pdv import caminhos
+
+        dialogo = DialogoPrimeiroUso(caminhos.banco_padrao())
+        _preencher(dialogo)
+        dialogo.campo_pasta.setText("   ")
+        dialogo._criar()
+
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        assert "pasta" in dialogo.mensagem.text().lower()
+        dialogo.deleteLater()
+
+    def test_pasta_sem_permissao_mostra_erro_sem_criar_base(self, app, ambiente):
+        import os
+        import sys
+
+        if sys.platform.startswith("win") or os.geteuid() == 0:
+            pytest.skip("permissão de pasta é outro mecanismo nesta plataforma")
+        travada = ambiente / "travada"
+        travada.mkdir()
+        travada.chmod(0o500)
+        try:
+            dialogo = DialogoPrimeiroUso(travada / "pdv.db")
+            _preencher(dialogo)
+            dialogo._criar()
+            assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+            assert "gravar" in dialogo.mensagem.text().lower()
+            assert not (travada / "pdv.db").exists()
+            dialogo.deleteLater()
+        finally:
+            travada.chmod(0o700)
+
+
+class TestFalhaVisivel:
+    """O bug relatado: exceção fora de `ErroBussola` deixava o botão "morto"."""
+
+    def test_erro_inesperado_aparece_na_tela_e_no_log(self, app, ambiente, monkeypatch):
+        from bussola_pdv.aplicacao import contexto as modulo_contexto
+        from bussola_pdv.diagnostico import arquivo_de_log
+
+        def explodir(*_args, **_kwargs):
+            raise OSError(13, "unable to open database file")
+
+        monkeypatch.setattr(modulo_contexto.Contexto, "abrir", staticmethod(explodir))
+        banco = ambiente / "pdv.db"
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo.botao_criar.click()  # o clique do operador, não o método direto
+
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        texto = dialogo.mensagem.text()
+        assert "unable to open database file" in texto
+        assert "PermissionError" in texto or "OSError" in texto
+        assert str(arquivo_de_log()) in texto
+        assert "Traceback" in arquivo_de_log().read_text(encoding="utf-8")
+        # o botão volta a funcionar depois da falha
+        assert dialogo.botao_criar.isEnabled()
+        assert dialogo.botao_criar.text() == "Criar instalação"
+        dialogo.deleteLater()
+
+    def test_base_sem_esquema_avisa_instalacao_incompleta(self, app, ambiente, monkeypatch):
+        """Instalação incompleta (sem os .sql de migração) não pode parecer "nada acontece"."""
+        import sqlite3
+
+        from bussola_pdv.aplicacao import contexto as modulo_contexto
+
+        banco = ambiente / "vazio.db"
+        sqlite3.connect(banco).close()  # arquivo existe, sem schema nenhum
+        monkeypatch.setattr(modulo_contexto, "migrar", lambda *_a, **_k: [])
+
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo._criar()
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        assert "esquema" in dialogo.mensagem.text().lower()
+        dialogo.deleteLater()
+
+    def test_botao_mostra_estado_ocupado(self, app, ambiente, monkeypatch):
+        """Argon2 leva ~1 s; sem rótulo de progresso o clique parece não funcionar."""
+        from bussola_pdv.ui import primeiro_uso as modulo
+
+        vistos: list[str] = []
+        original = modulo.DialogoPrimeiroUso._ocupado
+
+        def espiao(self, estado):
+            original(self, estado)
+            vistos.append(self.botao_criar.text())
+
+        monkeypatch.setattr(modulo.DialogoPrimeiroUso, "_ocupado", espiao)
+        dialogo = DialogoPrimeiroUso(ambiente / "pdv.db")
+        _preencher(dialogo)
+        dialogo._criar()
+        assert "Criando instalação…" in vistos
+        assert vistos[-1] == "Criar instalação"
+        dialogo.deleteLater()
+
+
+class TestEntradaDoApp:
+    def test_usa_a_base_nova_depois_de_escolher_a_pasta(self, ambiente, monkeypatch):
+        """`entrada.main` recalculava o banco antes do diálogo e ignorava a escolha."""
+        from bussola_pdv import caminhos
+        from bussola_pdv.ui import app as modulo_app
+        from bussola_pdv.ui import entrada, primeiro_uso
+
+        escolhida = ambiente / "PDV_escolhido"
+        caminhos.definir_diretorio_de_dados(escolhida)
+
+        monkeypatch.setattr(primeiro_uso, "precisa_de_configuracao", lambda caminho: True)
+
+        class DialogoFalso:
+            DialogCode = type("DialogCode", (), {"Accepted": 1})
+            result = 1
+
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def exec(self):
+                return 1
+
+        abertos: list = []
+        monkeypatch.setattr(primeiro_uso, "DialogoPrimeiroUso", DialogoFalso)
+        monkeypatch.setattr(modulo_app, "criar_aplicacao", lambda: None)
+        monkeypatch.setattr(modulo_app, "executar", lambda banco: abertos.append(banco) or 0)
+        monkeypatch.setattr(
+            "bussola_pdv.diagnostico.instalar_captura_de_erros", lambda: None
+        )
+
+        assert entrada.main([]) == 0
+        assert abertos == [escolhida / "pdv.db"]
+
+
+class TestRecomeco:
+    def test_base_corrompida_e_guardada_de_lado_e_instalacao_recomeca(self, app, ambiente):
+        """Quem morreu no meio da instalação não fica preso num pdv.db quebrado."""
+        banco = ambiente / "pdv.db"
+        banco.write_bytes(b"isto nao e um banco sqlite")
+
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo._criar()
+
+        assert dialogo.result() == DialogoPrimeiroUso.DialogCode.Accepted
+        antigos = list(ambiente.glob("pdv.db.antigo-*"))
+        assert len(antigos) == 1
+        assert antigos[0].read_bytes() == b"isto nao e um banco sqlite"
+        assert "guardada como" in dialogo.mensagem.text()
+        from bussola_pdv.aplicacao.contexto import Contexto
+
+        contexto = Contexto.abrir(banco)
+        try:
+            assert [u.login for u in contexto.usuarios.listar()] == ["master"]
+        finally:
+            contexto.fechar()
+        dialogo.deleteLater()
+
+    def test_base_valida_nao_e_tocada(self, app, ambiente):
+        from bussola_pdv.aplicacao.autenticacao import ServicoAutenticacao
+        from bussola_pdv.aplicacao.contexto import Contexto
+        from bussola_pdv.dominio.usuario import Perfil
+
+        banco = ambiente / "pdv.db"
+        contexto = Contexto.abrir(banco)
+        ServicoAutenticacao(contexto).criar_usuario(
+            login="ja_existe",
+            nome="Já Existe",
+            senha="Bussola#2026",
+            perfil=Perfil.ADMIN_MASTER,
+            criar_admin_inicial=True,
+        )
+        contexto.fechar()
+
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo._criar()
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        assert list(ambiente.glob("pdv.db.antigo-*")) == []
+        dialogo.deleteLater()

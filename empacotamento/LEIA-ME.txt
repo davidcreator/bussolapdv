@@ -12,10 +12,23 @@ apenas redefinida por outro Admin Master.
 
 Onde ficam os dados
 -------------------
-%LOCALAPPDATA%\BussolaPDV\pdv.db        base do PDV (SQLite)
-%LOCALAPPDATA%\BussolaPDV\copias\       cópias de segurança (.db)
+Na primeira execução o programa pergunta em qual pasta os dados devem
+ficar (por exemplo D:\BussolaDados). O padrão é:
+
+  %LOCALAPPDATA%\BussolaPDV\pdv.db        base do PDV (SQLite)
+  %LOCALAPPDATA%\BussolaPDV\copias\       cópias de segurança (.db)
+  %LOCALAPPDATA%\BussolaPDV\relatorios\   relatórios exportados
+  %LOCALAPPDATA%\BussolaPDV\logs\        erros.log, se algo falhar
 
 Para abrir essa pasta: menu Iniciar > "Pasta de dados (banco e cópias)".
+
+Para ver ou mudar a pasta depois (com o programa fechado):
+
+  BussolaPDV-console.exe dados
+  BussolaPDV-console.exe dados --definir "D:\BussolaDados" --mover
+
+O programa (esta pasta) é separado dos dados: atualizar ou desinstalar o
+programa NÃO apaga a base da loja.
 
 Relatórios (Excel e PDF)
 ------------------------

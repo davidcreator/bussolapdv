@@ -2,6 +2,58 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.6.1] — 2026-11-11 — correção: botão "Criar instalação" mudo e pasta de dados escolhível
+
+### Corrigido
+
+- **"Criar instalação" não fazia nada em caso de erro.** O diálogo de primeiro uso só tratava
+  `ErroBussola`: qualquer outra exceção (`sqlite3.OperationalError` de pasta sem permissão ou arquivo
+  travado, `DatabaseError` de base corrompida, erro de esquema ausente em instalação incompleta)
+  escapava do slot do Qt e ia para o `stderr` — que **o executável do Windows não tem**. Para o
+  operador, o botão estava morto. Agora: erro aparece na tela com tipo e mensagem, vai para
+  `logs/erros.log` e o botão volta a funcionar.
+- **Nenhuma exceção não tratada some.** `diagnostico.instalar_captura_de_erros()` troca o
+  `sys.excepthook` na entrada do app empacotado: exceção fora de `try` vira caixa de diálogo com
+  resumo e caminho do log (idempotente, sem empilhar hooks).
+- **Base inutilizável não prende a instalação.** Se já existe um `pdv.db` vazio ou corrompido (tentativa
+  anterior interrompida), o arquivo é guardado como `pdv.db.antigo-AAAAMMDD-HHMMSS` e a instalação
+  recomeça; nada é apagado.
+- **`entrada.main` recalculava o banco antes do diálogo**: a pasta escolhida na primeira tela era
+  ignorada e o programa abria a base antiga.
+- **Pasta sem escrita falhava com "unable to open database file"**: agora é testada antes de abrir o
+  banco, com mensagem que diz o que fazer.
+
+### Adicionado
+
+- **Pasta dos dados escolhível no primeiro uso** (`ui/primeiro_uso.py`): campo com *Procurar…*,
+  prévia do caminho do banco e validação de escrita. A escolha é gravada em
+  `%APPDATA%\BussolaPDV\instalacao.json` (Linux: `~/.config/bussola-pdv`) — **fora** da pasta de
+  dados, senão mudar de pasta perderia o ponteiro.
+- **`caminhos.py` com precedência explícita**: `BUSSOLA_DADOS` > pasta escolhida > padrão do sistema;
+  `origem_do_diretorio()` diz de onde veio a escolha.
+- **CLI `bussola dados`**: mostra pasta de dados, origem, banco, cópias, relatórios e logs;
+  `--definir PASTA [--mover]` copia a base com verificação de integridade (sem apagar a antiga) e
+  `--padrao` descarta a escolha.
+- **Administração → Manutenção → "Pasta de dados da instalação"**: mostra a pasta em uso e a origem;
+  o Admin Master troca dali, com a mudança registrada na trilha (`PARAMETRO_ALTERADO`,
+  entidade `pasta_de_dados`).
+- **Instalador permite escolher a pasta do programa**: `DisableDirPage=no` explícito no `.iss`.
+- `tests/test_caminhos_instalacao.py` (23) e mais 8 testes em `tests/test_primeiro_uso.py` (20 no total);
+  captura `20_primeiro_uso.png`.
+- `docs/DECISOES.md` ADR-020 (ponteiro de configuração fora dos dados e falha sempre visível).
+
+### Alterado
+
+- `docs/INSTALACAO_WINDOWS.md` separa **pasta do programa** × **pasta dos dados**, com o passo a passo
+  para escolher, mover e voltar ao padrão.
+
+### Limites conhecidos
+
+- Mudar a pasta de dados **não move os arquivos sozinho** pela interface: a tela grava a escolha e
+  avisa; a cópia é feita por `bussola dados --mover` (ou manualmente) com o programa fechado.
+- Em Linux/macOS o log e o ponteiro seguem os diretórios XDG/Application Support; só o caminho do
+  instalador é específico do Windows.
+
 ## [0.6.0] — 2026-11-11 — pré-alfa: clientes, crediário e estoque fora do placeholder
 
 ### Adicionado

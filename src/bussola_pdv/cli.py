@@ -10,6 +10,8 @@ Uso::
     bussola exportar --banco dados/demo.db --tipo fechamento --data 2026-11-11 \
         --formato pdf --login master                        # relatório em arquivo
     bussola ui --banco dados/demo.db                        # interface Qt
+    bussola dados                                           # onde a instalação guarda dados
+    bussola dados --definir "D:\\PDV" --mover               # muda a pasta dos dados
 """
 
 from __future__ import annotations
@@ -28,6 +30,17 @@ from .aplicacao.autenticacao import ServicoAutenticacao
 from .aplicacao.contexto import Contexto
 from .aplicacao.exportacao import ServicoExportacao
 from .aplicacao.relatorios import ServicoRelatorios
+from .caminhos import (
+    banco_em,
+    definir_diretorio_de_dados,
+    diretorio_de_dados,
+    diretorio_de_dados_padrao,
+    origem_do_diretorio,
+    pasta_de_copias,
+    pasta_de_logs,
+    pasta_de_relatorios,
+    voltar_ao_diretorio_padrao,
+)
 from .dominio.dinheiro import Dinheiro
 from .dominio.erros import ErroBussola, ErroValidacao
 from .dominio.relatorio import Relatorio
@@ -220,6 +233,73 @@ def _montar_relatorio(servico: ServicoExportacao, args: argparse.Namespace) -> R
     raise ErroValidacao(f"Tipo de relatório desconhecido: {tipo}.")
 
 
+def cmd_dados(args: argparse.Namespace) -> int:
+    """Mostra — e opcionalmente muda — a pasta onde a instalação guarda dados.
+
+    Existe porque a escolha feita no primeiro uso é invisível depois: quem liga o
+    suporte precisa de um comando que diga **onde** está a base e **por que** está
+    ali (ambiente, escolha da instalação ou padrão do sistema).
+    """
+    if getattr(args, "padrao", False):
+        voltar_ao_diretorio_padrao()
+        print(f"Pasta de dados voltou ao padrão: {diretorio_de_dados_padrao()}")
+    if args.definir:
+        pasta = definir_diretorio_de_dados(args.definir)
+        print(f"Pasta de dados definida: {pasta}")
+        if args.mover:
+            _mover_dados(args.origem or None, pasta)
+
+    pasta = diretorio_de_dados()
+    print(f"{__app_name__} {__version__}")
+    print(f"Pasta de dados: {pasta}")
+    print(f"Origem da escolha: {origem_do_diretorio()}")
+    print(f"Banco: {banco_em(pasta)}")
+    print(f"Cópias: {pasta_de_copias()}")
+    print(f"Relatórios: {pasta_de_relatorios()}")
+    print(f"Logs: {pasta_de_logs()}")
+    return 0
+
+
+def _mover_dados(origem: str | None, destino: Path) -> None:
+    """Copia a base e as subpastas para a pasta nova, conferindo a integridade.
+
+    A base é copiada pela **API de backup do SQLite** (segura com WAL ativo), e não
+    com `copy2`: copiar o `.db` com o programa aberto pode deixar de fora o que
+    está no `-wal`. Cópias e relatórios vão por `shutil`. Nada é apagado da origem:
+    quem chama decide isso depois de conferir.
+    """
+    import shutil
+
+    from_ = Path(origem).expanduser() if origem else diretorio_de_dados_padrao()
+    if not from_.exists():
+        raise ErroValidacao(f"Pasta de origem não existe: {from_}")
+    if from_.resolve() == destino.resolve():
+        raise ErroValidacao("Origem e destino são a mesma pasta.")
+    origem_db = banco_em(from_)
+    if origem_db.exists():
+        conexao = abrir_conexao(origem_db, somente_leitura=True)
+        try:
+            linha = conexao.execute("PRAGMA integrity_check").fetchone()
+            integro = bool(linha) and str(linha[0]).lower() == "ok"
+            if not integro:
+                raise ErroValidacao(
+                    "A base de origem não passou na checagem de integridade: "
+                    + (str(linha[0]) if linha else "sem resposta")
+                )
+            fazer_backup(conexao, banco_em(destino))
+        finally:
+            conexao.close()
+    for item in from_.iterdir():
+        if item.name == "logs" or item.name.startswith("pdv.db"):
+            continue  # log é da máquina; a base já foi copiada pela API de backup
+        alvo = destino / item.name
+        if item.is_dir():
+            shutil.copytree(item, alvo, dirs_exist_ok=True)
+        elif item.is_file():
+            shutil.copy2(item, alvo)
+    print(f"Dados copiados de {from_} para {destino} (o original não foi apagado).")
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
     _exigir_banco(args.banco)
     from .ui.app import executar
@@ -318,6 +398,21 @@ def construir_parser() -> argparse.ArgumentParser:
     p_ui = sub.add_parser("ui", help="abre a interface desktop")
     p_ui.add_argument("--banco", default="dados/bussola.db")
     p_ui.set_defaults(func=cmd_ui)
+
+    p_dados = sub.add_parser("dados", help="mostra ou muda a pasta de dados da instalação")
+    p_dados.add_argument("--definir", default=None, help="nova pasta de dados (ex.: D:\\PDV)")
+    p_dados.add_argument(
+        "--mover",
+        action="store_true",
+        help="copia a base e as subpastas da pasta antiga para a nova (não apaga a antiga)",
+    )
+    p_dados.add_argument(
+        "--origem", default=None, help="pasta antiga a copiar (padrão: pasta padrão do sistema)"
+    )
+    p_dados.add_argument(
+        "--padrao", action="store_true", help="descarta a pasta escolhida e volta ao padrão"
+    )
+    p_dados.set_defaults(func=cmd_dados)
 
     p_sim = sub.add_parser("relogio", help="mostra a data de negócio do relógio")
     p_sim.add_argument("--banco", default="dados/bussola.db")

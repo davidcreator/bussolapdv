@@ -55,6 +55,20 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
 - 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
 
+## Evidências da correção do primeiro uso e da pasta de dados (v0.6.1)
+
+- `tests/test_caminhos_instalacao.py` (23): precedência `BUSSOLA_DADOS` > escolha > padrão; criação e
+  validação da pasta escolhida (recusa pasta sem escrita **antes** de criar banco); configuração
+  corrompida cai no padrão; ponteiro fora da pasta de dados; subpastas (relatórios, cópias, logs)
+  acompanham a escolha; log com traceback, rotação e `excepthook` idempotente; seção de Manutenção
+  mostrando a pasta, trocando e auditando, e botão desabilitado para quem não é Admin Master.
+- `tests/test_primeiro_uso.py` (20, eram 12): criar na pasta escolhida e gravar a escolha; pasta vazia
+  e pasta sem permissão com mensagem; **erro inesperado visível na tela e no log** (regressão do
+  "cliquei e nada aconteceu"); estado "Criando instalação…" no botão; base sem esquema avisa
+  instalação incompleta; base corrompida é guardada como `pdv.db.antigo-*` e a instalação recomeça;
+  base válida não é tocada; `entrada.main` usa a base da pasta escolhida.
+- Captura `20_primeiro_uso.png` e `docs/DECISOES.md` ADR-020.
+
 ## Evidências da entrega de clientes, crediário e estoque (v0.6.0)
 
 - `tests/test_exportacao_modulos.py` (27): carteira de clientes com limite/em aberto/disponível/vencido,
@@ -113,6 +127,7 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 ## Próximos incrementos sugeridos (ordem)
 
 1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
+   ~~Escolher a pasta de dados~~ — feito na v0.6.1.
 2. **Operação nas telas novas**: cadastrar/editar cliente, receber título e lançar entrada de estoque
    com formulário (hoje só pela API), incluindo a tela de **Entradas** que continua placeholder.
 3. Devolução parcial de venda com recomposição de pagamento.
