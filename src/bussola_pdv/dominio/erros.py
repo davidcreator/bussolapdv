@@ -111,3 +111,20 @@ class ClienteBloqueadoPorAtraso(ErroValidacao):
 
 class RecebimentoInvalido(ErroValidacao):
     codigo = "RECEBIMENTO_INVALIDO"
+
+
+# --- Impressão -----------------------------------------------------------------
+
+
+class ErroImpressao(ErroBussola):
+    """Falha ao preparar ou enviar um documento para a impressora.
+
+    Carrega sempre o suficiente para a tela poder dizer **o que fazer**: nome da
+    impressora, motivo e, quando houver, a lista de impressoras instaladas.
+    """
+
+    codigo = "ERRO_IMPRESSAO"
+
+
+class ImpressoraIndisponivel(ErroImpressao):
+    codigo = "IMPRESSORA_INDISPONIVEL"

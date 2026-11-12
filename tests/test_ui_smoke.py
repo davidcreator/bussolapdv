@@ -37,6 +37,8 @@ def janela(app, cenario, monkeypatch):
     monkeypatch.setattr(
         QMessageBox, "information", lambda *args, **kwargs: mensagens.append(args[2] if len(args) > 2 else "")
     )
+    # O comprovante é uma caixa com botão "Imprimir cupom", aberta sem bloquear.
+    monkeypatch.setattr(QMessageBox, "open", lambda self: mensagens.append(self.text()))
     janela = JanelaPrincipal(cenario.ctx, cenario.operador)
     janela.tela_pdv.atualizar()
     janela._mensagens = mensagens
@@ -89,6 +91,7 @@ def test_finalizar_pela_interface(janela, cenario):
     assert vendas[0]["total_centavos"] == 1590
     assert tela.carrinho.vazio  # cupom limpo após sucesso
     assert janela._mensagens  # comprovante exibido
+    assert tela.ultima_venda is not None  # F8 reimprime sem procurar a venda
 
 
 def test_cancelar_cupom_nao_grava(janela, cenario):

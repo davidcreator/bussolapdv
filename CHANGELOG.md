@@ -2,6 +2,71 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.8.0] — 2026-11-11 — impressão em impressora comum e em térmica (58/80 mm)
+
+### Adicionado
+
+- **`dominio/impressao.py`: o documento imprimível é dado, não texto de tela.** Blocos
+  (`Texto`, `Par`, `Divisor`, `Espaco`, `Item`, `CodigoDeBarras`), perfis de papel com largura em
+  colunas (bobina 58 → 32, bobina 80 → 48, A4 → 80) e **uma única** quebra de linha, em
+  `DocumentoImpresso.layout()`. Os renderizadores só pintam — o cupom do PDV, a 2ª via e o PDF saem
+  do mesmo documento.
+- **`infra/impressao/papel.py`: desenho em grade de colunas + driver do sistema.** Cada caractere é
+  pintado na coluna que lhe cabe (fonte proporcional não desalinha mais o valor à direita); PDF no
+  tamanho exato do papel (bobina = uma página contínua), prévia em imagem e impressão por `QPrinter`
+  com detecção de impressora que não aceitou o trabalho.
+- **`infra/impressao/escpos.py`: bytes ESC/POS.** `ESC @`, tabela cp1252, alinhamento, negrito,
+  duplo, código de barras nativo (`GS k 4`), avanço, corte (`GS V 66 0`) e gaveta (`ESC p`), com
+  transliteração do acento (a página de código da térmica varia por fabricante).
+- **`infra/impressao/impressoras.py`: descobrir e enviar.** Lista as instaladas pelo sistema, sugere
+  quais são térmicas pelo nome (só sugestão, nunca decisão) e envia bytes crus por `winspool.drv`
+  (`ctypes`, sem `pywin32`) no Windows ou `lp -o raw` no Linux/macOS.
+- **`infra/impressao/texto.py`**: prévia em texto puro, `.txt` e depuração da transliteração.
+- **`aplicacao/impressao.py`: `ServicoImpressao`.** Monta o cupom a partir do que está **gravado** no
+  banco (`itens()`, `pagamentos()`, `Marca`), converte `Relatorio` em documento impresso (tabela em
+  grade no A4, pares rótulo/valor na bobina), despacha pelo motor configurado e grava auditoria.
+  Também salva PDF/TXT em qualquer pasta — plano B quando não há impressora.
+- **`ui/impressao.py`: prévia antes do papel.** Diálogo com escolha de papel, impressora instalada,
+  cópias e prévia desenhada pelo mesmo código que imprime; botões Imprimir / Salvar PDF / Salvar TXT.
+  `BotaoImprimir` é o equivalente do `BotaoExportar` para as telas.
+- **PDV**: o comprovante da venda virou caixa com **"Imprimir cupom"**, e a última venda da estação
+  pode ser reimpressa com **F8**, marcada como 2ª via. Com `impressao.imprimir_automatico` ligado, o
+  cupom sai sem clique extra.
+- **Caixa**: botão **"Imprimir turno"** ao lado do Exportar e oferta do comprovante de fechamento
+  logo depois de fechar o turno (o relatório é montado com o `turno_id`, já fechado).
+- **Código de barras CODE 39** com o número do cupom, desenhado módulo a módulo no PDF (razão 3:1,
+  teto de 60 mm para não virar um borrão em A4) e impresso nativamente na térmica.
+- **Oito parâmetros de impressão** (`impressao.motor`, `.impressora`, `.papel`, `.copias`,
+  `.cortar_papel`, `.abrir_gaveta`, `.codigo_de_barras`, `.imprimir_automatico`), com novo tipo
+  `OPCAO` (lista fechada) e campo de impressora que lista as instaladas sem impedir nome digitado.
+- **Permissão `CUPOM_REIMPRIMIR`** (master, admin, gerente e atendente; contabilidade não) e eventos
+  de auditoria **`IMPRESSAO_REALIZADA`** / **`IMPRESSAO_FALHOU`**, com impressora, motor, papel,
+  linhas, cópias e motivo da falha.
+- **Erros de impressão com saída clara**: `ErroImpressao` e `ImpressoraIndisponivel`, carregando
+  impressora, motivo e lista de instaladas.
+- **`docs/IMPRESSAO.md`** (configuração, arquitetura, roteiro de teste manual em hardware, problemas
+  comuns), **ADR-022**, exemplos em `docs/exemplos/cupom-exemplo-*.pdf|txt` e captura da prévia.
+
+### Alterado
+
+- `TelaCaixa`: a fileira de ações do turno passou de `QHBoxLayout` para `FluxoDeAcoes` — com o botão
+  de impressão, seis ações não cabiam lado a lado em 800 px.
+- `dominio/erros.py`, `dominio/usuario.py`, `dominio/auditoria.py`, `aplicacao/parametros.py`,
+  `ui/admin/parametros.py` e `infra/sqlite/repositorio_usuarios.py` ganharam o que a impressão exige
+  (erros, permissão, eventos, tipo de parâmetro e padrões).
+- `ferramentas/gerar_exemplos.py` passou a gerar os cupons de exemplo e `ferramentas/captura_telas.py`
+  a capturar a prévia de impressão.
+
+### Verificado
+
+- 610 testes passando (47 novos em `tests/test_impressao.py`), incluindo: nenhuma linha do cupom passa
+  das colunas do papel nos três papéis; o cupom traz os dados gravados da venda; PDF de bobina com
+  57,9 mm de largura em página única; motor `ESCPOS` manda os bytes uma vez por cópia e recusa A4;
+  falha de impressão audita e propaga; impressora inexistente falha com mensagem acionável.
+- `ruff`, `mypy` (89 arquivos) e `make responsivo` (800×600 → 1920×1080) verdes.
+- **Limite declarado**: não houve impressão em hardware real — o ambiente de desenvolvimento não tem
+  CUPS nem impressora. O roteiro de conferência manual está em `docs/IMPRESSAO.md`.
+
 ## [0.7.0] — 2026-11-11 — responsividade: a interface se organiza pela largura da janela
 
 ### Adicionado

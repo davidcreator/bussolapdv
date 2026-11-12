@@ -421,6 +421,34 @@ Coloque a pasta `copias` em um pendrive ou na nuvem da loja. Três avisos:
 
 ---
 
+### Impressora (térmica ou comum)
+
+O programa **não instala driver**: ele usa a impressora que o Windows já enxerga em
+*Configurações → Bluetooth e dispositivos → Impressoras e scanners*. Antes de configurar no
+sistema, confira que a impressora aparece ali e que o Windows imprime a página de teste.
+
+1. **Instale a impressora** com o driver do fabricante. Para térmicas de bobina, escolha o
+   driver do próprio modelo (POS-58/POS-80, Elgin, Bematech, Epson TM) e, nas propriedades,
+   defina o **tamanho de papel** como 58 mm ou 80 mm — se ficar em A4, o driver corta o cupom
+   no meio.
+2. **No Bússola PDV**: *Administração → Parâmetros → grupo Impressão*. Escolha o papel
+   (Bobina 58 / Bobina 80 / A4), a impressora na lista e o motor:
+   - **SISTEMA** para começar — funciona em qualquer impressora, inclusive jato/laser em A4;
+   - **ESCPOS** se a impressora for térmica compatível e você quiser corte automático, gaveta
+     e código de barras nativo.
+3. **Confira o nome exato** da impressora (é o que aparece na lista) em
+   `Painel de Controle → Dispositivos e Impressoras`. Nome com acento e espaço funciona, mas
+   precisa ser idêntico.
+4. **Teste pelo próprio programa**: no PDV, finalize uma venda e use *Imprimir cupom*; a prévia
+   mostra exatamente o que vai sair. Se estiver certo, clique em *Imprimir*.
+5. **Problemas na impressão** são registrados na auditoria (`IMPRESSAO_FALHOU`, com o motivo),
+   e há tabela de sintomas em [IMPRESSAO.md](IMPRESSAO.md#5-problemas-comuns).
+
+> Nota honesta: o projeto foi validado com o driver em modo arquivo/PDF; a conferência em
+> impressora física é manual e está descrita em [IMPRESSAO.md](IMPRESSAO.md#4-o-que-foi-testado--e-o-que-não-foi).
+
+---
+
 ## SmartScreen e antivírus
 
 O `.exe` e o instalador **não são assinados digitalmente** (assinatura de código

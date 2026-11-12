@@ -91,7 +91,7 @@ SECOES: tuple[Secao, ...] = (
     Secao(
         "parametros",
         "Parâmetros",
-        "Descontos, crediário, caixa e segurança",
+        "Descontos, crediário, caixa, segurança e impressão",
         Acao.PARAMETRO_ALTERAR,
         SecaoParametros,
         "parametros",

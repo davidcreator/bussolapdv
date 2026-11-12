@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -23,6 +22,7 @@ from PySide6.QtWidgets import (
 from ..aplicacao.caixa import ServicoCaixa
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
+from ..aplicacao.impressao import ServicoImpressao
 from ..dominio.caixa import (
     DENOMINACOES_BRL,
     ROTULOS_DENOMINACAO,
@@ -32,12 +32,14 @@ from ..dominio.caixa import (
 )
 from ..dominio.dinheiro import Dinheiro
 from ..dominio.erros import ErroBussola
+from ..dominio.impressao import DocumentoImpresso
 from ..dominio.relatorio import Relatorio
 from ..dominio.usuario import Acao, Usuario
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
 from .exportacao import BotaoExportar
+from .impressao import BotaoImprimir, DialogoPreviaImpressao
 from .login import DialogoAutorizacao
-from .responsivo import GradeDeIndicadores, ajustar_dialogo
+from .responsivo import FluxoDeAcoes, GradeDeIndicadores, ajustar_dialogo
 from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
 
 
@@ -127,6 +129,7 @@ class TelaCaixa(QWidget):
         self.usuario = usuario
         self.servico = ServicoCaixa(contexto)
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self._montar()
         self.atualizar()
 
@@ -149,7 +152,8 @@ class TelaCaixa(QWidget):
         indicadores = GradeDeIndicadores((self.kpi_fundo, self.kpi_esperado, self.kpi_diferenca))
 
         grupo_acao = QGroupBox("Turno")
-        linha = QHBoxLayout(grupo_acao)
+        # FluxoDeAcoes e não QHBoxLayout: seis botões não cabem em 800 px de largura.
+        linha = FluxoDeAcoes(grupo_acao)
         self.botao_abrir = QPushButton("Abrir turno")
         self.botao_abrir.clicked.connect(self._abrir)
         self.botao_sangria = QPushButton("Sangria")
@@ -162,8 +166,7 @@ class TelaCaixa(QWidget):
         self.botao_fechar.setObjectName("perigo")
         self.botao_fechar.clicked.connect(self._fechar)
         for botao in (self.botao_abrir, self.botao_sangria, self.botao_suprimento, self.botao_fechar):
-            linha.addWidget(botao)
-        linha.addStretch(1)
+            linha.adicionar(botao)
         self.botao_exportar = BotaoExportar(
             usuario=self.usuario,
             servico=self.exportacao,
@@ -173,7 +176,18 @@ class TelaCaixa(QWidget):
         self.botao_exportar.setToolTip(
             "Exportar a conferência do turno (dinheiro esperado, movimentos e contagem)"
         )
-        linha.addWidget(self.botao_exportar)
+        linha.adicionar(self.botao_exportar)
+        self.botao_imprimir = BotaoImprimir(
+            ator=self.usuario,
+            servico=self.impressao,
+            construir=self._documento_do_turno,
+            parent=self,
+            rotulo="Imprimir turno",
+        )
+        self.botao_imprimir.setToolTip(
+            "Pré-visualizar e imprimir a conferência do turno (bobina ou A4)"
+        )
+        linha.adicionar(self.botao_imprimir)
 
         grupo_mov = QGroupBox("Movimentos do turno")
         layout_mov = QVBoxLayout(grupo_mov)
@@ -196,6 +210,12 @@ class TelaCaixa(QWidget):
         layout.addWidget(self.rotulo_resumo)
 
     # -- estado -------------------------------------------------------------
+    def _documento_do_turno(self) -> DocumentoImpresso:
+        """Documento do turno para a prévia de impressão (montado no clique)."""
+        return self.impressao.documento_de_relatorio(
+            self._relatorio_do_turno(), rotulo="turno-de-caixa"
+        )
+
     def _relatorio_do_turno(self) -> Relatorio:
         """Relatório do turno aberto (o botão só fica habilitado com turno)."""
         return self.exportacao.relatorio_turno()
@@ -213,6 +233,7 @@ class TelaCaixa(QWidget):
             self.rotulo_status.setText("Nenhum turno aberto.")
             self.botao_abrir.setEnabled(True)
             self.botao_exportar.setEnabled(False)
+            self.botao_imprimir.setEnabled(False)
             for botao in (self.botao_sangria, self.botao_suprimento, self.botao_fechar):
                 botao.setEnabled(False)
             self.tabela.setRowCount(0)
@@ -223,6 +244,7 @@ class TelaCaixa(QWidget):
             return
         self.botao_abrir.setEnabled(False)
         self.botao_exportar.setEnabled(True)
+        self.botao_imprimir.setEnabled(self.usuario.pode(Acao.CUPOM_REIMPRIMIR))
         for botao in (self.botao_sangria, self.botao_suprimento, self.botao_fechar):
             botao.setEnabled(True)
         self.rotulo_status.setText(
@@ -352,3 +374,29 @@ class TelaCaixa(QWidget):
         )
         self.atualizar()
         self.turno_alterado.emit()
+        self._imprimir_apos_fechar(turno.id)
+
+    def _imprimir_apos_fechar(self, turno_id: str) -> None:
+        """Oferece o comprovante do turno recém-fechado — é o papel que vai no envelope.
+
+        O relatório é montado **com** o `turno_id` (e não com "turnos abertos"),
+        porque neste instante o turno já foi fechado: sem o id, o serviço não teria
+        o que imprimir.
+        """
+        if not self.usuario.pode(Acao.CUPOM_REIMPRIMIR):
+            return
+        resposta = QMessageBox.question(
+            self,
+            "Imprimir conferência",
+            "Imprimir o comprovante de fechamento deste turno?",
+        )
+        if resposta != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            documento = self.impressao.documento_de_relatorio(
+                self.exportacao.relatorio_turno(turno_id), rotulo=f"turno-{turno_id[:8]}"
+            )
+        except ErroBussola as exc:
+            self._mensagem(f"Não foi possível montar o comprovante: {exc}")
+            return
+        DialogoPreviaImpressao(documento, self.impressao, ator=self.usuario, parent=self).exec()

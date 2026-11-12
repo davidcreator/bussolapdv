@@ -21,6 +21,7 @@ class TipoParametro(StrEnum):
     BOOLEANO = "BOOLEANO"
     TEXTO = "TEXTO"
     PERCENTUAL = "PERCENTUAL"  # exibido em %, armazenado em pontos-base
+    OPCAO = "OPCAO"  # lista fechada de valores (ex.: motor de impressão)
 
     @property
     def rotulo(self) -> str:
@@ -29,6 +30,7 @@ class TipoParametro(StrEnum):
             TipoParametro.BOOLEANO: "sim/não",
             TipoParametro.TEXTO: "texto",
             TipoParametro.PERCENTUAL: "percentual",
+            TipoParametro.OPCAO: "uma das opções da lista",
         }[self]
 
 
@@ -42,6 +44,10 @@ class DefinicaoParametro:
     minimo: int | None = None
     maximo: int | None = None
     unidade: str = ""
+    #: Valores aceitos quando `tipo` é `OPCAO`; a tela monta a lista a partir daqui.
+    opcoes: tuple[str, ...] = ()
+    #: TEXTO que pode ficar vazio (ex.: "usar a impressora padrão do sistema").
+    permite_vazio: bool = False
 
 
 #: Catálogo fechado. Chave fora daqui não é editável pela interface.
@@ -121,6 +127,72 @@ DEFINICOES: tuple[DefinicaoParametro, ...] = (
         unidade="centavos",
     ),
     DefinicaoParametro(
+        "impressao.motor",
+        "Impressão",
+        "Motor de impressão",
+        TipoParametro.OPCAO,
+        "SISTEMA usa o driver instalado e serve qualquer impressora. "
+        "ESCPOS manda bytes diretos: corte automático, gaveta e código de barras "
+        "nativo, mas exige impressora térmica compatível e bobina.",
+        opcoes=("SISTEMA", "ESCPOS"),
+    ),
+    DefinicaoParametro(
+        "impressao.impressora",
+        "Impressão",
+        "Impressora",
+        TipoParametro.TEXTO,
+        "Nome exato como aparece no Windows (Dispositivos e impressoras). "
+        "Em branco, o sistema usa a impressora padrão.",
+        permite_vazio=True,
+    ),
+    DefinicaoParametro(
+        "impressao.papel",
+        "Impressão",
+        "Papel",
+        TipoParametro.OPCAO,
+        "BOBINA_58 e BOBINA_80 são bobinas de térmica; A4 é folha comum. "
+        "O papel define quantas colunas o cupom tem e o que cabe na linha.",
+        opcoes=("BOBINA_58", "BOBINA_80", "A4"),
+    ),
+    DefinicaoParametro(
+        "impressao.copias",
+        "Impressão",
+        "Cópias por documento",
+        TipoParametro.INTEIRO,
+        "Aplicado no driver e no motor ESC/POS.",
+        minimo=1,
+        maximo=5,
+        unidade="via(s)",
+    ),
+    DefinicaoParametro(
+        "impressao.cortar_papel",
+        "Impressão",
+        "Cortar o papel ao fim do cupom",
+        TipoParametro.BOOLEANO,
+        "Só no motor ESC/POS; depende de a térmica ter guilhotina.",
+    ),
+    DefinicaoParametro(
+        "impressao.abrir_gaveta",
+        "Impressão",
+        "Abrir a gaveta ao imprimir",
+        TipoParametro.BOOLEANO,
+        "Só no motor ESC/POS e com a gaveta ligada na porta da impressora.",
+    ),
+    DefinicaoParametro(
+        "impressao.codigo_de_barras",
+        "Impressão",
+        "Imprimir código de barras do cupom",
+        TipoParametro.BOOLEANO,
+        "CODE 39 com o número do cupom (ex.: 1-000012), para reler o cupom.",
+    ),
+    DefinicaoParametro(
+        "impressao.imprimir_automatico",
+        "Impressão",
+        "Imprimir o cupom ao finalizar a venda",
+        TipoParametro.BOOLEANO,
+        "Desligado, o operador confirma na janela de pré-visualização antes de imprimir.",
+    ),
+    DefinicaoParametro(
         "seguranca.maximo_tentativas",
         "Segurança",
         "Tentativas de login antes do bloqueio",
@@ -167,8 +239,16 @@ class ServicoParametros:
     def validar(self, definicao: DefinicaoParametro, texto: str) -> str:
         """Converte o que o usuário digitou no valor persistido, ou explica o erro."""
         limpo = texto.strip()
+        if definicao.tipo is TipoParametro.OPCAO:
+            valor = limpo.upper()
+            if valor not in definicao.opcoes:
+                raise ErroValidacao(
+                    f"{definicao.rotulo} deve ser uma destas opções: "
+                    f"{', '.join(definicao.opcoes)}."
+                )
+            return valor
         if definicao.tipo is TipoParametro.TEXTO:
-            if not limpo:
+            if not limpo and not definicao.permite_vazio:
                 raise ErroValidacao(f"{definicao.rotulo} não pode ficar vazio.")
             return limpo
         if definicao.tipo is TipoParametro.BOOLEANO:

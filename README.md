@@ -2,13 +2,15 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.7.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.8.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
 > [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) — e todo relatório sai em **Excel e PDF**
 > ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)), inclusive das telas de clientes, crediário, estoque e
-> do turno de caixa. **Não é homologado para operação real**,
+> do turno de caixa. Também imprime em **impressora comum (A4)** e em **térmica de bobina 58/80 mm**,
+> com prévia, corte, gaveta e código de barras ([docs/IMPRESSAO.md](docs/IMPRESSAO.md)).
+> **Não é homologado para operação real**,
 > não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
 > sistema fiscal certificado.
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
@@ -57,6 +59,10 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
   `%APPDATA%\BussolaPDV\instalacao.json` e a origem é sempre reportada.
 - **Falha nunca é silenciosa**: erro na inicialização aparece em tela e vai para `logs/erros.log` —
   o executável não tem console para mostrar traceback.
+- **Impressão para os dois mundos**: cupom de venda, 2ª via (F8) e conferência do turno saem em
+  bobina de 58/80 mm ou em folha A4, pelo driver do sistema (funciona em qualquer impressora) ou por
+  ESC/POS direto (corte, gaveta e código de barras nativo). Há pré-visualização no tamanho do papel
+  antes de gastar papel, e "Salvar PDF/TXT" quando não há impressora à mão. Toda impressão é auditada.
 - **Demonstração offline** com 16 produtos, 5 clientes, 16 vendas em 3 dias, uma venda cancelada e um
   crediário de 3 parcelas — tudo fictício.
 
@@ -168,6 +174,37 @@ Detalhes, limites e checklist de conferência em [docs/EXPORTACAO.md](docs/EXPOR
 
 ![Carteira de clientes com exportação](docs/capturas/16_clientes.png)
 
+## Impressão
+
+O mesmo documento impresso em três suportes — sem uma linha de texto duplicada no código:
+
+| Suporte | Colunas | Onde sai |
+|---|---|---|
+| Bobina 58 mm | 32 | térmica de mesa (POS-58, MP-58) |
+| Bobina 80 mm | 48 | térmica de balcão (POS-80, Elgin, Bematech, Epson TM) — padrão |
+| Folha A4 | 80 | jato de tinta ou laser comum |
+
+- **Dois motores**: `SISTEMA` (driver do Windows/CUPS — funciona em qualquer impressora e imprime
+  A4) e `ESCPOS` (bytes crus: corte automático, gaveta e código de barras nativo na térmica).
+- **Prévia antes do papel**: papel, impressora e cópias escolhidos no diálogo, desenho feito pelo
+  mesmo código que imprime. `Salvar PDF` e `Salvar TXT` quando não há impressora à mão.
+- **Onde imprimir**: cupom ao finalizar a venda, **F8** para a 2ª via, `Imprimir turno` no Caixa e o
+  comprovante de fechamento logo depois de fechar o turno.
+- **Código de barras CODE 39** com o número do cupom (`1-000012`), desenhado módulo a módulo no papel
+  e nativo na térmica.
+- **Cada impressão é auditada** (`IMPRESSAO_REALIZADA` / `IMPRESSAO_FALHOU`) e exige a permissão
+  `CUPOM_REIMPRIMIR`.
+- Cupom é **documento interno, não fiscal** — o aviso vai impresso nele.
+
+Exemplos (dados fictícios): [`cupom 58 mm`](docs/exemplos/cupom-exemplo-bobina58.pdf),
+[`cupom 80 mm`](docs/exemplos/cupom-exemplo-bobina80.pdf),
+[`cupom em A4`](docs/exemplos/cupom-exemplo-a4.pdf) e
+[`cupom em texto`](docs/exemplos/cupom-exemplo-58mm.txt).
+Configuração, arquitetura, roteiro de teste em impressora real e tabela de problemas comuns em
+[docs/IMPRESSAO.md](docs/IMPRESSAO.md).
+
+![Prévia de impressão](docs/capturas/24_impressao_previa.png)
+
 ## Instalação
 
 Há dois caminhos. O guia completo, com passo a passo para leigo, solução de
@@ -274,6 +311,10 @@ src/bussola_pdv/
   ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas,
                    telas de clientes/crediário/estoque, primeiro uso e entrada do app empacotado
   ui/exportacao.py botão Exportar (menu Excel/PDF) usado em todas as telas de relatório
+  ui/impressao.py  prévia de impressão e botão Imprimir (bobina 58/80 e A4)
+  dominio/impressao.py  documento imprimível (blocos, papéis, CODE 39) — dado, não texto
+  aplicacao/impressao.py  monta cupom/turno e despacha pelo motor configurado, com auditoria
+  infra/impressao/ desenho em grade no driver/PDF, bytes ESC/POS, envio cru e texto puro
   dominio/relatorio.py  Relatorio/Tabela/Coluna: o documento como dado, sem formato
   aplicacao/exportacao.py  monta fechamento/vendas/catálogo/auditoria/crediário/clientes/estoque/turno
                    e grava com auditoria
@@ -282,11 +323,11 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             563 testes: unidade, integração com SQLite real, falhas, UI offscreen,
-                   exportação e empacotamento
+tests/             610 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+                   exportação, impressão (documento, PDF, ESC/POS) e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
-docs/              análise do repositório de origem, decisões (ADRs), interface, instalação no
-                   Windows, plano e capturas
+docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,
+                   impressão, instalação no Windows, plano e capturas
 ```
 
 ## Limites explícitos
@@ -301,6 +342,9 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
   cliente, receber título e lançar entrada de estoque ainda dependem do serviço/CLI.
 - Encargos de crediário, devolução parcial, importação da planilha e **geração do `.exe` neste
   ambiente Linux** continuam pendentes (ver plano); o PDF de fechamento existe desde a v0.5.0.
+- **Impressão foi validada por teste automatizado e em modo PDF/arquivo, não em hardware**: este
+  ambiente não tem CUPS nem impressora. O roteiro de conferência em máquina real está em
+  [docs/IMPRESSAO.md](docs/IMPRESSAO.md#4-o-que-foi-testado--e-o-que-não-foi).
 
 ## O que é (e não é) o diretório `prototipo/`
 

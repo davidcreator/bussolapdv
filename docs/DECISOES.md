@@ -293,6 +293,49 @@ pedir mais largura do que tem, se uma coluna descer do mínimo legível, se a si
 motivo ou se a faixa da casca não bater com a largura. Em troca de mais código de layout, o número
 1280 deixou de ser uma premissa: em 800×600 nada fica cortado e a janela pode ser reduzida até 720×480.
 
+
+## ADR-022 — Impressão: documento neutro, grade de colunas e dois motores
+
+**Contexto.** Com PDV, caixa, crediário e exportação funcionando, o que faltava era papel. A loja
+típica tem uma térmica de balcão (58 ou 80 mm) e, no escritório, uma jato/laser. A tentação é montar
+string em cada tela e mandar para o driver — foi assim que nasceu o problema do protótipo: o cupom do
+PDV, o do recibo e o PDF divergiam na primeira manutenção, e o texto saía desalinhado porque a fonte do
+sistema não é monoespaçada.
+
+**Decisão.**
+
+1. **O documento é dado, não texto de tela** (`dominio/impressao.py`): blocos (`Texto`, `Par`,
+   `Divisor`, `Espaco`, `Item`, `CodigoDeBarras`) e uma única quebra em linhas de largura fixa
+   (`DocumentoImpresso.layout()`), que acontece **uma vez** por papel. Os renderizadores só pintam.
+2. **Papel é perfil de operação**, não número mágico: 58 mm = 32 colunas, 80 mm = 48, A4 = 80. Quem
+   monta o cupom não decide coluna; pergunta ao perfil.
+3. **Dois motores, um padrão honesto.** `SISTEMA` (driver do Windows/CUPS) é o padrão porque funciona
+   em qualquer impressora e imprime A4; `ESCPOS` (bytes crus) existe porque corte automático, gaveta e
+   código de barras nativo **não têm como passar pelo driver**. O motor é parâmetro auditado.
+4. **Prévia obrigatória** antes de imprimir, no tamanho do papel escolhido, desenhada pelo mesmo
+   código que imprime.
+5. **Código de barras CODE 39** do número do cupom: único simbólico que a térmica ESC/POS imprime
+   sozinha e que se desenha à mão no PDF.
+6. **Toda impressão é auditada** (`IMPRESSAO_REALIZADA` / `IMPRESSAO_FALHOU`), com impressora, motor,
+   papel e motivo da falha.
+
+**Alternativas descartadas.** *Só ESC/POS* — loja com impressora comum ficaria de fora, e o projeto
+tem que servir balcão e escritório. *Só driver* — sem corte e sem gaveta, que é justamente o que a
+térmica tem de útil. *`python-escpos`/`reportlab`* — duas dependências novas para o que se resolve com
+`QPrinter` (já presente por causa do PDF da v0.5.0) e ~30 linhas de comandos ESC/POS. *Texto corrido
+com `drawText` da linha inteira* — desalinha valor à direita com fonte proporcional; *desenhar cada
+caractere numa coluna* foi a solução. *Título em corpo dobrado no papel comum* — estourou a bobina de
+58 mm e sobrepôs linhas na primeira versão; a ênfase virou negrito na mesma grade, e o "duplo" fica
+só na térmica, onde é comando nativo. *Salvar cupom como imagem* — ilegível para leitor de tela e não
+pesquisável.
+
+**Consequência.** O cupom do PDV, a 2ª via (F8), o comprovante de fechamento do turno e o PDF/txt
+saem do mesmo documento, e o teste compara os três papéis coluna por coluna. A documentação separa o
+que é verificado automaticamente do que só se confirma em impressora real: **não houve teste em
+hardware** neste ambiente (sem CUPS, sem impressora), e `docs/IMPRESSAO.md` descreve o roteiro manual
+de conferência. Custo: um pacote de impressão a mais para manter e a necessidade de escolher o motor
+certo por loja.
+
 ---
 
 ## Pendências que exigem decisão do responsável

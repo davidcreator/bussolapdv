@@ -160,6 +160,15 @@ class ParametroRepositorio(RepositorioBase):
         "caixa.limite_diferenca_centavos": "500",
         "seguranca.maximo_tentativas": "5",
         "seguranca.bloqueio_minutos": "5",
+        # Impressão (v0.8.0): bobina de 80 mm é o que a maioria das lojas usa.
+        "impressao.motor": "SISTEMA",
+        "impressao.impressora": "",
+        "impressao.papel": "BOBINA_80",
+        "impressao.copias": "1",
+        "impressao.cortar_papel": "1",
+        "impressao.abrir_gaveta": "0",
+        "impressao.codigo_de_barras": "1",
+        "impressao.imprimir_automatico": "0",
     }
 
     def obter(self, chave: str) -> str:

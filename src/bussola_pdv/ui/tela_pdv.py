@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..aplicacao.contexto import Contexto
+from ..aplicacao.impressao import ServicoImpressao
 from ..aplicacao.pdv import ResultadoVenda, ServicoPDV, SolicitacaoVenda
 from ..dominio.dinheiro import Dinheiro, Quantidade
 from ..dominio.erros import (
@@ -39,6 +40,8 @@ from ..dominio.pagamentos import (
 from ..dominio.usuario import Acao, Usuario
 from ..dominio.venda import Carrinho, TotaisVenda
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
+from ..infra.sqlite.repositorio_vendas import VendaRegistrada
+from .impressao import DialogoPreviaImpressao
 from .login import DialogoAutorizacao
 from .responsivo import GradeDeIndicadores
 from .widgets import CaixaInfo, ajustar_colunas, preparar_tabela
@@ -66,7 +69,10 @@ class TelaPDV(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         self.servico = ServicoPDV(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self.carrinho = Carrinho()
+        #: Última venda finalizada nesta estação — permite reimprimir sem procurar.
+        self.ultima_venda: VendaRegistrada | None = None
         self._montar_interface()
         self._atalhos()
         self.atualizar()
@@ -170,9 +176,15 @@ class TelaPDV(QWidget):
         self.botao_limpar = QPushButton("Cancelar cupom (F6)")
         self.botao_limpar.setObjectName("secundario")
         self.botao_limpar.clicked.connect(self._limpar)
+        self.botao_reimprimir = QPushButton("Reimprimir cupom (F8)")
+        self.botao_reimprimir.setObjectName("secundario")
+        self.botao_reimprimir.setToolTip("Repete o cupom da última venda desta estação")
+        self.botao_reimprimir.clicked.connect(self._reimprimir_ultimo)
+        self.botao_reimprimir.setEnabled(False)
         self.botao_finalizar = QPushButton("Finalizar venda (F4)")
         self.botao_finalizar.clicked.connect(self._finalizar)
         layout_final.addWidget(self.rotulo_total, 1)
+        layout_final.addWidget(self.botao_reimprimir)
         layout_final.addWidget(self.botao_limpar)
         layout_final.addWidget(self.botao_finalizar)
 
@@ -192,6 +204,7 @@ class TelaPDV(QWidget):
         ligar("F2", self, lambda: self.campo_codigo.setFocus())
         ligar("F4", self, self._finalizar)
         ligar("F6", self, self._limpar)
+        ligar("F8", self, self._reimprimir_ultimo)
         ligar("Delete", self.tabela, self._remover_selecionado)
         ligar("Escape", self, lambda: self._mensagem(""))
 
@@ -491,7 +504,73 @@ class TelaPDV(QWidget):
             "<br><span style='color:#5A5A5A'>Comprovante interno. Não é documento fiscal. "
             "Pagamentos eletrônicos pendentes exigem confirmação no procedimento da loja.</span>"
         )
-        QMessageBox.information(self, "Venda registrada", "<br>".join(linhas))
+        self.ultima_venda = venda
+        self.botao_reimprimir.setEnabled(
+            self.usuario.pode(Acao.CUPOM_REIMPRIMIR) and self.impressao is not None
+        )
+
+        if self.impressao.configuracao().imprimir_automatico:
+            # Loja que já configurou impressão não quer clicar duas vezes por venda.
+            self._imprimir(venda, copia=False, automatico=True)
+            return
+
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Venda registrada")
+        caixa.setIcon(QMessageBox.Icon.Information)
+        caixa.setTextFormat(Qt.TextFormat.RichText)
+        caixa.setText("<br>".join(linhas))
+        if self.usuario.pode(Acao.CUPOM_REIMPRIMIR):
+            botao_imprimir = caixa.addButton("Imprimir cupom", QMessageBox.ButtonRole.ActionRole)
+        else:
+            botao_imprimir = None
+        caixa.addButton("Fechar", QMessageBox.ButtonRole.AcceptRole)
+
+        def decidir(_resultado: int) -> None:
+            if botao_imprimir is not None and caixa.clickedButton() is botao_imprimir:
+                self._imprimir(venda, copia=False)
+
+        caixa.finished.connect(decidir)
+        # `open()` e não `exec()`: a janela é modal para o operador, mas a tela não
+        # fica travada no meio do `_finalizar` (e a suíte de testes não bloqueia).
+        self._comprovante = caixa
+        caixa.open()
+
+    # -- impressão -----------------------------------------------------------
+    def _imprimir(
+        self, venda: VendaRegistrada, *, copia: bool = False, automatico: bool = False
+    ) -> None:
+        """Monta o cupom da venda e entrega à prévia (ou imprime direto).
+
+        `copia=True` marca a 2ª via no cabeçalho: sem isso, dois papéis iguais na
+        mão do cliente e nenhuma forma de saber qual foi o original.
+        """
+        try:
+            documento = self.impressao.comprovante_da_venda(venda, copia=copia)
+            if automatico:
+                resultado = self.impressao.despachar(documento, ator=self.usuario)
+                self._mensagem(f"Cupom {venda.rotulo} enviado para {resultado.destino}.")
+                return
+            DialogoPreviaImpressao(
+                documento, self.impressao, ator=self.usuario, parent=self
+            ).exec()
+        except ErroBussola as exc:
+            self._mensagem(f"Impressão não realizada: {exc}")
+            QMessageBox.warning(
+                self,
+                "Impressão",
+                f"{exc}\n\nA venda está registrada. Você pode imprimir depois com F8 "
+                "ou salvar o cupom em PDF pela prévia.",
+            )
+
+    def _reimprimir_ultimo(self) -> None:
+        """F8: reimprime a última venda desta estação, marcada como 2ª via."""
+        if self.ultima_venda is None:
+            self._mensagem("Nenhuma venda nesta estação para reimprimir.")
+            return
+        if not self.usuario.pode(Acao.CUPOM_REIMPRIMIR):
+            self._mensagem("Seu perfil não imprime cupom.")
+            return
+        self._imprimir(self.ultima_venda, copia=True)
 
     def _perguntar_parcelas(self) -> int | None:
         from PySide6.QtWidgets import QInputDialog

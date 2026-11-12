@@ -112,6 +112,7 @@ class Acao(StrEnum):
     PDV_VENDA_A_PRAZO = "PDV_VENDA_A_PRAZO"
     VENDA_CANCELAR = "VENDA_CANCELAR"
     VENDA_DEVOLVER = "VENDA_DEVOLVER"
+    CUPOM_REIMPRIMIR = "CUPOM_REIMPRIMIR"
 
     # Caixa
     CAIXA_ABRIR = "CAIXA_ABRIR"
@@ -157,6 +158,7 @@ class Acao(StrEnum):
             Acao.PDV_VENDA_A_PRAZO: CategoriaAcao.VENDAS,
             Acao.VENDA_CANCELAR: CategoriaAcao.VENDAS,
             Acao.VENDA_DEVOLVER: CategoriaAcao.VENDAS,
+            Acao.CUPOM_REIMPRIMIR: CategoriaAcao.VENDAS,
             Acao.CAIXA_ABRIR: CategoriaAcao.CAIXA,
             Acao.CAIXA_FECHAR: CategoriaAcao.CAIXA,
             Acao.CAIXA_SANGRIA: CategoriaAcao.CAIXA,
@@ -193,6 +195,7 @@ class Acao(StrEnum):
             Acao.PDV_VENDA_A_PRAZO: "Venda a prazo (crediário)",
             Acao.VENDA_CANCELAR: "Cancelar venda",
             Acao.VENDA_DEVOLVER: "Devolver venda",
+            Acao.CUPOM_REIMPRIMIR: "Imprimir e reimprimir cupom",
             Acao.CAIXA_ABRIR: "Abrir turno",
             Acao.CAIXA_FECHAR: "Fechar turno",
             Acao.CAIXA_SANGRIA: "Sangria",
@@ -230,6 +233,7 @@ PERMISSOES_PADRAO: dict[Perfil, frozenset[Acao]] = {
         {
             Acao.PDV_VENDER,
             Acao.PDV_DESCONTO_ITEM,
+            Acao.CUPOM_REIMPRIMIR,
             Acao.CAIXA_ABRIR,
             Acao.CAIXA_FECHAR,
             Acao.CAIXA_SUPRIMENTO,
@@ -246,6 +250,7 @@ PERMISSOES_PADRAO: dict[Perfil, frozenset[Acao]] = {
             Acao.PDV_VENDA_A_PRAZO,
             Acao.VENDA_CANCELAR,
             Acao.VENDA_DEVOLVER,
+            Acao.CUPOM_REIMPRIMIR,
             Acao.CAIXA_ABRIR,
             Acao.CAIXA_FECHAR,
             Acao.CAIXA_SANGRIA,

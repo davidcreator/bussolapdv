@@ -97,6 +97,23 @@ def main() -> int:
     app.processEvents()
     janela_gerente.grab().save(str(SAIDA / "19_caixa_exportar.png"))
     print("captura:", SAIDA / "19_caixa_exportar.png")
+
+    # Prévia de impressão (v0.8.0): o cupom desenhado no papel escolhido.
+    from bussola_pdv.aplicacao.impressao import ServicoImpressao
+    from bussola_pdv.dominio.impressao import Papel
+    from bussola_pdv.ui.impressao import DialogoPreviaImpressao
+
+    impressao = ServicoImpressao(ctx)
+    venda = ctx.vendas.listar(limite=1)
+    if venda:
+        documento = impressao.comprovante_por_id(str(venda[0]["id"]), papel=Papel.BOBINA_80)
+        previa = DialogoPreviaImpressao(documento, impressao, ator=janela_gerente.usuario, parent=janela_gerente)
+        previa.show()
+        app.processEvents()
+        app.processEvents()
+        previa.grab().save(str(SAIDA / "24_impressao_previa.png"))
+        print("captura:", SAIDA / "24_impressao_previa.png")
+        previa.close()
     janela_gerente.close()
 
     # Área administrativa (sessão do Admin Master).
@@ -119,6 +136,18 @@ def main() -> int:
     capturar_admin("11_admin_permissoes", "permissoes")
     capturar_admin("12_admin_parametros", "parametros")
     capturar_admin("13_admin_manutencao", "manutencao")
+
+    # Grupo "Impressão" dos parâmetros: fica no fim da seção, então rola até lá.
+    from PySide6.QtWidgets import QScrollArea
+
+    admin_janela.menu.setCurrentRow(admin_janela.secoes_liberadas().index("parametros"))
+    app.processEvents()
+    for area in admin_janela.findChildren(QScrollArea):
+        area.verticalScrollBar().setValue(area.verticalScrollBar().maximum())
+    app.processEvents()
+    app.processEvents()
+    admin_janela.grab().save(str(SAIDA / "25_admin_impressao.png"))
+    print("captura:", SAIDA / "25_admin_impressao.png")
     admin_janela.close()
 
     # Menu recolhido: a mesma tela com a sidebar só de ícones.

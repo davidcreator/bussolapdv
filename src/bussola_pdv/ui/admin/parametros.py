@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from ...aplicacao.contexto import Contexto
 from ...aplicacao.parametros import DefinicaoParametro, ServicoParametros, TipoParametro
 from ...dominio.usuario import Acao, Usuario
+from ..impressao import SeletorDeImpressoras
 from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
 
@@ -90,7 +91,18 @@ class SecaoParametros(QWidget):
         self, definicao: DefinicaoParametro, valor: str
     ) -> QComboBox | QSpinBox | QLineEdit:
         campo: QComboBox | QSpinBox | QLineEdit
-        if definicao.tipo is TipoParametro.BOOLEANO:
+        if definicao.tipo is TipoParametro.OPCAO:
+            combo_opcoes = QComboBox()
+            for opcao in definicao.opcoes:
+                combo_opcoes.addItem(opcao, opcao)
+            indice = combo_opcoes.findData(valor.strip().upper())
+            combo_opcoes.setCurrentIndex(max(0, indice))
+            campo = combo_opcoes
+        elif definicao.chave.endswith(".impressora"):
+            # Nome de impressora não se digita de memória: a lista vem do sistema e
+            # continua editável para o caso de a impressora não aparecer instalada.
+            campo = SeletorDeImpressoras(valor, self)
+        elif definicao.tipo is TipoParametro.BOOLEANO:
             combo = QComboBox()
             combo.addItem("Sim", "1")
             combo.addItem("Não", "0")
@@ -116,6 +128,8 @@ class SecaoParametros(QWidget):
         return campo
 
     def _texto_do_campo(self, campo: QComboBox | QSpinBox | QLineEdit) -> str:
+        if isinstance(campo, SeletorDeImpressoras):
+            return campo.valor()
         if isinstance(campo, QComboBox):
             return str(campo.currentData())
         if isinstance(campo, QSpinBox):
@@ -127,7 +141,13 @@ class SecaoParametros(QWidget):
         for chave, campo in self.campos.items():
             definicao = next(d for d in self.servico.listar() if d[0].chave == chave)[0]
             valor = self.ctx.parametros.obter(chave)
-            if isinstance(campo, QComboBox):
+            if isinstance(campo, SeletorDeImpressoras):
+                campo.definir_valor(valor)
+            elif isinstance(campo, QComboBox) and definicao.tipo is TipoParametro.OPCAO:
+                indice = campo.findData(valor.strip().upper())
+                if indice >= 0:
+                    campo.setCurrentIndex(indice)
+            elif isinstance(campo, QComboBox):
                 campo.setCurrentIndex(0 if valor.strip() in {"1", "true", "True", "S", "SIM"} else 1)
             elif isinstance(campo, QSpinBox):
                 with contextlib.suppress(ValueError):

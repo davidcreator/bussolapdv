@@ -64,6 +64,8 @@ na tela de tema; se o branco sobre a primária não passar, o texto do botão vi
 | `PilhaDePaginas` | — | pilha cuja altura segue a página visível |
 | `Rodape` | `main-footer` | nome da loja, aviso de escopo e versão |
 | `BotaoExportar` | `card-tools` + `dropdown` | menu Excel/PDF no cabeçalho do cartão; só aparece para quem tem `EXPORTAR_DADOS` |
+| `BotaoImprimir` | `card-tools` | abre a prévia de impressão do documento que a tela montar; só aparece com `CUPOM_REIMPRIMIR` |
+| `DialogoPreviaImpressao` | `modal` | papel (58/80/A4), impressora instalada, cópias, prévia desenhada e ações Imprimir / Salvar PDF / Salvar TXT |
 | `ajustar_colunas` | `table-responsive` | coluna esticada + demais pelo conteúdo, para não cortar "Ponto de pedido" |
 
 ## Ícones (`ui/icones.py`)
@@ -138,3 +140,20 @@ As capturas de fechamento, clientes, crediário, estoque e do caixa com exporta�
 gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —
 o que é o comportamento correto.
 
+
+## Impressão (`ui/impressao.py`)
+
+A prévia é o único lugar da interface que conhece `QPrinter`: as telas chamam `BotaoImprimir` com uma
+função que devolve o `DocumentoImpresso` **no clique**, e o diálogo cuida do resto. Ver
+[IMPRESSAO.md](IMPRESSAO.md) para configuração e para o que foi (e não foi) testado.
+
+- **Prévia no tamanho real do papel** — o cupom é desenhado em grade de colunas por
+  `infra/impressao/papel.py`; a tela mostra a imagem gerada pelo mesmo código que imprime, então
+  prévia e papel não divergem;
+- **Papel trocável na hora** (58 ↔ 80 ↔ A4) com as medidas à vista: colunas, linhas e altura estimada;
+- **Aviso quando o motor não serve**: `ESCPOS` + A4 mostra "o motor ESC/POS imprime bobina" em vez de
+  falhar só no envio;
+- **Falha com saída**: erro de impressora aparece no diálogo, com o motivo, e a venda continua
+  registrada — o operador pode salvar PDF, tentar de novo (F8) ou seguir o expediente.
+
+![Prévia de impressão](capturas/24_impressao_previa.png)

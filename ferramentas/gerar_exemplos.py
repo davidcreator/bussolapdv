@@ -20,7 +20,9 @@ sys.path.insert(0, str(RAIZ / "src"))
 
 from bussola_pdv.aplicacao.contexto import Contexto
 from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+from bussola_pdv.aplicacao.impressao import ServicoImpressao
 from bussola_pdv.aplicacao.marca import ServicoMarca
+from bussola_pdv.dominio.impressao import Papel
 from bussola_pdv.dominio.marca import Marca
 from bussola_pdv.infra.massa_demo import popular, relogio_demo
 
@@ -60,6 +62,24 @@ def main() -> int:
                 f"gerado: {caminho.relative_to(RAIZ)} "
                 f"({caminho.stat().st_size / 1024:.1f} kB)"
             )
+    # Cupons impressos: o mesmo documento em bobina de 58, de 80 e em folha A4.
+    impressao = ServicoImpressao(contexto)
+    vendas = contexto.vendas.listar(limite=1)
+    if vendas:
+        cupom = impressao.comprovante_por_id(str(vendas[0]["id"]), papel=Papel.BOBINA_80)
+        for papel in (Papel.BOBINA_58, Papel.BOBINA_80, Papel.A4):
+            caminho = DESTINO / f"cupom-exemplo-{papel.value.lower().replace('_', '')}.pdf"
+            impressao.salvar(cupom.com_papel(papel), DESTINO, formato="pdf")
+            nome_antigo = DESTINO / f"{cupom.rotulo}.pdf"
+            if nome_antigo.exists():
+                nome_antigo.replace(caminho)
+            print(f"gerado: {caminho.relative_to(RAIZ)}")
+        texto = DESTINO / "cupom-exemplo-58mm.txt"
+        impressao.salvar(cupom.com_papel(Papel.BOBINA_58), DESTINO, formato="txt")
+        gerado = DESTINO / f"{cupom.rotulo}.txt"
+        if gerado.exists():
+            gerado.replace(texto)
+            print(f"gerado: {texto.relative_to(RAIZ)}")
     contexto.fechar()
     print("Atenção: conteúdo fictício, gerado de `bussola demo`. Não é dado de loja real.")
     return 0
