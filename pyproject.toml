@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bussola-pdv"
-version = "0.4.0"
+version = "0.5.0"
 description = "Bússola Sistema PDV Open Source — PDV desktop offline em Python para varejo (pt-BR)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,6 +36,10 @@ dev = [
     "pytest-cov>=5",
     "ruff>=0.6",
     "mypy>=1.11",
+    # Só para os testes de exportação: abrir o .xlsx e o .pdf com uma
+    # biblioteca de verdade, em vez de confiar no XML que nós mesmos geramos.
+    "openpyxl>=3.1,<4",
+    "pypdf>=5,<7",
 ]
 seed = []  # a massa fictícia usa apenas a biblioteca padrão
 # Só para gerar .exe/.msi — não é necessário para rodar do código.

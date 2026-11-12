@@ -17,6 +17,16 @@ Onde ficam os dados
 
 Para abrir essa pasta: menu Iniciar > "Pasta de dados (banco e cópias)".
 
+Relatórios (Excel e PDF)
+------------------------
+Nas telas de Fechamento, Vendas, Produtos e Auditoria, use o botão
+"Exportar" no topo do cartão: escolha Excel (.xlsx) ou PDF. O arquivo vai,
+por padrão, para:
+
+  %LOCALAPPDATA%\BussolaPDV\relatorios
+
+Não é preciso ter Office instalado para gerar nem para ler o PDF.
+
 Cópia de segurança
 ------------------
 No PDV, use a rotina de backup da interface, ou no Prompt de Comando:

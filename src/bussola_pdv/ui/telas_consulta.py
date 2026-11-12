@@ -20,11 +20,13 @@ from PySide6.QtWidgets import (
 )
 
 from ..aplicacao.contexto import Contexto
+from ..aplicacao.exportacao import ServicoExportacao
 from ..aplicacao.relatorios import ServicoRelatorios
 from ..dominio.dinheiro import Dinheiro
 from ..dominio.erros import ErroBussola
 from ..dominio.produto import Produto, StatusEstoque
 from ..dominio.usuario import Acao, Usuario
+from .exportacao import BotaoExportar
 from .login import DialogoAutorizacao
 from .tema import cor_da_tonalidade
 from .widgets import CaixaInfo, Cartao, preparar_tabela
@@ -52,6 +54,14 @@ class TelaProdutos(QWidget):
             "Catálogo e saldo",
             "Saldo é posição corrente; o status vem da regra de estoque do domínio",
         )
+        self.exportacao = ServicoExportacao(contexto)
+        self.botao_exportar = BotaoExportar(
+            usuario=usuario,
+            servico=self.exportacao,
+            construir=lambda: self.exportacao.relatorio_catalogo(self.campo_busca.text()),
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_exportar)
         self.rotulo_resumo = QLabel()
         cartao.adicionar_ferramenta(self.rotulo_resumo)
 
@@ -154,6 +164,17 @@ class TelaVendas(QWidget):
         layout.addLayout(indicadores)
 
         cartao = Cartao("Vendas", "Cancelamento exige autorização e motivo registrado")
+        self.exportacao = ServicoExportacao(contexto)
+        self.botao_exportar = BotaoExportar(
+            usuario=usuario,
+            servico=self.exportacao,
+            construir=lambda: self.exportacao.relatorio_vendas(
+                self.data_ini.date().toString("yyyy-MM-dd"),
+                self.data_fim.date().toString("yyyy-MM-dd"),
+            ),
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_exportar)
         linha = QHBoxLayout()
         self.data_ini = QDateEdit(QDate.currentDate().addDays(-30))
         self.data_ini.setCalendarPopup(True)
@@ -291,6 +312,14 @@ class TelaAuditoria(QWidget):
             "Trilha de auditoria",
             "Append-only: UPDATE e DELETE são bloqueados por trigger; a cadeia é verificável",
         )
+        self.exportacao = ServicoExportacao(contexto)
+        self.botao_exportar = BotaoExportar(
+            usuario=usuario,
+            servico=self.exportacao,
+            construir=self.exportacao.relatorio_auditoria,
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_exportar)
         linha = QHBoxLayout()
         self.rotulo = QLabel()
         self.rotulo.setObjectName("textoAjuda")
@@ -352,6 +381,14 @@ class TelaFechamento(QWidget):
             "Relatório do dia",
             "Conferência aritmética do dia; não representa confirmação bancária de PIX ou cartão",
         )
+        self.exportacao = ServicoExportacao(contexto)
+        self.botao_exportar = BotaoExportar(
+            usuario=usuario,
+            servico=self.exportacao,
+            construir=lambda: self.exportacao.relatorio_fechamento(self._data_iso()),
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_exportar)
         linha = QHBoxLayout()
         self.data = QDateEdit(QDate.currentDate())
         self.data.setCalendarPopup(True)

@@ -48,6 +48,13 @@ def banco_padrao() -> Path:
     return diretorio_de_dados() / NOME_BANCO
 
 
+def pasta_de_relatorios() -> Path:
+    """Pasta sugerida para relatórios exportados (Excel/PDF)."""
+    pasta = diretorio_de_dados() / "relatorios"
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
 def pasta_de_copias() -> Path:
     """Pasta sugerida para cópias de segurança."""
     pasta = diretorio_de_dados() / NOME_COPIAS

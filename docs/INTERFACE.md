@@ -63,10 +63,11 @@ na tela de tema; se o branco sobre a primária não passar, o texto do botão vi
 | `Selo` | `badge` | status: ativo, ruptura, cancelado, conciliado |
 | `PilhaDePaginas` | — | pilha cuja altura segue a página visível |
 | `Rodape` | `main-footer` | nome da loja, aviso de escopo e versão |
+| `BotaoExportar` | `card-tools` + `dropdown` | menu Excel/PDF no cabeçalho do cartão; só aparece para quem tem `EXPORTAR_DADOS` |
 
 ## Ícones (`ui/icones.py`)
 
-21 desenhos SVG de 24×24 escritos neste repositório, com traço de 1,8 e pontas arredondadas,
+25 desenhos SVG de 24×24 escritos neste repositório, com traço de 1,8 e pontas arredondadas,
 coloridos em tempo de execução (cache por nome/cor/tamanho). Não há dependência de rede nem de
 pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tela.
 
@@ -81,5 +82,9 @@ pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tel
 ## Capturas
 
 `docs/capturas/` é gerado por `make capturas` (`ferramentas/captura_telas.py`, Qt offscreen, sem
-servidor gráfico): PDV vazio e com itens, caixa, produtos, fechamento, auditoria, login, as seis
-seções administrativas, tema personalizado e menu recolhido.
+servidor gráfico): PDV vazio e com itens, caixa, produtos, fechamento (sessão de gerente, com o
+botão *Exportar*), auditoria, login, as seis seções administrativas, tema personalizado e menu
+recolhido.
+
+A captura do fechamento usa a sessão de gerente de propósito: o perfil Atendente não tem
+`EXPORTAR_DADOS` e, para ele, o botão não existe — o que é o comportamento correto.

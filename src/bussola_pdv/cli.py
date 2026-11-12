@@ -7,6 +7,8 @@ Uso::
     bussola info --banco dados/demo.db                      # versão/integridade
     bussola backup --banco dados/demo.db --destino copias/
     bussola fechamento --banco dados/demo.db --data 2026-11-11
+    bussola exportar --banco dados/demo.db --tipo fechamento --data 2026-11-11 \
+        --formato pdf --login master                        # relatório em arquivo
     bussola ui --banco dados/demo.db                        # interface Qt
 """
 
@@ -24,9 +26,11 @@ from pathlib import Path
 from . import __app_name__, __version__
 from .aplicacao.autenticacao import ServicoAutenticacao
 from .aplicacao.contexto import Contexto
+from .aplicacao.exportacao import ServicoExportacao
 from .aplicacao.relatorios import ServicoRelatorios
 from .dominio.dinheiro import Dinheiro
 from .dominio.erros import ErroBussola, ErroValidacao
+from .dominio.relatorio import Relatorio
 from .dominio.relogio import RelogioFixo
 from .dominio.usuario import Perfil
 from .infra.massa_demo import popular, relogio_demo
@@ -151,6 +155,65 @@ def cmd_fechamento(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_exportar(args: argparse.Namespace) -> int:
+    """Exporta um relatório em Excel ou PDF, autenticando quem pede.
+
+    A autenticação não é burocracia: exportar tira dado da loja, então o CLI
+    exige um usuário com `EXPORTAR_DADOS` e registra o evento na auditoria —
+    exatamente como a interface. A senha vem de `BUSSOLA_SENHA` (útil em script)
+    ou é perguntada no terminal.
+    """
+    _exigir_banco(args.banco)
+    formato = args.formato.lower().lstrip(".")
+    if formato not in ("xlsx", "pdf"):
+        raise ErroValidacao("Formato inválido: use xlsx ou pdf.")
+
+    ctx = Contexto.abrir(Path(args.banco))
+    try:
+        senha = os.environ.get("BUSSOLA_SENHA") or getpass.getpass(f"Senha de {args.login}: ")
+        usuario = ServicoAutenticacao(ctx).entrar(args.login, senha).usuario
+        servico = ServicoExportacao(ctx)
+        relatorio = _montar_relatorio(servico, args)
+        destino = Path(args.destino) if args.destino else None
+        if destino is None:
+            from .caminhos import pasta_de_relatorios
+
+            destino = pasta_de_relatorios() / relatorio.nome_de_arquivo(formato)
+        elif destino.is_dir():
+            destino = destino / relatorio.nome_de_arquivo(formato)
+        elif destino.suffix.lower() != f".{formato}":
+            destino = destino.with_suffix(f".{formato}")
+        caminho = servico.exportar(usuario, relatorio, destino)
+    finally:
+        ctx.fechar()
+
+    print(f"{__app_name__} {__version__}")
+    print(f"Relatório: {relatorio.titulo}")
+    print(f"Formato: {formato} · linhas: {relatorio.linhas}")
+    print(f"Arquivo: {caminho.resolve()}")
+    print("Documento interno de conferência: não é documento fiscal.")
+    return 0
+
+
+def _montar_relatorio(servico: ServicoExportacao, args: argparse.Namespace) -> Relatorio:
+    tipo = args.tipo
+    if tipo == "fechamento":
+        if not args.data:
+            raise ErroValidacao("Informe --data AAAA-MM-DD para o fechamento.")
+        return servico.relatorio_fechamento(args.data)
+    if tipo == "vendas":
+        if not (args.de and args.ate):
+            raise ErroValidacao("Informe --de e --ate (AAAA-MM-DD) para vendas.")
+        return servico.relatorio_vendas(args.de, args.ate)
+    if tipo == "catalogo":
+        return servico.relatorio_catalogo(args.busca or "")
+    if tipo == "auditoria":
+        return servico.relatorio_auditoria(args.limite)
+    if tipo == "crediario":
+        return servico.relatorio_crediario()
+    raise ErroValidacao(f"Tipo de relatório desconhecido: {tipo}.")
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
     _exigir_banco(args.banco)
     from .ui.app import executar
@@ -208,6 +271,23 @@ def construir_parser() -> argparse.ArgumentParser:
     p_fech.add_argument("--banco", default="dados/bussola.db")
     p_fech.add_argument("--data", required=True)
     p_fech.set_defaults(func=cmd_fechamento)
+
+    p_export = sub.add_parser("exportar", help="exporta relatório em Excel (.xlsx) ou PDF")
+    p_export.add_argument("--banco", default="dados/bussola.db")
+    p_export.add_argument(
+        "--tipo",
+        default="fechamento",
+        choices=["fechamento", "vendas", "catalogo", "auditoria", "crediario"],
+    )
+    p_export.add_argument("--formato", default="xlsx", choices=["xlsx", "pdf"])
+    p_export.add_argument("--destino", default=None, help="arquivo ou pasta de saída")
+    p_export.add_argument("--data", default=None, help="data de negócio (fechamento)")
+    p_export.add_argument("--de", default=None, help="início do período (vendas)")
+    p_export.add_argument("--ate", default=None, help="fim do período (vendas)")
+    p_export.add_argument("--busca", default="", help="filtro de descrição (catálogo)")
+    p_export.add_argument("--limite", type=int, default=500, help="eventos (auditoria)")
+    p_export.add_argument("--login", required=True, help="usuário que assina a exportação")
+    p_export.set_defaults(func=cmd_exportar)
 
     p_ui = sub.add_parser("ui", help="abre a interface desktop")
     p_ui.add_argument("--banco", default="dados/bussola.db")

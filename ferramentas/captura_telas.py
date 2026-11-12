@@ -12,7 +12,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QDate, QTimer
 
 from bussola_pdv.aplicacao.contexto import Contexto
 from bussola_pdv.aplicacao.marca import ServicoMarca
@@ -61,10 +61,26 @@ def main() -> int:
     janela.tela_pdv._adicionar_item()
     capturar("02_pdv_com_itens")
 
-    for indice, nome in [(1, "03_caixa"), (2, "04_produtos"), (4, "05_fechamento"), (5, "06_auditoria")]:
+    for indice, nome in [(1, "03_caixa"), (2, "04_produtos"), (5, "06_auditoria")]:
         janela.navegacao.setCurrentRow(indice)
         app.processEvents()
         capturar(nome)
+
+    # Fechamento com sessão de gerente: é a tela onde mora o botão Exportar,
+    # que o perfil Atendente (usado nas demais capturas) não vê.
+    gerente = ctx.usuarios.por_login("gerente")
+    janela_gerente = JanelaPrincipal(ctx, gerente)
+    janela_gerente.resize(1280, 820)
+    janela_gerente.show()
+    janela_gerente.navegacao.setCurrentRow(4)
+    tela_fechamento = janela_gerente.pilha.widget(4)
+    tela_fechamento.data.setDate(QDate(2026, 11, 11))  # dia com movimento na demo
+    tela_fechamento._gerar()
+    app.processEvents()
+    app.processEvents()
+    janela_gerente.grab().save(str(SAIDA / "05_fechamento.png"))
+    print("captura:", SAIDA / "05_fechamento.png")
+    janela_gerente.close()
 
     # Área administrativa (sessão do Admin Master).
     master = ctx.usuarios.por_login("master")

@@ -28,6 +28,18 @@ Saída em `dist/`: `BussolaPDV\BussolaPDV.exe`, `BussolaPDV-<versão>-win64.zip`
   spec e têm teste de regressão.
 - Nada mais: ícones e folha de estilo são strings dentro do pacote Python.
 
+## Exportação
+
+Os escritores `.xlsx` (biblioteca padrão) e `.pdf` (Qt) entram no bundle sozinhos: são módulos Python
+puros e um import tardio do PySide6, que o PyInstaller já empacota. Depois de um build, vale conferir:
+
+```powershell
+.\dist\BussolaPDV\BussolaPDV-console.exe exportar --banco %LOCALAPPDATA%\BussolaPDV\pdv.db `
+    --tipo fechamento --data 2026-11-11 --formato pdf --login master --destino .\teste.pdf
+```
+
+Se o PDF sair com 0 byte, o plugin do Qt não foi coletado — veja os avisos do PyInstaller.
+
 ## Limites
 
 - Binário Windows só é produzido **em Windows** (ou no runner `windows-latest` do workflow

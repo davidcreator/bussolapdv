@@ -332,6 +332,7 @@ Transparência sobre este repositório:
 | --- | --- |
 | Banco do PDV (SQLite, com WAL) | `%LOCALAPPDATA%\BussolaPDV\pdv.db` |
 | Cópias de segurança | `%LOCALAPPDATA%\BussolaPDV\copias\` |
+| Relatórios exportados (Excel/PDF) | `%LOCALAPPDATA%\BussolaPDV\relatorios\` |
 | Programa instalado (Caminho A/C) | `%LOCALAPPDATA%\Programs\BussolaPDV` |
 | Código + `.venv` (Caminho B) | onde você clonou, por exemplo `%USERPROFILE%\bussolapdv` |
 
@@ -400,7 +401,9 @@ Faça isso no computador da loja, antes de usar para valer:
 - [ ] `Administração` → cadastrar um produto, um cliente e um segundo usuário
       (ex.: perfil `Atendente`).
 - [ ] Abrir o caixa, registrar uma venda fictícia de R$ 1,00, finalizar.
-- [ ] Fechar a caixa e conferir o relatório de fechamento do dia.
+- [ ] Fechar o caixa e conferir o relatório de fechamento do dia.
+- [ ] No Fechamento, usar **Exportar → Excel (.xlsx)** e **Exportar → PDF**: os dois arquivos precisam
+      abrir e mostrar os mesmos valores da tela (detalhes em [EXPORTACAO.md](EXPORTACAO.md)).
 - [ ] `bussola info --banco "%LOCALAPPDATA%\BussolaPDV\pdv.db"` (ou
       `BussolaPDV-console.exe info`) mostra integridade OK.
 - [ ] Fazer o backup e conferir o arquivo gerado na pasta `copias`.

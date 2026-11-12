@@ -51,6 +51,9 @@ Thumbs.db
 *.xlsm
 *.csv
 !docs/exemplos/*.csv
+# relatórios de exemplo (dados fictícios gerados por ferramentas/gerar_exemplos.py)
+!docs/exemplos/*.xlsx
+!docs/exemplos/*.pdf
 # o protótipo histórico é preservado de propósito em prototipo/
 !prototipo/especificacao/excel/*.xlsx
 !prototipo/especificacao/uploads/*.png

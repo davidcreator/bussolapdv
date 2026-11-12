@@ -55,6 +55,23 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
 - 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
 
+## Evidências da entrega de exportação (v0.5.0)
+
+- `tests/test_exportacao.py` (41): modelo (`Relatorio`/`Tabela`/`Coluna`, validações, nome de arquivo,
+  slug, tipos), formatação pt-BR (moeda, centavos→reais sem resíduo, data ISO→BR), escritor `.xlsx`
+  (partes do pacote, **leitura por openpyxl** conferindo moeda como número, data como data, texto
+  escapado, aba saneada/única, filtro automático, painel congelado, larguras, planilha vazia),
+  escritor `.pdf` (**leitura por pypdf**: `%PDF`, `%%EOF`, título, rodapé `página X de Y`, 400 linhas
+  em várias páginas, escape de HTML), serviço (valores iguais aos da tela, permissão negada para
+  atendente, contabilidade exporta, evento `DADOS_EXPORTADOS`, cadeia de hashes íntegra, loja/CNPJ no
+  cabeçalho, aviso fiscal em todos os relatórios) e CLI (sucesso em PDF, nome sugerido em pasta,
+  senha errada, perfil sem permissão, falta de `--data`, banco inexistente).
+- `tests/test_ui_exportacao.py` (13): menu com os dois formatos, botão oculto para atendente,
+  exportação gravando arquivo e emitindo sinal, extensão corrigida, cancelamento sem arquivo, as
+  quatro telas com o botão, fechamento exportando o dia escolhido e catálogo respeitando a busca.
+- `docs/EXPORTACAO.md` + exemplos versionados (`docs/exemplos/fechamento-exemplo.pdf` e `.xlsx`,
+  gerados por `ferramentas/gerar_exemplos.py` a partir de `bussola demo`).
+
 ## Evidências da entrega de instalação Windows (v0.4.0)
 
 - `tests/test_primeiro_uso.py` (10): detecção de base ausente/vazia/pronta/arquivo corrompido;
@@ -77,7 +94,7 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 
 ## Próximos incrementos sugeridos (ordem)
 
-1. Telas de clientes, crediário e estoque (a API já existe).
+1. Telas de clientes, crediário e estoque (a API já existe; o crediário já exporta pela API/CLI).
 2. Devolução parcial de venda com recomposição de pagamento.
 3. Geração de PDF do fechamento (Qt PrintSupport).
 4. Importação validada da planilha protótipo (pré-visualização + relatório de erros).

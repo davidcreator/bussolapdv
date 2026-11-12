@@ -2,6 +2,59 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.5.0] — 2026-11-11 — pré-alfa: exportação em Excel e PDF
+
+### Adicionado
+
+- **`BotaoExportar`** (`ui/exportacao.py`) no cabeçalho do cartão de **Fechamento, Vendas, Produtos e
+  Auditoria**: menu com *Excel (.xlsx)* e *PDF*, nome de arquivo sugerido
+  (`fechamento-do-caixa-2026-11-11.xlsx`), pasta de relatórios do usuário, botão "Abrir pasta" na
+  confirmação e correção da extensão quando o usuário não digita. O botão **não aparece** para quem
+  não tem `EXPORTAR_DADOS`.
+- **Relatório como dado** (`dominio/relatorio.py`): `Relatorio`, `Tabela`, `Coluna` e `TipoColuna`
+  (texto, inteiro, moeda, data). Tela e arquivo partem da mesma estrutura e dos mesmos centavos
+  inteiros; a formatação é do exportador, não de quem monta.
+- **Escritor `.xlsx` sem dependência** (`infra/exportacao/xlsx.py`): aba `Resumo` + uma aba por
+  tabela, filtro automático, painel congelado, larguras, moeda como número com formato `R$`, data
+  como data do Excel (serial + `dd/mm/aaaa`), metadados, nome de aba saneado (31 caracteres, sem
+  `[]:*?/\`, único) e gravação atômica.
+- **Escritor `.pdf` com Qt** (`infra/exportacao/pdf.py`): A4, identificação da loja, indicadores,
+  tabelas zebradas, avisos, paginação própria e rodapé `página X de Y` em todas as páginas.
+- **`ServicoExportacao`** (`aplicacao/exportacao.py`): monta os relatórios de **fechamento, vendas,
+  catálogo/estoque, auditoria e crediário**, exige `EXPORTAR_DADOS` e grava o evento
+  `DADOS_EXPORTADOS` (autor, formato, linhas, filtros, arquivo) na trilha append-only.
+- **CLI `bussola exportar`**: `--tipo fechamento|vendas|catalogo|auditoria|crediario`, `--formato
+  xlsx|pdf`, `--destino` (arquivo ou pasta), `--data`, `--de/--ate`, `--busca`, `--limite`,
+  `--login`; autentica de verdade (senha via `BUSSOLA_SENHA` ou prompt) e sai com código 2 quando
+  falta permissão, senha está errada ou o banco não existe.
+- `caminhos.pasta_de_relatorios()` (`%LOCALAPPDATA%\BussolaPDV\relatorios`, sobreponível por
+  `BUSSOLA_DADOS`), ícones `planilha` e `documento` (23 → 25 SVGs).
+- `docs/EXPORTACAO.md` (o que exporta, formatos, permissão, auditoria, limites, checklist),
+  exemplos versionados em `docs/exemplos/` e `ferramentas/gerar_exemplos.py`.
+- Testes: `tests/test_exportacao.py` (41) e `tests/test_ui_exportacao.py` (13).
+
+### Alterado
+
+- `Acao.EXPORTAR_DADOS` passou a se chamar "Exportar relatórios (Excel e PDF)" na tela de permissões
+  (o rótulo antigo dizia CSV, formato que o programa nunca gerou).
+- `openpyxl` e `pypdf` entraram no extra `dev` **só para teste**: são usados para abrir o arquivo
+  gerado com uma biblioteca de verdade. Execução continua com duas dependências.
+- Captura `05_fechamento.png` regerada com sessão de gerente e dia com movimento, para mostrar o
+  botão *Exportar*.
+
+### Corrigido
+
+- PDF exportado pelo terminal criava um `QGuiApplication` temporário que era coletado; a janela Qt
+  seguinte abortava o processo (`QWidget: Must construct a QApplication`). Agora a aplicação criada
+  é `QApplication`, fica referenciada no módulo e é reaproveitada.
+- `Marca` ausente na base recém-criada não impede mais exportar (cai no nome padrão).
+
+### Limites desta versão
+
+- Sem agendamento de exportação, sem gráficos/fórmulas na planilha, sem assinatura digital no PDF e
+  sem homologação de impressora térmica.
+- O PDF não é PDF/A e a planilha não tem macro: são documentos de conferência, não fiscais.
+
 ## [0.4.0] — 2026-11-11 — pré-alfa: instalação no Windows e empacotamento
 
 ### Adicionado

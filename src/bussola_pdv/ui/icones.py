@@ -104,6 +104,15 @@ DESENHOS: dict[str, str] = {
     "saida": (
         '<path d="M14.4 3.6H5.2v16.8h9.2"/><path d="M11.6 12h9M17.8 8.6 21.2 12l-3.4 3.4"/>'
     ),
+    # Formatos de exportação: planilha (grade) e documento paginado.
+    "planilha": (
+        '<rect x="3.4" y="4.2" width="17.2" height="15.6" rx="1.6"/>'
+        '<path d="M3.4 9.2h17.2M3.4 14.6h17.2M9.6 9.2v10.6M15 9.2v10.6"/>'
+    ),
+    "documento": (
+        '<path d="M6.2 2.8h8.2L19 7.4v13.8H6.2z"/><path d="M14.4 2.8v4.6H19"/>'
+        '<path d="M9 12h7M9 15.6h7M9 18.2h4.4"/>'
+    ),
 }
 
 COR_PADRAO = "#6C757D"

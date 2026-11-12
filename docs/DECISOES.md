@@ -159,6 +159,31 @@ quem publica, não do código.
 
 ---
 
+## ADR-018 — Exportação como dado: um `Relatorio`, dois escritores, zero dependência nova
+
+**Decisão.** Tela e arquivo descrevem o mesmo objeto `Relatorio` (`dominio/relatorio.py`): blocos
+tabulares com colunas tipadas, indicadores, filtros, avisos e escopo. O `.xlsx` é escrito com a
+biblioteca padrão (`zipfile` + XML), e o PDF com `QPdfWriter`/`QTextDocument` do PySide6 que já é
+dependência de execução. Nenhuma biblioteca nova entra no caminho de execução. Exportar exige a
+permissão que já existia (`EXPORTAR_DADOS`) e grava o evento `DADOS_EXPORTADOS` na trilha
+append-only; o botão aparece apenas para quem tem a permissão, mas a autorização é reavaliada no
+serviço.
+
+**Alternativas descartadas.** `openpyxl`/`pandas` (duas dependências grandes, mais tempo de
+instalação no Windows e mais superfície de CVE) e `reportlab`/`weasyprint` (biblioteca nativa extra
+para paginação e fontes). As versões descartadas seriam mais rápidas de implementar, mas o formato
+necessário aqui é pequeno e estável: tabelas, números e datas. `openpyxl` e `pypdf` **são** usadas
+como dependências de teste, justamente para abrir o arquivo gerado com um leitor de verdade.
+
+**Consequência.** O custo é manter os dois escritores (≈400 linhas) e aceitar o que eles não fazem:
+sem fórmulas, gráficos, imagens, células mescladas, PDF/A ou assinatura. Em troca, o programa
+continua com duas dependências de execução, o build do Windows fica menor e o arquivo não depende de
+versão de biblioteca de terceiro para abrir. Datas e moedas são gravadas como tipos nativos (serial
+do Excel e número em reais), não como texto — o que era o requisito prático de quem leva o
+fechamento para o contador.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

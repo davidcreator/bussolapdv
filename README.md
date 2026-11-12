@@ -2,11 +2,12 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.4.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.5.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
-> [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md). **Não é homologado para operação real**,
+> [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) — e todo relatório sai em **Excel e PDF**
+> ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)). **Não é homologado para operação real**,
 > não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
 > sistema fiscal certificado.
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
@@ -107,6 +108,38 @@ repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
 Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.md).
 
 ![Menu recolhido](docs/capturas/15_menu_recolhido.png)
+
+## Exportação (Excel e PDF)
+
+Todo relatório tem o botão **Exportar** no cabeçalho do cartão, com dois formatos:
+
+| Tela | Relatório | Conteúdo |
+| --- | --- | --- |
+| Fechamento | Fechamento do caixa | resumo, por forma de pagamento, por operador, conciliação, turnos, pendentes, estoque, crediário |
+| Vendas | Vendas do período | cupons do período com total, aplicado e status |
+| Produtos | Catálogo e estoque | saldo, custo, preço e situação por produto |
+| Auditoria | Trilha de auditoria | eventos com ator, entidade e motivo |
+
+- **Excel (.xlsx)**: aba `Resumo` + uma aba por tabela, com filtro automático, cabeçalho congelado,
+  **valores como número** (dá para somar) e **datas como data**.
+- **PDF**: A4 com identificação da loja, indicadores, tabelas, avisos e rodapé `página X de Y`.
+- Exportar exige a permissão `EXPORTAR_DADOS` (master, admin, gerente e contabilidade) e **fica na
+  trilha de auditoria** com autor, formato, filtros e nome do arquivo.
+- Arquivos de exemplo: [`docs/exemplos/fechamento-exemplo.pdf`](docs/exemplos/fechamento-exemplo.pdf)
+  e [`.xlsx`](docs/exemplos/fechamento-exemplo.xlsx) (dados fictícios).
+
+Pela linha de comando (senha em `BUSSOLA_SENHA` ou no prompt):
+
+```bash
+bussola exportar --banco dados/pdv.db --tipo fechamento --data 2026-11-11 \
+    --formato pdf --login master
+bussola exportar --banco dados/pdv.db --tipo vendas --de 2026-11-01 --ate 2026-11-11 \
+    --formato xlsx --login gerente
+```
+
+Detalhes, limites e checklist de conferência em [docs/EXPORTACAO.md](docs/EXPORTACAO.md).
+
+![Fechamento com o botão Exportar](docs/capturas/05_fechamento.png)
 
 ## Instalação
 
@@ -212,10 +245,15 @@ src/bussola_pdv/
   infra/sqlite/    conexão, migrações versionadas, repositórios, massa demo
   ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas,
                    primeiro uso (cria a instalação sem terminal) e entrada do app empacotado
+  ui/exportacao.py botão Exportar (menu Excel/PDF) usado em todas as telas de relatório
+  dominio/relatorio.py  Relatorio/Tabela/Coluna: o documento como dado, sem formato
+  aplicacao/exportacao.py  monta fechamento/vendas/catálogo/auditoria/crediário e grava com auditoria
+  infra/exportacao/ escritores .xlsx (biblioteca padrão) e .pdf (Qt), mais formatação pt-BR
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados por sistema operacional (%LOCALAPPDATA% no Windows)
-tests/             412 testes: unidade, integração com SQLite real, falhas, UI offscreen e empacotamento
+tests/             466 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+                   exportação e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, instalação no
                    Windows, plano e capturas

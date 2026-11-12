@@ -206,7 +206,7 @@ class Acao(StrEnum):
             Acao.RELATORIO_VER: "Ver relatórios",
             Acao.RELATORIO_CONTABIL: "Ver relatórios contábeis e fechamentos",
             Acao.FECHAMENTO_GERAR: "Gerar fechamento do dia",
-            Acao.EXPORTAR_DADOS: "Exportar dados (CSV)",
+            Acao.EXPORTAR_DADOS: "Exportar relatórios (Excel e PDF)",
             Acao.AUDITORIA_VER: "Consultar auditoria",
             Acao.ADMIN_ACESSAR: "Entrar na área administrativa",
             Acao.USUARIO_GERENCIAR: "Criar e gerenciar usuários",
