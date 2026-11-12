@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from ..aplicacao.caixa import ServicoCaixa
 from ..aplicacao.contexto import Contexto
+from ..aplicacao.exportacao import ServicoExportacao
 from ..dominio.caixa import (
     DENOMINACOES_BRL,
     ROTULOS_DENOMINACAO,
@@ -32,8 +33,10 @@ from ..dominio.caixa import (
 )
 from ..dominio.dinheiro import Dinheiro
 from ..dominio.erros import ErroBussola
+from ..dominio.relatorio import Relatorio
 from ..dominio.usuario import Acao, Usuario
 from ..infra.sqlite.repositorio_caixa import TurnoRegistrado
+from .exportacao import BotaoExportar
 from .login import DialogoAutorizacao
 from .widgets import CaixaInfo, preparar_tabela
 
@@ -123,6 +126,7 @@ class TelaCaixa(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         self.servico = ServicoCaixa(contexto)
+        self.exportacao = ServicoExportacao(contexto)
         self._montar()
         self.atualizar()
 
@@ -162,6 +166,17 @@ class TelaCaixa(QWidget):
         self.botao_fechar.clicked.connect(self._fechar)
         for botao in (self.botao_abrir, self.botao_sangria, self.botao_suprimento, self.botao_fechar):
             linha.addWidget(botao)
+        linha.addStretch(1)
+        self.botao_exportar = BotaoExportar(
+            usuario=self.usuario,
+            servico=self.exportacao,
+            construir=self._relatorio_do_turno,
+            parent=self,
+        )
+        self.botao_exportar.setToolTip(
+            "Exportar a conferência do turno (dinheiro esperado, movimentos e contagem)"
+        )
+        linha.addWidget(self.botao_exportar)
 
         grupo_mov = QGroupBox("Movimentos do turno")
         layout_mov = QVBoxLayout(grupo_mov)
@@ -186,6 +201,10 @@ class TelaCaixa(QWidget):
         layout.addWidget(self.rotulo_resumo)
 
     # -- estado -------------------------------------------------------------
+    def _relatorio_do_turno(self) -> Relatorio:
+        """Relatório do turno aberto (o botão só fica habilitado com turno)."""
+        return self.exportacao.relatorio_turno()
+
     def _turno(self) -> tuple[dict[str, str], TurnoRegistrado | None]:
         for caixa in self.ctx.caixas.listar_caixas():
             turno = self.ctx.caixas.turno_aberto(caixa["id"])
@@ -198,6 +217,7 @@ class TelaCaixa(QWidget):
         if turno is None:
             self.rotulo_status.setText("Nenhum turno aberto.")
             self.botao_abrir.setEnabled(True)
+            self.botao_exportar.setEnabled(False)
             for botao in (self.botao_sangria, self.botao_suprimento, self.botao_fechar):
                 botao.setEnabled(False)
             self.tabela.setRowCount(0)
@@ -207,6 +227,7 @@ class TelaCaixa(QWidget):
             self.kpi_diferenca.definir("0", "sem movimentos", "claro")
             return
         self.botao_abrir.setEnabled(False)
+        self.botao_exportar.setEnabled(True)
         for botao in (self.botao_sangria, self.botao_suprimento, self.botao_fechar):
             botao.setEnabled(True)
         self.rotulo_status.setText(

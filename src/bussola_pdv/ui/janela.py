@@ -24,7 +24,10 @@ from ..dominio.usuario import Acao, Usuario
 from .admin.janela import JanelaAdmin, contexto_marca
 from .tela_caixa import TelaCaixa
 from .tela_pdv import TelaPDV
+from .telas_clientes import TelaClientes
 from .telas_consulta import TelaAuditoria, TelaFechamento, TelaProdutos, TelaVendas
+from .telas_crediario import TelaCrediario
+from .telas_estoque import TelaEstoque
 from .tema import folha_estilo_da_marca
 from .widgets import (
     BarraLateral,
@@ -42,10 +45,10 @@ MODULOS = [
     "Vendas",
     "Fechamento",
     "Auditoria",
-    # Módulos previstos na especificação, ainda não implementados nesta entrega.
     "Clientes",
     "Crediário",
     "Estoque",
+    # Módulos previstos na especificação, ainda não implementados nesta entrega.
     "Entradas",
     "Parâmetros",
 ]
@@ -92,8 +95,17 @@ class JanelaPrincipal(QMainWindow):
             TelaVendas(contexto, usuario),
             TelaFechamento(contexto, usuario),
             TelaAuditoria(contexto, usuario),
+            TelaClientes(contexto, usuario),
+            TelaCrediario(contexto, usuario),
+            TelaEstoque(contexto, usuario),
         ):
             self.pilha.addWidget(tela)
+        # Módulos ainda não implementados ganham a página vazia já no índice certo.
+        # Antes ela era criada sob demanda e o `setCurrentIndex` apontava para fora
+        # do `QStackedWidget`: o clique parecia não fazer nada e a página anterior
+        # continuava na tela (o placeholder era inalcançável).
+        for modulo in self.modulos[self.pilha.count() :]:
+            self.pilha.addWidget(self._placeholder(modulo))
 
         self.tela_pdv.solicitar_caixa.connect(lambda: self._selecionar("Caixa"))
         self.tela_caixa.turno_alterado.connect(self.tela_pdv.atualizar)
@@ -199,14 +211,10 @@ class JanelaPrincipal(QMainWindow):
             trilha=["Início", modulo],
         )
         self.barra_superior.definir_pagina(f"{self.marca.nome_fantasia} · {modulo}")
-        if indice < self.pilha.count():
-            self.pilha.setCurrentIndex(indice)
-            tela = self.pilha.currentWidget()
-            if tela is not None and hasattr(tela, "atualizar"):
-                tela.atualizar()
-        else:
-            self.pilha.addWidget(self._placeholder(modulo))
-            self.pilha.setCurrentIndex(indice)
+        self.pilha.setCurrentIndex(indice)
+        tela = self.pilha.currentWidget()
+        if tela is not None and hasattr(tela, "atualizar"):
+            tela.atualizar()
 
     def _placeholder(self, modulo: str) -> QWidget:
         from .widgets import Cartao

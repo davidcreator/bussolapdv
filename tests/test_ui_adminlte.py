@@ -276,7 +276,8 @@ class TestCascaDaJanela:
 
         janela = JanelaPrincipal(cenario.ctx, cenario.master)
         try:
-            janela._selecionar("Clientes")
+            # Clientes virou tela de verdade na v0.6.0; Entradas é o placeholder.
+            janela._selecionar("Entradas")
             pagina = janela.pilha.currentWidget()
             assert pagina is not None
             cartoes = list(pagina.findChildren(widgets.Cartao))

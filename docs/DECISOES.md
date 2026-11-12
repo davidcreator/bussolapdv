@@ -184,6 +184,32 @@ fechamento para o contador.
 
 ---
 
+## ADR-019 — Tela de consulta desenha o relatório (uma consulta, dois destinos)
+
+**Contexto.** As telas de Clientes, Crediário e Estoque estavam marcadas como não implementadas,
+embora a API (`ServicoCrediario.listar`, `RepositorioClientes.listar`, `produtos.saldos`) já
+existisse. O caminho óbvio era escrever, em cada tela, uma consulta própria e formatar os números
+no widget — e repetir a lógica, mais uma vez, nos relatórios de exportação.
+
+**Decisão.** Cada tela nova monta o `Relatorio` no `ServicoExportacao`
+(`relatorio_clientes`, `relatorio_crediario`, `relatorio_estoque`) e **desenha a primeira tabela e os
+indicadores** desse objeto; o `BotaoExportar` recebe um `lambda` que chama exatamente o mesmo método.
+Formatação de célula vem de `infra.exportacao.formato.celula()` nos dois destinos, então moeda, data e
+inteiro aparecem iguais no widget e na planilha.
+
+**Consequências.**
+
+- divergência tela × arquivo deixa de ser possível por construção: não há segundo cálculo para
+  esquecer de atualizar;
+- o custo é a tela depender do serviço de exportação (camada de aplicação) para ler — o que já era
+  verdade para Fechamento e Vendas;
+- relatórios com várias tabelas ficam limitados, na tela, à primeira (`tabelas[0]`); as demais
+  (resumo por situação, contagem por denominação) só saem no arquivo, e isso está dito no cartão;
+- um ajuste de cálculo é feito **uma vez** e aparece nos dois lugares — foi assim que o bug do título
+  `PARCIAL` (que sumia do saldo em aberto) foi corrigido nos dois destinos de uma vez.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

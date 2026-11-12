@@ -19,8 +19,9 @@ Para abrir essa pasta: menu Iniciar > "Pasta de dados (banco e cópias)".
 
 Relatórios (Excel e PDF)
 ------------------------
-Nas telas de Fechamento, Vendas, Produtos e Auditoria, use o botão
-"Exportar" no topo do cartão: escolha Excel (.xlsx) ou PDF. O arquivo vai,
+Nas telas de Fechamento, Vendas, Produtos, Auditoria, Clientes, Crediário
+e Estoque, e também no cartão "Turno" do Caixa, use o botão "Exportar" no
+topo do cartão: escolha Excel (.xlsx) ou PDF. O arquivo vai,
 por padrão, para:
 
   %LOCALAPPDATA%\BussolaPDV\relatorios

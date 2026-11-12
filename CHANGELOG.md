@@ -2,6 +2,55 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.6.0] — 2026-11-11 — pré-alfa: clientes, crediário e estoque fora do placeholder
+
+### Adicionado
+
+- **Tela de Clientes** (`ui/telas_clientes.py`): carteira com limite, saldo em aberto, disponível e
+  vencido por cliente, busca por nome/documento mascarado, quatro indicadores no topo e
+  `BotaoExportar` (Excel/PDF).
+- **Tela de Crediário** (`ui/telas_crediario.py`): títulos com vencimento, principal, recebido, saldo,
+  atraso em dias e status; linhas em atraso destacadas em vermelho; caixa "incluir títulos já
+  recebidos"; indicadores de títulos em aberto, saldo, atraso e saldo vencido.
+- **Tela de Estoque** (`ui/telas_estoque.py`): saldo, mínimo, ponto de pedido, situação
+  (`RUPTURA`/`BAIXO`/`REPOSICAO`/`OK`) e valor a custo por produto, busca por código/descrição e
+  indicadores de ruptura e abaixo do mínimo.
+- **Exportar do turno** (`ui/tela_caixa.py`): botão no cartão *Turno* que grava a conferência do turno
+  aberto em Excel **ou** PDF (dinheiro esperado, movimentos e contagem por denominação). Fica
+  desabilitado quando não há turno aberto e não aparece para quem não tem `EXPORTAR_DADOS`.
+- **Novos relatórios** em `ServicoExportacao`: `relatorio_clientes(busca)`, `relatorio_estoque(busca)`,
+  `relatorio_turno(turno_id=None)` e `relatorio_crediario(incluir_pagos=…)`, com as respectivas
+  funções `exportar_clientes`, `exportar_estoque`, `exportar_turno` e `exportar_crediario`.
+- **CLI**: `--tipo clientes|estoque|turno`, `--turno <id>` e `--incluir-pagos` no `bussola exportar`.
+- `ajustar_colunas()` (`ui/widgets.py`): coluna esticada + demais pelo conteúdo, para cabeçalho como
+  "Ponto de pedido" não ser cortado.
+- Testes: `tests/test_exportacao_modulos.py` (27) e `tests/test_ui_telas_modulos.py` (12).
+- Capturas `16_clientes`, `17_crediario`, `18_estoque` e `19_caixa_exportar`; exemplos
+  `docs/exemplos/turno-exemplo.{pdf,xlsx}` e `estoque-exemplo.{pdf,xlsx}`.
+
+### Corrigido
+
+- **Saldo do crediário subestimado**: os relatórios contavam só `status == "ABERTO"` e ignoravam
+  título `PARCIAL`, que ainda tem saldo. Agora "em aberto" é todo título com `saldo_centavos > 0`.
+- **Placeholder de módulo era inalcançável**: `_selecionar()` criava a página vazia sob demanda e
+  chamava `setCurrentIndex(10)` num `QStackedWidget` com 9 páginas; o índice era ignorado e a tela
+  anterior continuava visível. As páginas de módulo não implementado agora existem desde o início,
+  no índice certo — clicar em "Entradas" ou "Parâmetros" mostra o aviso de fato.
+
+### Alterado
+
+- Módulos **Clientes, Crediário e Estoque** deixaram de ser placeholder; restam **Entradas** e
+  **Parâmetros** marcados como não implementados.
+- `ServicoCrediario.listar(incluir_pagos=…)` passou a ser usado também pela exportação, para que a
+  tela e o arquivo mostrem exatamente o mesmo conjunto de títulos.
+
+### Limites conhecidos
+
+- As telas de Clientes, Crediário e Estoque são **de consulta e exportação**: cadastrar cliente,
+  receber título e dar entrada em estoque continuam só na API/serviço (com testes), sem botão.
+- **Entradas** de estoque e **Parâmetros** de tela continuam não implementados e aparecem marcados.
+- Documento de cliente sai **mascarado** no arquivo (LGPD): não há opção de exportar CPF/CNPJ inteiro.
+
 ## [0.5.0] — 2026-11-11 — pré-alfa: exportação em Excel e PDF
 
 ### Adicionado

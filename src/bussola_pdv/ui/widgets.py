@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -485,6 +486,23 @@ def preparar_tabela(tabela: QTableWidget) -> QTableWidget:
     tabela.setSizeAdjustPolicy(QAbstractScrollArea.SizeAdjustPolicy.AdjustIgnored)
     tabela.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
     tabela.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+    return tabela
+
+
+def ajustar_colunas(tabela: QTableWidget, esticada: int = 0) -> QTableWidget:
+    """Colunas com a largura do conteúdo; a `esticada` fica com o espaço que sobra.
+
+    Sem isso, `Stretch` puro espremia "Ponto de pedido" e "Valor a custo" a ponto
+    de cortar o cabeçalho e o `R$` do valor.
+    """
+    cabecalho = tabela.horizontalHeader()
+    for indice in range(tabela.columnCount()):
+        modo = (
+            QHeaderView.ResizeMode.Stretch
+            if indice == esticada
+            else QHeaderView.ResizeMode.ResizeToContents
+        )
+        cabecalho.setSectionResizeMode(indice, modo)
     return tabela
 
 

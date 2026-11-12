@@ -210,7 +210,13 @@ def _montar_relatorio(servico: ServicoExportacao, args: argparse.Namespace) -> R
     if tipo == "auditoria":
         return servico.relatorio_auditoria(args.limite)
     if tipo == "crediario":
-        return servico.relatorio_crediario()
+        return servico.relatorio_crediario(incluir_pagos=args.incluir_pagos)
+    if tipo == "clientes":
+        return servico.relatorio_clientes(args.busca or "")
+    if tipo == "estoque":
+        return servico.relatorio_estoque(args.busca or "")
+    if tipo == "turno":
+        return servico.relatorio_turno(args.turno or None)
     raise ErroValidacao(f"Tipo de relatório desconhecido: {tipo}.")
 
 
@@ -277,14 +283,34 @@ def construir_parser() -> argparse.ArgumentParser:
     p_export.add_argument(
         "--tipo",
         default="fechamento",
-        choices=["fechamento", "vendas", "catalogo", "auditoria", "crediario"],
+        choices=[
+            "fechamento",
+            "vendas",
+            "catalogo",
+            "auditoria",
+            "crediario",
+            "clientes",
+            "estoque",
+            "turno",
+        ],
     )
     p_export.add_argument("--formato", default="xlsx", choices=["xlsx", "pdf"])
     p_export.add_argument("--destino", default=None, help="arquivo ou pasta de saída")
     p_export.add_argument("--data", default=None, help="data de negócio (fechamento)")
     p_export.add_argument("--de", default=None, help="início do período (vendas)")
     p_export.add_argument("--ate", default=None, help="fim do período (vendas)")
-    p_export.add_argument("--busca", default="", help="filtro de descrição (catálogo)")
+    p_export.add_argument(
+        "--busca", default="", help="filtro de descrição (catálogo, estoque, clientes)"
+    )
+    p_export.add_argument(
+        "--turno", default=None, help="id do turno (padrão: turnos abertos)"
+    )
+    p_export.add_argument(
+        "--incluir-pagos",
+        action="store_true",
+        dest="incluir_pagos",
+        help="inclui títulos já recebidos no crediário",
+    )
     p_export.add_argument("--limite", type=int, default=500, help="eventos (auditoria)")
     p_export.add_argument("--login", required=True, help="usuário que assina a exportação")
     p_export.set_defaults(func=cmd_exportar)

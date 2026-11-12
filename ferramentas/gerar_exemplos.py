@@ -47,11 +47,19 @@ def main() -> int:
         ),
     )
     servico = ServicoExportacao(contexto)
-    relatorio = servico.relatorio_fechamento("2026-11-11")
-    for extensao in ("pdf", "xlsx"):
-        caminho = DESTINO / f"fechamento-exemplo.{extensao}"
-        servico.exportar(master, relatorio, caminho)
-        print(f"gerado: {caminho.relative_to(RAIZ)} ({caminho.stat().st_size / 1024:.1f} kB)")
+    exemplos = {
+        "fechamento-exemplo": servico.relatorio_fechamento("2026-11-11"),
+        "turno-exemplo": servico.relatorio_turno(),  # turno aberto da demo
+        "estoque-exemplo": servico.relatorio_estoque(),
+    }
+    for nome, relatorio in exemplos.items():
+        for extensao in ("pdf", "xlsx"):
+            caminho = DESTINO / f"{nome}.{extensao}"
+            servico.exportar(master, relatorio, caminho)
+            print(
+                f"gerado: {caminho.relative_to(RAIZ)} "
+                f"({caminho.stat().st_size / 1024:.1f} kB)"
+            )
     contexto.fechar()
     print("Atenção: conteúdo fictício, gerado de `bussola demo`. Não é dado de loja real.")
     return 0

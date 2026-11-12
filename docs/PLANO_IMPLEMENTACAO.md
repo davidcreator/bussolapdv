@@ -24,11 +24,11 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 | Caixa | Funcional (abrir, sangria, suprimento, contagem, fechar) |
 | Produtos | Consulta e indicadores funcionais; cadastro pela API (tela de cadastro pendente) |
 | Vendas | Histórico e cancelamento funcional |
-| Fechamento | Funcional em tela e snapshot; PDF pendente |
+| Fechamento | Funcional em tela, snapshot e exportação Excel/PDF |
 | Auditoria | Consulta e verificação de cadeia funcionais |
-| Clientes | CRUD na API; tela pendente |
-| Crediário | Recebimento na API e consulta; tela pendente |
-| Estoque | API e consulta de saldos; tela de movimentos pendente |
+| Clientes | Tela de consulta + exportação (v0.6.0); cadastro pela API |
+| Crediário | Tela de consulta + exportação; recebimento pela API (sem botão) |
+| Estoque | Tela de saldos + exportação; movimentos e entrada pela API |
 | Entradas | API funcional; tela pendente |
 | Parâmetros | Tela administrativa com faixa por parâmetro (admin) |
 | Administração | Funcional: diagnóstico, marca/tema, usuários, matriz de permissões, manutenção |
@@ -54,6 +54,24 @@ repositório. **Nada é marcado como pronto sem teste executado.**
   `PilhaDePaginas` (altura por página), folha de estilo (cartões, paleta, contraste) e casca da janela.
 - `docs/INTERFACE.md`: tokens de cor, componentes, ícones, regras e capturas.
 - 15 capturas em `docs/capturas/`, geradas offscreen por `make capturas`.
+
+## Evidências da entrega de clientes, crediário e estoque (v0.6.0)
+
+- `tests/test_exportacao_modulos.py` (27): carteira de clientes com limite/em aberto/disponível/vencido,
+  documento **mascarado** no arquivo, busca que filtra, **título `PARCIAL` contado no saldo** (regressão),
+  crediário com e sem `incluir_pagos`, colunas do título, posição de estoque por produto, ruptura somada
+  no resumo, busca por código, relatório do turno aberto (fundo, movimentos, autorizador resolvido),
+  turno fechado com contagem por denominação e classificação da diferença, erro sem turno aberto,
+  `.xlsx` lido por `openpyxl` e `.pdf` por `pypdf` nos quatro relatórios, evento `DADOS_EXPORTADOS` com
+  autor e formato, atendente sem permissão, e CLI (`clientes`, `turno`, `crediario --incluir-pagos`,
+  saída 2 sem turno aberto).
+- `tests/test_ui_telas_modulos.py` (12): tabela da tela idêntica ao relatório (linha a linha), busca
+  reduzindo linhas, KPIs preenchidos, botão Exportar visível só para gerente e gravando arquivo, caixa
+  "incluir recebidos" aumentando as linhas, estoque por busca, **Exportar do turno** habilitado com
+  turno aberto e desabilitado sem turno, e os três módulos deixando de ser placeholder na janela.
+- Capturas `16_clientes`, `17_crediario`, `18_estoque` e `19_caixa_exportar` (sessão de gerente).
+- `docs/DECISOES.md` ADR-019 (tela desenha o relatório) e `docs/EXPORTACAO.md` com os quatro relatórios
+  novos.
 
 ## Evidências da entrega de exportação (v0.5.0)
 
@@ -94,9 +112,10 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 
 ## Próximos incrementos sugeridos (ordem)
 
-1. Telas de clientes, crediário e estoque (a API já existe; o crediário já exporta pela API/CLI).
-2. Devolução parcial de venda com recomposição de pagamento.
-3. Geração de PDF do fechamento (Qt PrintSupport).
+1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
+2. **Operação nas telas novas**: cadastrar/editar cliente, receber título e lançar entrada de estoque
+   com formulário (hoje só pela API), incluindo a tela de **Entradas** que continua placeholder.
+3. Devolução parcial de venda com recomposição de pagamento.
 4. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
 5. Assinatura digital dos binários Windows e hashes publicados na Release.
 6. Revisão de segurança/LGPD e homologação com operador real.

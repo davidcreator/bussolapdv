@@ -80,6 +80,22 @@ def main() -> int:
     app.processEvents()
     janela_gerente.grab().save(str(SAIDA / "05_fechamento.png"))
     print("captura:", SAIDA / "05_fechamento.png")
+
+    # Módulos que saíram do placeholder na v0.6.0 (a mesma sessão de gerente,
+    # porque é ela que enxerga o botão Exportar em cada tela).
+    for indice, nome in ((6, "16_clientes"), (7, "17_crediario"), (8, "18_estoque")):
+        janela_gerente.navegacao.setCurrentRow(indice)
+        app.processEvents()
+        app.processEvents()
+        janela_gerente.grab().save(str(SAIDA / f"{nome}.png"))
+        print("captura:", SAIDA / f"{nome}.png")
+
+    # Caixa com turno aberto: mostra o Exportar do turno ao lado dos movimentos.
+    janela_gerente.navegacao.setCurrentRow(1)
+    app.processEvents()
+    app.processEvents()
+    janela_gerente.grab().save(str(SAIDA / "19_caixa_exportar.png"))
+    print("captura:", SAIDA / "19_caixa_exportar.png")
     janela_gerente.close()
 
     # Área administrativa (sessão do Admin Master).

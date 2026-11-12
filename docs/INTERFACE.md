@@ -64,6 +64,7 @@ na tela de tema; se o branco sobre a primária não passar, o texto do botão vi
 | `PilhaDePaginas` | — | pilha cuja altura segue a página visível |
 | `Rodape` | `main-footer` | nome da loja, aviso de escopo e versão |
 | `BotaoExportar` | `card-tools` + `dropdown` | menu Excel/PDF no cabeçalho do cartão; só aparece para quem tem `EXPORTAR_DADOS` |
+| `ajustar_colunas` | `table-responsive` | coluna esticada + demais pelo conteúdo, para não cortar "Ponto de pedido" |
 
 ## Ícones (`ui/icones.py`)
 
@@ -76,15 +77,21 @@ pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tel
 1. **A tela não calcula.** Cálculo é domínio; widget só mostra e emite intenção (ADR-012).
 2. **Cor é dado.** A paleta vem do banco via `Marca`; nada de cor fixa em widget.
 3. **Estado não é só cor.** Status aparece com texto + etiqueta, nunca apenas com cor.
-4. **Nada é simulado.** Módulo inexistente mostra cartão explícito dizendo que não foi implementado.
-5. **Tudo que altera é auditado** — o rodapé lembra isso em todas as telas.
+4. **Nada é simulado.** Módulo inexistente mostra cartão explícito dizendo que não foi implementado
+   (hoje: **Entradas** e **Parâmetros**).
+5. **Tela de consulta desenha o relatório.** Clientes, Crediário e Estoque montam a tabela a partir do
+   mesmo `Relatorio` que o botão Exportar grava (ADR-019): o que está na tela e o que vai para a
+   planilha são a mesma consulta, no mesmo instante.
+6. **Tudo que altera é auditado** — o rodapé lembra isso em todas as telas.
 
 ## Capturas
 
 `docs/capturas/` é gerado por `make capturas` (`ferramentas/captura_telas.py`, Qt offscreen, sem
-servidor gráfico): PDV vazio e com itens, caixa, produtos, fechamento (sessão de gerente, com o
-botão *Exportar*), auditoria, login, as seis seções administrativas, tema personalizado e menu
-recolhido.
+servidor gráfico): PDV vazio e com itens, caixa (e o caixa com o *Exportar* do turno), produtos,
+fechamento, **clientes**, **crediário**, **estoque**, auditoria, login, as seis seções
+administrativas, tema personalizado e menu recolhido.
 
-A captura do fechamento usa a sessão de gerente de propósito: o perfil Atendente não tem
-`EXPORTAR_DADOS` e, para ele, o botão não existe — o que é o comportamento correto.
+As capturas de fechamento, clientes, crediário, estoque e do caixa com exportação usam a sessão de
+gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —
+o que é o comportamento correto.
+

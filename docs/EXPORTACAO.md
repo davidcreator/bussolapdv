@@ -19,7 +19,10 @@ um menu de dois itens:
 | Vendas | Vendas do período | Cupons | período (De/Até) da tela |
 | Produtos | Catálogo e estoque | Produtos | busca digitada |
 | Auditoria | Trilha de auditoria | Eventos | últimos 500 eventos |
-| (API) Crediário | Crediário | Títulos | posição corrente |
+| Caixa | Fechamento do turno | Caixa e dinheiro, Movimentos do turno, Contagem por denominação | turno aberto (ou `--turno <id>`) |
+| Clientes | Clientes | Clientes | busca digitada |
+| Crediário | Crediário | Títulos | caixa "incluir títulos já recebidos" |
+| Estoque | Estoque | Produtos, Resumo por situação | busca digitada |
 
 O botão **só aparece para quem tem a permissão `EXPORTAR_DADOS`**. Na matriz
 padrão: Admin Master, Admin, Gerente e Contabilidade têm; Atendente não tem. A
@@ -50,8 +53,18 @@ bussola exportar --banco dados/pdv.db --tipo fechamento --data 2026-11-11 \
 bussola exportar --banco dados/pdv.db --tipo vendas --de 2026-11-01 --ate 2026-11-11 \
     --formato xlsx --login gerente
 
-# outras opções: --tipo catalogo|auditoria|crediario, --destino arquivo-ou-pasta,
-# --busca TEXTO (catálogo), --limite N (auditoria)
+# conferência do turno aberto (o mesmo relatório do botão Exportar do Caixa)
+bussola exportar --banco dados/pdv.db --tipo turno --formato xlsx --login master
+
+# carteira de clientes e posição de estoque
+bussola exportar --banco dados/pdv.db --tipo clientes --formato pdf --login gerente
+bussola exportar --banco dados/pdv.db --tipo estoque --formato xlsx --login gerente
+
+# crediário incluindo títulos já recebidos
+bussola exportar --banco dados/pdv.db --tipo crediario --incluir-pagos --login contador
+
+# outras opções: --destino arquivo-ou-pasta, --busca TEXTO (catálogo, clientes,
+# estoque), --limite N (auditoria), --turno ID (turno específico, inclusive fechado)
 ```
 
 No Windows (executável empacotado), o mesmo comando sai como
@@ -123,7 +136,8 @@ Checklist rápido para o arquivo que vai para o contador:
       como documento fiscal.
 
 Arquivos de exemplo, gerados a partir da base fictícia de demonstração, ficam em
-[`docs/exemplos/`](exemplos/) (`fechamento-exemplo.pdf`, `fechamento-exemplo.xlsx`).
+[`docs/exemplos/`](exemplos/): `fechamento-exemplo`, `turno-exemplo` e `estoque-exemplo`, cada um em
+`.pdf` e `.xlsx`.
 Para regerá-los:
 
 ```bash
@@ -132,6 +146,11 @@ QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 ferramentas/gerar_exemplos.py
 
 ## Limites conhecidos
 
+- **Cliente sai com documento mascarado** (`*******4725`), como na tela: não há
+  opção de exportar CPF/CNPJ completo — decisão de privacidade (LGPD), não falta
+  de recurso.
+- **As telas de Clientes, Crediário e Estoque só consultam e exportam.** Cadastrar
+  cliente, receber título e lançar entrada continuam na API/serviço.
 - **Não há agendamento.** Para fechar todo dia automaticamente, chame o CLI no
   Agendador de Tarefas do Windows apontando para `BussolaPDV-console.exe`.
 - **A planilha não tem gráficos nem fórmulas.** Quem quiser tendência monta a
@@ -145,7 +164,8 @@ QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 ferramentas/gerar_exemplos.py
 
 ## Como isso é testado
 
-`tests/test_exportacao.py` (41 testes) e `tests/test_ui_exportacao.py` (13):
+`tests/test_exportacao.py` (41 testes), `tests/test_ui_exportacao.py` (13),
+`tests/test_exportacao_modulos.py` (27) e `tests/test_ui_telas_modulos.py` (12):
 
 - o `.xlsx` é **aberto por `openpyxl`** e conferido célula a célula (moeda como
   número, data como data, texto com `&`/`<` intacto, aba única e saneada,
@@ -158,7 +178,11 @@ QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 ferramentas/gerar_exemplos.py
 - o CLI falha com código 2 em senha errada, perfil sem permissão, banco
   inexistente e falta de `--data`, sem criar arquivo;
 - o botão aparece só para quem pode, oferece os dois formatos e corrige a
-  extensão quando o usuário não digita.
+  extensão quando o usuário não digita;
+- **clientes, crediário, estoque e turno** também são abertos por `openpyxl`/`pypdf`, e a tela
+  compara célula a célula com o relatório (mesma consulta, mesmo número);
+- o saldo do crediário conta título **PARCIAL** (regressão: a primeira versão só somava `ABERTO`);
+- `--tipo turno` sem turno aberto sai com código 2 e mensagem clara, sem criar arquivo.
 
 `openpyxl` e `pypdf` são dependências **de teste** (extra `dev`), não de execução:
 o programa não precisa delas para gerar os arquivos.

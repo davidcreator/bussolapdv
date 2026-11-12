@@ -2,12 +2,13 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.5.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.6.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
 > [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) — e todo relatório sai em **Excel e PDF**
-> ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)). **Não é homologado para operação real**,
+> ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)), inclusive das telas de clientes, crediário, estoque e
+> do turno de caixa. **Não é homologado para operação real**,
 > não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
 > sistema fiscal certificado.
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
@@ -44,6 +45,9 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
   logo) e paleta de cores com presets claro/escuro — o tema vale para a interface inteira.
 - **Área administrativa** com diagnóstico real de dependências, cadastros, parâmetros, cópias de
   segurança verificadas e restauração.
+- **Consultas de operação**: telas de **Clientes** (limite, em aberto, disponível, vencido),
+  **Crediário** (parcelas, atraso em dias, saldo por título) e **Estoque** (saldo, mínimo, ponto de
+  pedido, situação, valor a custo), cada uma com busca e exportação em Excel/PDF.
 - **Interface no vocabulário do AdminLTE**: barra lateral recolhível com ícones desenhados no
   projeto, barra superior, trilha de navegação, cartões, indicadores (*small-box*), etiquetas de
   status e rodapé — tudo pintado pela paleta da loja.
@@ -93,7 +97,7 @@ informa quantas seções o perfil tem liberadas.
 A casca é inspirada no [AdminLTE](https://github.com/ColorlibHQ/AdminLTE) (MIT) — barra lateral
 escura com a marca no topo, painel do usuário, menu com ícones, barra superior com botão de recolher,
 cabeçalho de página com trilha, cartões e *small-boxes* de indicador. Nada do projeto original é
-copiado: o CSS do AdminLTE não entra aqui, e os ícones são 21 SVGs desenhados neste repositório.
+copiado: o CSS do AdminLTE não entra aqui, e os ícones são 25 SVGs desenhados neste repositório.
 Como a folha de estilo é gerada a partir da paleta da loja, trocar o tema no painel administrativo
 repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
 
@@ -104,6 +108,12 @@ repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
 | Produtos | ativos, sem estoque, abaixo do mínimo |
 | Vendas | cupons do período, faturamento, ticket médio |
 | Fechamento / Auditoria | relatório e trilha dentro de cartões, com ferramentas no cabeçalho |
+| Clientes | clientes ativos, limite concedido, em aberto e vencido |
+| Crediário | títulos em aberto, saldo a receber, atraso e saldo vencido |
+| Estoque | em ruptura, abaixo do mínimo, valor a custo |
+
+**Entradas** e **Parâmetros** ainda são páginas marcadas como não implementadas — nada ali é
+simulado.
 
 Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.md).
 
@@ -119,14 +129,19 @@ Todo relatório tem o botão **Exportar** no cabeçalho do cartão, com dois for
 | Vendas | Vendas do período | cupons do período com total, aplicado e status |
 | Produtos | Catálogo e estoque | saldo, custo, preço e situação por produto |
 | Auditoria | Trilha de auditoria | eventos com ator, entidade e motivo |
+| Caixa | Fechamento do turno | fundo, vendas em dinheiro, recebimentos, sangrias, suprimentos, esperado, contado, diferença, movimentos e contagem por denominação |
+| Clientes | Clientes | limite, em aberto, disponível e vencido por cliente (documento mascarado) |
+| Crediário | Crediário | títulos com vencimento, principal, recebido, saldo, atraso e status |
+| Estoque | Estoque | saldo, mínimo, ponto de pedido, situação e valor a custo + resumo por situação |
 
 - **Excel (.xlsx)**: aba `Resumo` + uma aba por tabela, com filtro automático, cabeçalho congelado,
   **valores como número** (dá para somar) e **datas como data**.
 - **PDF**: A4 com identificação da loja, indicadores, tabelas, avisos e rodapé `página X de Y`.
 - Exportar exige a permissão `EXPORTAR_DADOS` (master, admin, gerente e contabilidade) e **fica na
   trilha de auditoria** com autor, formato, filtros e nome do arquivo.
-- Arquivos de exemplo: [`docs/exemplos/fechamento-exemplo.pdf`](docs/exemplos/fechamento-exemplo.pdf)
-  e [`.xlsx`](docs/exemplos/fechamento-exemplo.xlsx) (dados fictícios).
+- Arquivos de exemplo (dados fictícios): [`fechamento-exemplo`](docs/exemplos/fechamento-exemplo.pdf),
+  [`turno-exemplo`](docs/exemplos/turno-exemplo.pdf) e [`estoque-exemplo`](docs/exemplos/estoque-exemplo.pdf),
+  cada um em `.pdf` e `.xlsx`.
 
 Pela linha de comando (senha em `BUSSOLA_SENHA` ou no prompt):
 
@@ -135,11 +150,18 @@ bussola exportar --banco dados/pdv.db --tipo fechamento --data 2026-11-11 \
     --formato pdf --login master
 bussola exportar --banco dados/pdv.db --tipo vendas --de 2026-11-01 --ate 2026-11-11 \
     --formato xlsx --login gerente
+bussola exportar --banco dados/pdv.db --tipo estoque --formato xlsx --login gerente
+bussola exportar --banco dados/pdv.db --tipo turno --formato pdf --login master
 ```
+
+Tipos disponíveis: `fechamento`, `vendas`, `catalogo`, `auditoria`, `crediario`, `clientes`,
+`estoque` e `turno` (`--turno <id>` para um turno específico, `--incluir-pagos` no crediário).
 
 Detalhes, limites e checklist de conferência em [docs/EXPORTACAO.md](docs/EXPORTACAO.md).
 
 ![Fechamento com o botão Exportar](docs/capturas/05_fechamento.png)
+
+![Carteira de clientes com exportação](docs/capturas/16_clientes.png)
 
 ## Instalação
 
@@ -244,15 +266,16 @@ src/bussola_pdv/
   aplicacao/       casos de uso, transações, autorização, relatórios
   infra/sqlite/    conexão, migrações versionadas, repositórios, massa demo
   ui/              PySide6: casca (sidebar/topbar/cartões), tema, ícones, login, PDV, caixa, consultas,
-                   primeiro uso (cria a instalação sem terminal) e entrada do app empacotado
+                   telas de clientes/crediário/estoque, primeiro uso e entrada do app empacotado
   ui/exportacao.py botão Exportar (menu Excel/PDF) usado em todas as telas de relatório
   dominio/relatorio.py  Relatorio/Tabela/Coluna: o documento como dado, sem formato
-  aplicacao/exportacao.py  monta fechamento/vendas/catálogo/auditoria/crediário e grava com auditoria
+  aplicacao/exportacao.py  monta fechamento/vendas/catálogo/auditoria/crediário/clientes/estoque/turno
+                   e grava com auditoria
   infra/exportacao/ escritores .xlsx (biblioteca padrão) e .pdf (Qt), mais formatação pt-BR
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados por sistema operacional (%LOCALAPPDATA% no Windows)
-tests/             466 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+tests/             505 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, instalação no
@@ -267,8 +290,10 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
 - A trilha de auditoria detecta adulteração, mas **não** impede um administrador do sistema de
   reescrever o banco inteiro.
 - Pagamentos eletrônicos são registro manual; nenhuma integração bancária está homologada.
-- Encargos de crediário, devolução parcial, PDF de fechamento, importação da planilha e empacotamento
-  Windows **ainda não existem** (ver plano).
+- **Cadastro e operação pelas telas de Clientes/Crediário/Estoque**: elas consultam e exportam; criar
+  cliente, receber título e lançar entrada de estoque ainda dependem do serviço/CLI.
+- Encargos de crediário, devolução parcial, importação da planilha e **geração do `.exe` neste
+  ambiente Linux** continuam pendentes (ver plano); o PDF de fechamento existe desde a v0.5.0.
 
 ## O que é (e não é) o diretório `prototipo/`
 
