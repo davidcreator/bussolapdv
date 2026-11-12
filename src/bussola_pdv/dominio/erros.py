@@ -31,6 +31,17 @@ class ErroNaoEncontrado(ErroBussola):
     codigo = "NAO_ENCONTRADO"
 
 
+class EsquemaAusente(ErroBussola):
+    """A base abriu, mas as tabelas do PDV não existem (instalação incompleta).
+
+    Separado de `ErroBussola` genérico porque é o **único** caso, junto com
+    `sqlite3.DatabaseError`, em que o primeiro uso pode pôr a base de lado e
+    recomeçar — ver `DialogoPrimeiroUso._abrir_ou_recomecar`.
+    """
+
+    codigo = "ESQUEMA_AUSENTE"
+
+
 class ErroConflito(ErroBussola):
     """Violação de unicidade, idempotência ou corrida entre transações."""
 

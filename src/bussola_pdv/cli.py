@@ -46,7 +46,7 @@ from .dominio.dinheiro import Dinheiro
 from .dominio.erros import ErroBussola, ErroValidacao
 from .dominio.impressao import PERFIS_PAPEL, Papel
 from .dominio.relatorio import Relatorio
-from .dominio.relogio import RelogioFixo
+from .dominio.relogio import FUSO_PADRAO, RelogioFixo, RelogioSistema, avisos_de_fuso
 from .dominio.usuario import Acao, Perfil
 from .infra.massa_demo import popular, relogio_demo
 from .infra.sqlite.conexao import abrir_conexao, fazer_backup, verificar_integridade
@@ -367,11 +367,31 @@ def cmd_ui(args: argparse.Namespace) -> int:
 
 def cmd_simular_dia(args: argparse.Namespace) -> int:
     """Mostra a data de negócio (fuso da loja) usada nas transações."""
+    if not args.banco:
+        return cmd_relogio(args)
     _exigir_banco(args.banco)
     ctx = Contexto.abrir(Path(args.banco), relogio=RelogioFixo(datetime.now(tz=UTC)))
     print(f"Data de negócio atual: {ctx.relogio.data_negocio()}")
     print(f"Fuso: {ctx.relogio.fuso()}")
+    for aviso in avisos_de_fuso():
+        print(f"Aviso: {aviso}")
     ctx.fechar()
+    return 0
+
+
+def cmd_relogio(args: argparse.Namespace) -> int:
+    """Diagnóstico do fuso: diz se a base IANA do Windows está disponível."""
+    relogio = RelogioSistema()
+    print(f"Fuso configurado: {FUSO_PADRAO}")
+    print(f"Fuso em uso: {relogio.fuso()}")
+    print(f"Data de negócio: {relogio.data_negocio()}")
+    avisos = avisos_de_fuso()
+    if avisos:
+        for aviso in avisos:
+            print(f"Aviso: {aviso}")
+        print("Correção: pip install tzdata (ou reinstale o programa).")
+    else:
+        print("Base IANA de fusos: OK")
     return 0
 
 
@@ -512,9 +532,16 @@ def construir_parser() -> argparse.ArgumentParser:
     )
     p_dados.set_defaults(func=cmd_dados)
 
-    p_sim = sub.add_parser("relogio", help="mostra a data de negócio do relógio")
-    p_sim.add_argument("--banco", default="dados/bussola.db")
-    p_sim.set_defaults(func=cmd_simular_dia)
+    p_sim = sub.add_parser(
+        "relogio",
+        help="mostra fuso e data de negócio (e avisa se falta o pacote tzdata)",
+    )
+    p_sim.add_argument(
+        "--banco",
+        default=None,
+        help="base a consultar; sem ele só testa o fuso da máquina",
+    )
+    p_sim.set_defaults(func=lambda args: cmd_simular_dia(args) if args.banco else cmd_relogio(args))
     return parser
 
 

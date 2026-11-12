@@ -314,6 +314,61 @@ class TestRecomeco:
             contexto.fechar()
         dialogo.deleteLater()
 
+    def test_erro_que_nao_e_do_banco_nao_move_a_base(self, app, ambiente, monkeypatch):
+        """O bug relatado: falha de fuso (ZoneInfo) era tratada como base corrompida.
+
+        A base boa ia para `pdv.db.antigo-…` e a tela mostrava `WinError 32`
+        (arquivo em uso) em vez do motivo real. Só `sqlite3.DatabaseError` e
+        esquema ausente autorizam o recomeço.
+        """
+        from zoneinfo import ZoneInfoNotFoundError
+
+        from bussola_pdv.aplicacao import contexto as modulo_contexto
+
+        banco = ambiente / "pdv.db"
+        banco.write_bytes(b"base boa, so o fuso quebrou")
+
+        def explodir(*_args, **_kwargs):
+            raise ZoneInfoNotFoundError("No time zone found with key America/Sao_Paulo")
+
+        monkeypatch.setattr(modulo_contexto, "RelogioSistema", explodir)
+
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo._criar()
+
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        assert list(ambiente.glob("pdv.db.antigo-*")) == []
+        assert banco.read_bytes() == b"base boa, so o fuso quebrou"
+        texto = dialogo.mensagem.text()
+        assert "America/Sao_Paulo" in texto
+        assert "guardada como" not in texto
+        dialogo.deleteLater()
+
+    def test_base_presa_por_outro_processo_explica_o_que_fazer(self, app, ambiente, monkeypatch):
+        """`WinError 32` cru não diz nada ao operador da loja."""
+        from pathlib import Path as Caminho
+
+        from bussola_pdv.ui import primeiro_uso as modulo
+
+        banco = ambiente / "pdv.db"
+        banco.write_bytes(b"isto nao e um banco sqlite")
+
+        def sempre_preso(self, alvo):
+            raise PermissionError(32, "O arquivo já está sendo usado por outro processo")
+
+        monkeypatch.setattr(Caminho, "replace", sempre_preso)
+        monkeypatch.setattr(modulo.time, "sleep", lambda _s: None)
+
+        dialogo = DialogoPrimeiroUso(banco)
+        _preencher(dialogo)
+        dialogo._criar()
+
+        texto = dialogo.mensagem.text()
+        assert "outras janelas do Bússola PDV" in texto
+        assert dialogo.result() != DialogoPrimeiroUso.DialogCode.Accepted
+        dialogo.deleteLater()
+
     def test_base_valida_nao_e_tocada(self, app, ambiente):
         from bussola_pdv.aplicacao.autenticacao import ServicoAutenticacao
         from bussola_pdv.aplicacao.contexto import Contexto

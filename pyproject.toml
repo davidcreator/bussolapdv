@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bussola-pdv"
-version = "0.8.1"
+version = "0.8.2"
 description = "Bússola Sistema PDV Open Source — PDV desktop offline em Python para varejo (pt-BR)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -28,6 +28,10 @@ dependencies = [
     "argon2-cffi>=23.1,<26",
     # UI desktop. Instale extras de UI apenas nas estações com vídeo.
     "PySide6-Essentials>=6.6,<7",
+    # Base IANA de fusos horários. O Windows não traz `zoneinfo` do sistema: sem
+    # este pacote, `ZoneInfo("America/Sao_Paulo")` falha no primeiro uso.
+    # Há reserva em `dominio/relogio.py`, mas o correto é instalar.
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

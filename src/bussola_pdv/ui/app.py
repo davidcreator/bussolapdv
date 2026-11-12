@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
 
 from ..aplicacao.contexto import Contexto
+from ..diagnostico import registrar_aviso
+from ..dominio.relogio import avisos_de_fuso
 from .admin.janela import contexto_marca
 from .janela import JanelaPrincipal
 from .login import DialogoLogin
@@ -41,6 +43,10 @@ def executar(
     """Abre a interface. `login_automatico` existe apenas para demonstração/captura."""
     app = criar_aplicacao()
     contexto = Contexto.abrir(banco)
+    # Se o fuso caiu para deslocamento fixo (Windows sem `tzdata`), isso precisa
+    # chegar ao log: a loja continua abrindo, mas a data comercial usa UTC-3 fixo.
+    for aviso in avisos_de_fuso():
+        registrar_aviso(aviso, contexto="inicialização: fuso horário")
     aplicar_tema_da_loja(app, contexto)
 
     if login_automatico:

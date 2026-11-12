@@ -8,6 +8,8 @@ mesmos casos de uso — nada é criado "por fora" da camada de aplicação.
 
 from __future__ import annotations
 
+import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -35,7 +37,7 @@ from ..caminhos import (
     diretorio_de_dados_padrao,
 )
 from ..diagnostico import registrar_erro, resumo_do_erro
-from ..dominio.erros import ErroBussola
+from ..dominio.erros import ErroBussola, EsquemaAusente
 from ..dominio.marca import Marca
 from ..dominio.usuario import Perfil, Usuario
 from .icones import icone
@@ -283,29 +285,62 @@ class DialogoPrimeiroUso(QDialog):
         arquivo `pdv.db` vazio ou corrompido, e todo novo clique falharia no mesmo
         ponto. O arquivo antigo **não** é apagado — vira `pdv.db.antigo-<data>`,
         ao lado, para quem for investigar.
+
+        Só a base em si autoriza o recomeço (`sqlite3.DatabaseError` ou esquema
+        ausente). Qualquer outro erro sobe: na v0.8.1 um `ZoneInfoNotFoundError`
+        (Windows sem `tzdata`) era tratado como "banco corrompido", a base boa era
+        arrastada para `pdv.db.antigo-…` e o operador via `WinError 32` em vez do
+        motivo real.
         """
-        nota = ""
         try:
             contexto = Contexto.abrir(banco)
+        except sqlite3.DatabaseError as exc:  # arquivo não é base, está truncado…
+            return cls._recomecar(banco, exc)
+        try:
             cls._conferir_esquema(contexto)
-            return contexto, nota
-        except Exception as exc:  # base corrompida, vazia ou esquema ausente
-            contexto_anterior = locals().get("contexto")
-            if contexto_anterior is not None:
-                contexto_anterior.fechar()
-            if not banco.exists():
-                raise
-            guardado = banco.with_name(
-                f"{banco.name}.antigo-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            )
-            banco.replace(guardado)
-            nota = (
-                f"A base anterior não estava utilizável ({resumo_do_erro(exc)}) e foi "
-                f"guardada como {guardado.name}."
-            )
-            contexto = Contexto.abrir(banco)
-            cls._conferir_esquema(contexto)
-            return contexto, nota
+        except EsquemaAusente as exc:
+            contexto.fechar()
+            return cls._recomecar(banco, exc)
+        except BaseException:
+            contexto.fechar()
+            raise
+        return contexto, ""
+
+    @classmethod
+    def _recomecar(cls, banco: Path, motivo: Exception) -> tuple[Contexto, str]:
+        if not banco.exists():
+            raise motivo
+        guardado = banco.with_name(
+            f"{banco.name}.antigo-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        )
+        cls._guardar_de_lado(banco, guardado)
+        contexto = Contexto.abrir(banco)
+        cls._conferir_esquema(contexto)
+        return contexto, (
+            f"A base anterior não estava utilizável ({resumo_do_erro(motivo)}) e foi "
+            f"guardada como {guardado.name}."
+        )
+
+    @staticmethod
+    def _guardar_de_lado(banco: Path, guardado: Path) -> None:
+        """Move a base antiga; no Windows o arquivo pode estar preso por um instante.
+
+        Antivírus e o `-wal`/`-shm` recém-fechados seguram o `rename` por alguns
+        milissegundos. Três tentativas resolvem o caso comum; se não resolver, a
+        mensagem diz o que fazer em vez de mostrar `[WinError 32]` cru.
+        """
+        for tentativa in range(3):
+            try:
+                banco.replace(guardado)
+                return
+            except PermissionError as exc:
+                if tentativa == 2:
+                    raise ErroBussola(
+                        "A base de dados está aberta em outro programa e não pôde ser "
+                        f"movida ({exc}). Feche as outras janelas do Bússola PDV e "
+                        "tente de novo."
+                    ) from exc
+                time.sleep(0.25)
 
     def _preparar_pasta(self) -> Path:
         """Valida escrita **sempre** e grava a escolha quando ela mudou.
@@ -338,7 +373,7 @@ class DialogoPrimeiroUso(QDialog):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'"
         ).fetchone()
         if linha is None:
-            raise ErroBussola(
+            raise EsquemaAusente(
                 "A base foi aberta, mas o esquema do PDV não foi criado. "
                 "Isso costuma indicar instalação incompleta (arquivos de migração "
                 "ausentes). Reinstale o programa ou avise o suporte."

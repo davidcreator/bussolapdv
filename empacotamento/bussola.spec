@@ -15,7 +15,7 @@ executável automático). Onedir abre rápido e o instalador empacota a pasta.
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 RAIZ = Path(SPECPATH).resolve().parent  # noqa: F821 - variável do PyInstaller
 EMPACOTAMENTO = RAIZ / "empacotamento"
@@ -33,7 +33,11 @@ analise = Analysis(  # noqa: F821
         (
             str(RAIZ / "src" / "bussola_pdv" / "infra" / "sqlite" / "migracoes"),
             "bussola_pdv/infra/sqlite/migracoes",
-        )
+        ),
+        # Fuso horário: o Windows não tem base IANA, `zoneinfo` lê o pacote
+        # `tzdata`. Sem estas linhas o executável abre e morre no primeiro uso
+        # com `ZoneInfoNotFoundError: America/Sao_Paulo`.
+        *collect_data_files("tzdata"),
     ],
     hiddenimports=[
         "bussola_pdv",
@@ -43,6 +47,8 @@ analise = Analysis(  # noqa: F821
         "bussola_pdv.ui.primeiro_uso",
         # Argon2id é importado indiretamente pelo argon2-cffi.
         *collect_submodules("argon2"),
+        "tzdata",
+        "zoneinfo",
     ],
     hookspath=[],
     hooksconfig={},

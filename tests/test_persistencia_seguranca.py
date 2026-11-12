@@ -231,3 +231,124 @@ class TestRelogio:
     def test_relogio_ingenuo_e_recusado(self):
         with pytest.raises(ValueError):
             RelogioFixo(datetime(2026, 11, 11))
+
+
+def sem_base_iana():
+    """Simula o Windows sem `tzdata`: todo `ZoneInfo(nome)` estoura."""
+    from zoneinfo import ZoneInfoNotFoundError
+
+    def _explodir(*_args, **_kwargs):
+        raise ZoneInfoNotFoundError("No time zone found with key America/Sao_Paulo")
+
+    return _explodir
+
+
+class TestFusoNoWindowsSemTzdata:
+    """O `ZoneInfoNotFoundError` do Windows sem `tzdata` não pode derrubar o PDV.
+
+    Relato de campo (v0.6.0, Python 3.14 do Windows): o primeiro uso morria em
+    `ZoneInfo("America/Sao_Paulo")` — o Windows não traz base IANA, ela só existe
+    no pacote `tzdata`. O programa agora segue com deslocamento fixo e registra o
+    aviso, em vez de impedir a loja de abrir.
+    """
+
+    def test_fuso_cai_para_deslocamento_fixo_sem_base_iana(self, monkeypatch):
+        from zoneinfo import ZoneInfoNotFoundError
+
+        from bussola_pdv.dominio import relogio as modulo
+
+        def sem_base(*_args, **_kwargs):
+            raise ZoneInfoNotFoundError("No time zone found with key America/Sao_Paulo")
+
+        modulo.limpar_avisos_de_fuso()
+        monkeypatch.setattr(modulo, "ZoneInfo", sem_base)
+
+        fuso = modulo.resolver_fuso("America/Sao_Paulo")
+        assert fuso.utcoffset(datetime(2026, 11, 11, 12, tzinfo=UTC)).total_seconds() == -3 * 3600
+        avisos = modulo.avisos_de_fuso()
+        assert len(avisos) == 1
+        assert "tzdata" in avisos[0]
+        assert "UTC-03:00" in avisos[0]
+
+    def test_relogio_do_sistema_data_a_loja_com_o_fuso_de_reserva(self, monkeypatch):
+
+        from bussola_pdv.dominio import relogio as modulo
+
+        monkeypatch.setattr(modulo, "ZoneInfo", sem_base_iana())
+        relogio = modulo.RelogioSistema()
+        assert relogio.data_negocio() == relogio.hoje().date().isoformat()
+        assert relogio.hoje().utcoffset().total_seconds() == -3 * 3600
+
+    def test_fuso_desconhecido_aponta_o_pacote(self, monkeypatch):
+
+        from bussola_pdv.dominio import relogio as modulo
+
+        monkeypatch.setattr(modulo, "ZoneInfo", sem_base_iana())
+        with pytest.raises(ValueError, match="tzdata"):
+            modulo.resolver_fuso("Marte/Olympus")
+
+    def test_formatar_local_usa_o_mesmo_fuso(self, monkeypatch):
+
+        from bussola_pdv.dominio import relogio as modulo
+
+        monkeypatch.setattr(modulo, "ZoneInfo", sem_base_iana())
+        # 15:00 UTC = 12:00 em São Paulo (UTC-3)
+        assert modulo.formatar_local(datetime(2026, 11, 11, 15, tzinfo=UTC)) == "11/11/2026 12:00"
+
+    def test_contexto_nao_abre_o_arquivo_quando_o_fuso_falha(self, monkeypatch):
+        """Ordem importa: fuso primeiro, arquivo depois — senão a base fica presa.
+
+        Era exatamente isso que virava `WinError 32` na tela: a exceção do fuso
+        nascia com o SQLite já aberto e o programa tentava renomear a base.
+        """
+        from zoneinfo import ZoneInfoNotFoundError
+
+        from bussola_pdv.aplicacao import contexto as modulo_contexto
+
+        def explodir_fuso(*_args, **_kwargs):
+            raise ZoneInfoNotFoundError("America/Sao_Paulo")
+
+        def nao_deveria_abrir(*_args, **_kwargs):
+            raise AssertionError("a conexão não pode ser aberta antes do relógio")
+
+        monkeypatch.setattr(modulo_contexto, "RelogioSistema", explodir_fuso)
+        monkeypatch.setattr(modulo_contexto, "abrir_conexao", nao_deveria_abrir)
+        with pytest.raises(ZoneInfoNotFoundError):
+            modulo_contexto.Contexto.abrir("nao-chega-a-existir.db")
+
+    def test_cli_relogio_diagnostica_o_fuso_sem_base(self, capsys):
+        """`bussola relogio` responde a pergunta do suporte sem precisar de banco."""
+        from bussola_pdv.cli import main as cli_main
+
+        assert cli_main(["relogio"]) == 0
+        saida = capsys.readouterr().out
+        assert "Fuso configurado: America/Sao_Paulo" in saida
+        assert "Fuso em uso:" in saida
+        assert "Data de negócio:" in saida
+        assert ("Base IANA de fusos: OK" in saida) or ("tzdata" in saida)
+
+    def test_cli_relogio_com_banco_mostra_a_data_de_negocio(self, tmp_path, capsys):
+        from bussola_pdv.aplicacao.contexto import Contexto
+        from bussola_pdv.cli import main as cli_main
+        from bussola_pdv.dominio.relogio import limpar_avisos_de_fuso
+
+        limpar_avisos_de_fuso()
+        banco = tmp_path / "com_base.db"
+        Contexto.abrir(banco).fechar()
+
+        assert cli_main(["relogio", "--banco", str(banco)]) == 0
+        saida = capsys.readouterr().out
+        assert "Data de negócio atual: " in saida
+        assert saida.splitlines()[0].count("-") == 2  # data ISO AAAA-MM-DD
+
+    def test_conexao_e_fechada_quando_a_migracao_falha(self, monkeypatch, tmp_path):
+        from bussola_pdv.aplicacao import contexto as modulo_contexto
+
+        def migracao_quebrada(_conexao):
+            raise RuntimeError("migração interrompida")
+
+        monkeypatch.setattr(modulo_contexto, "migrar", migracao_quebrada)
+        with pytest.raises(RuntimeError):
+            modulo_contexto.Contexto.abrir(tmp_path / "pdv.db")
+        # se a conexão tivesse ficado aberta, o arquivo continuaria com o journal
+        assert list(tmp_path.glob("pdv.db-journal")) == []

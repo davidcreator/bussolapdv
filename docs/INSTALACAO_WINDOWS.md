@@ -117,13 +117,14 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-A última linha baixa e instala exatamente **dois** pacotes de execução (o resto é
+A última linha baixa e instala exatamente **três** pacotes de execução (o resto é
 dependência deles, 0 ou 1 nível):
 
 | Pacote | Versão | Para que serve |
 | --- | --- | --- |
 | `PySide6-Essentials` | `>=6.6,<7` | interface gráfica (Qt 6). Traz o Qt inteiro nos *wheels*: **não é preciso instalar Qt à parte no Windows** |
 | `argon2-cffi` | `>=23.1,<26` | derivação de senha Argon2id (com `cffi`, instalado automaticamente) |
+| `tzdata` | `>=2024.1` | base IANA de fusos horários. **O Windows não tem essa base no sistema**: sem este pacote, `ZoneInfo("America/Sao_Paulo")` falha e o primeiro uso não conclui |
 
 Para desenvolver ou rodar a suíte de testes, acrescente o extra `dev`:
 
@@ -510,6 +511,49 @@ próxima abertura o programa volta ao assistente de primeiro uso.
 
 ---
 
+## Fuso horário (a causa do `WinError 32` no primeiro uso)
+
+O PDV grava instantes em UTC e mostra tudo no fuso da loja
+(`America/Sao_Paulo` por padrão). Para isso usa `zoneinfo`, que busca a base
+IANA — **o Windows não traz essa base**: ela vem no pacote `tzdata`.
+
+Sem `tzdata` o primeiro uso falhava assim (versões até 0.8.1):
+
+```
+ZoneInfoNotFoundError: No time zone found with key America/Sao_Paulo
+```
+…e, por causa de onde a exceção nascia, a tela mostrava outra coisa:
+
+```
+PermissionError: [WinError 32] O arquivo já está sendo usado por outro processo:
+'D:\pdv\pdv.db' -> 'D:\pdv\pdv.db.antigo-20261112-143800'
+```
+
+A partir da **0.8.2** isso não trava mais nada:
+
+1. `tzdata` é dependência de execução e vai dentro do `.exe` (ver
+   `empacotamento/bussola.spec`).
+2. Se ainda faltar, o programa **continua abrindo** com deslocamento fixo
+   (`UTC-03:00` para São Paulo) e grava o aviso em `logs/erros.log`.
+3. Só base realmente inutilizável é posta de lado: um erro de fuso não move mais
+   o `pdv.db`.
+
+Confira o ambiente com:
+
+```bat
+bussola relogio
+```
+
+Saída esperada: `Fuso em uso: America/Sao_Paulo` e `Base IANA de fusos: OK`.
+Se aparecer `Aviso: … falta o pacote tzdata`, rode `python -m pip install tzdata`.
+
+> **Recuperando a base que foi movida pela versão antiga.** As versões até 0.8.1
+> podiam empurrar uma base boa para `pdv.db.antigo-AAAAAMMDD-HHMMSS`. Para voltar:
+> feche o programa, apague o `pdv.db` novo (se estiver vazio) e renomeie o
+> `.antigo-…` para `pdv.db`.
+
+---
+
 ## Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |
@@ -519,6 +563,8 @@ próxima abertura o programa volta ao assistente de primeiro uso.
 | `ImportError: DLL load failed while importing QtCore` | falta o *Visual C++ Redistributable* ou wheel corrompido | instale `vc_redist.x64.exe`; depois `python -m pip install --force-reinstall PySide6-Essentials` |
 | Duplo clique no `.exe` não abre nada | erro silencioso em app sem console | rode `BussolaPDV-console.exe` no Prompt de Comando e leia a mensagem |
 | `database is locked` | outra instância aberta, ou base em pasta sincronizada/rede | feche as outras instâncias; mova a base para disco local |
+| `ModuleNotFoundError: No module named 'tzdata'` ou `ZoneInfoNotFoundError: No time zone found with key America/Sao_Paulo` | Python do Windows sem a base IANA de fusos | `python -m pip install tzdata` (ou reinstale com `pip install -e .`). Nas versões até 0.8.1 o erro aparecia como **`PermissionError: [WinError 32] … pdv.db já está sendo usado`** — era só o sintoma |
+| Mensagem `A base anterior não estava utilizável … guardada como pdv.db.antigo-AAAA…DB` | a base aberta não era um SQLite válido (instalação interrompida) | se havia vendas nela, pare o programa, renomeie o `.antigo-…` de volta para `pdv.db` e peça suporte; senão, ignore |
 | “Não há nenhum usuário” na tela de login | base criada mas sem Admin Master | rode `bussola init --forcar` (apaga a base) ou, no executável, apague `pdv.db` e reabra |
 | Esqueci a senha do Admin Master | Argon2id não é reversível | entre como outro Admin Master e redefina; se não houver, a base só pode ser recriada (perde-se o histórico) |
 | Instalador avisa “não assinado” | sem certificado de assinatura de código | ver [SmartScreen e antivírus](#smartscreen-e-antivírus) |

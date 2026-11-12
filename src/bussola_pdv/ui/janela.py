@@ -321,7 +321,7 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             *(self.pilha.widget(i) for i in range(self.pilha.count())),
         ):
             if tela is not None and getattr(tela, "usuario", None) is not None:
-                tela.usuario = atualizado  # type: ignore[attr-defined]
+                setattr(tela, "usuario", atualizado)  # noqa: B010 - atributo só existe em algumas telas
         self.tela_pdv.atualizar()
 
 

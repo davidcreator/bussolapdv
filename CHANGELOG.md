@@ -2,6 +2,48 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.8.2] — 2026-11-11 — primeiro uso no Windows: fuso horário e base preservada
+
+Correção do erro relatado em campo: `PermissionError: [WinError 32] O arquivo já
+está sendo usado por outro processo: 'D:\pdv\pdv.db' -> 'D:\pdv\pdv.db.antigo-…'`
+na tela de instalação. Havia **dois** problemas, e o segundo escondia o primeiro.
+
+### Corrigido
+
+- **`ZoneInfoNotFoundError: America/Sao_Paulo` no Windows.** O Windows não traz
+  base IANA de fusos: `ZoneInfo` depende do pacote PyPI `tzdata`. Ele passou a ser
+  dependência de execução (`pyproject.toml`) e é copiado para dentro do
+  executável (`collect_data_files("tzdata")` no `.spec`).
+- **Fuso com reserva**: sem a base IANA, `resolver_fuso` usa deslocamento fixo
+  (São Paulo = `UTC-03:00`), registra o aviso em `logs/erros.log` e a loja abre
+  normalmente. Nome de fuso desconhecido continua sendo erro, com a mensagem
+  que aponta o `tzdata`.
+- **A base não é mais movida por erro que não é dela.** `_abrir_ou_recomecar`
+  tratava **qualquer** exceção como "banco corrompido": arrastava um `pdv.db` bom
+  para `pdv.db.antigo-…` e o operador via `WinError 32`. Agora só
+  `sqlite3.DatabaseError` e o novo `EsquemaAusente` autorizam o recomeço; o resto
+  sobe com o motivo real.
+- **`Contexto.abrir` monta o relógio antes de abrir o arquivo** e fecha a conexão
+  se a migração falhar: a falha de fuso não deixa mais o `.db` travado.
+- **`WinError 32` explicado**: o `rename` da base tenta três vezes (antivírus e
+  `-wal`/`-shm` seguram o arquivo por instantes) e, se persistir, a mensagem manda
+  fechar as outras janelas do programa em vez de mostrar o código do Windows.
+- `bussola relogio` (sem `--banco`) virou diagnóstico de fuso: mostra o fuso em
+  uso, a data de negócio e se a base IANA está OK; com `--banco` continua
+  mostrando a data de negócio da instalação.
+
+### Verificado
+
+- 636 testes (13 novos), `ruff`, `mypy` (89 arquivos) e `make responsivo` verdes.
+- Novos testes reproduzem o relato: falha de fuso **não** move a base, base presa
+  por outro processo explica o que fazer, conexão é fechada quando a migração
+  falha, `Contexto.abrir` não toca no arquivo se o fuso falhar, e o `.spec`/o
+  `pyproject.toml` carregam o `tzdata`.
+- Executado no sandbox **sem** `tzdata` (mesma condição do Windows sem o pacote):
+  `bussola relogio` avisa e `bussola info`/primeiro uso seguem funcionando.
+- **Limite declarado mantido**: nada disto foi rodado em Windows real nem no
+  `.exe` compilado — o que está verificado é a suíte automatizada.
+
 ## [0.8.1] — 2026-11-11 — imprimir relatório, reimprimir por cupom e imprimir pela CLI
 
 Complemento da v0.8.0: a impressão deixa de ser só do cupom do PDV e do turno do Caixa.

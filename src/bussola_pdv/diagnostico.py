@@ -73,6 +73,27 @@ def registrar_erro(exc: BaseException, *, contexto: str = "") -> Path:
     return arquivo
 
 
+def registrar_aviso(mensagem: str, *, contexto: str = "") -> Path:
+    """Grava um aviso (não é erro) no mesmo log: o suporte precisa do ambiente.
+
+    Exemplo: fuso horário aproximado por falta do pacote `tzdata` no Windows.
+    """
+    from . import __version__
+
+    arquivo = arquivo_de_log()
+    _rotacionar(arquivo)
+    carimbo = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    try:
+        with arquivo.open("a", encoding="utf-8") as manipulador:
+            manipulador.write(f"\n=== {carimbo} · Bússola PDV {__version__} ===\n")
+            if contexto:
+                manipulador.write(f"ação: {contexto}\n")
+            manipulador.write(f"AVISO: {mensagem}\n")
+    except OSError:  # pragma: no cover - sem log, resta o stderr
+        print(f"AVISO: {mensagem}", file=sys.stderr)
+    return arquivo
+
+
 def resumo_do_erro(exc: BaseException) -> str:
     """Primeira linha útil: mensagem do erro ou o tipo, quando não houver texto."""
     mensagem = str(exc).strip().splitlines()[0] if str(exc).strip() else ""

@@ -93,6 +93,28 @@ def test_diretorio_de_migracoes_e_o_que_o_spec_copia():
     assert len(versoes) >= 3
 
 
+def test_spec_leva_a_base_de_fusos_horarios():
+    """Sem `tzdata` dentro do pacote o exe do Windows morre em `ZoneInfo`.
+
+    O Windows não tem base IANA; `zoneinfo` lê o pacote PyPI. Foi o erro que
+    impediu o primeiro uso de concluir (ZoneInfoNotFoundError: America/Sao_Paulo).
+    """
+    texto = (EMPACOTAMENTO / "bussola.spec").read_text(encoding="utf-8")
+    assert "collect_data_files(\"tzdata\")" in texto
+    assert '"tzdata",' in texto
+
+
+def test_tzdata_e_dependencia_de_execucao():
+    texto = (RAIZ / "pyproject.toml").read_text(encoding="utf-8")
+    cabecalho = texto.split("[project.optional-dependencies]")[0]
+    assert "tzdata" in cabecalho
+
+
+def test_instalacao_windows_avisa_do_tzdata():
+    texto = (RAIZ / "docs" / "INSTALACAO_WINDOWS.md").read_text(encoding="utf-8")
+    assert "tzdata" in texto
+
+
 def test_spec_e_python_valido():
     ast.parse((EMPACOTAMENTO / "bussola.spec").read_text(encoding="utf-8"))
 

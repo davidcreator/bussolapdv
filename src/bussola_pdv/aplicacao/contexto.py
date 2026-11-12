@@ -69,10 +69,20 @@ class Contexto:
         aplicar_migracoes: bool = True,
     ) -> Contexto:
         destino = Path(caminho)
+        # O relógio é montado ANTES de abrir o arquivo: um erro de fuso (Windows
+        # sem `tzdata`) precisa estourar com a base ainda intocada. Na versão
+        # anterior ele nascia depois da conexão, e a base ficava travada com o
+        # programa tentando movê-la — o operador via "arquivo em uso" em vez do
+        # motivo real.
+        relogio = relogio or RelogioSistema()
         conexao = abrir_conexao(destino)
-        if aplicar_migracoes:
-            migrar(conexao)
-        return cls(conexao=conexao, relogio=relogio or RelogioSistema(), caminho=destino)
+        try:
+            if aplicar_migracoes:
+                migrar(conexao)
+            return cls(conexao=conexao, relogio=relogio, caminho=destino)
+        except BaseException:
+            conexao.close()  # nunca deixar o arquivo preso por uma falha de abertura
+            raise
 
     @classmethod
     def em_memoria(cls, *, relogio: Relogio | None = None) -> Contexto:
