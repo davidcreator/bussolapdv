@@ -19,9 +19,11 @@ from PySide6.QtWidgets import (
 
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
+from ..aplicacao.impressao import ServicoImpressao
 from ..dominio.usuario import Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
+from .impressao import botao_para_relatorio
 from .responsivo import GradeDeIndicadores
 from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
@@ -32,6 +34,7 @@ class TelaEstoque(QWidget):
         self.ctx = contexto
         self.usuario = usuario
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -54,6 +57,14 @@ class TelaEstoque(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_exportar)
+        self.botao_imprimir = botao_para_relatorio(
+            ator=usuario,
+            servico=self.impressao,
+            construir=lambda: self.exportacao.relatorio_estoque(self.campo_busca.text()),
+            rotulo="estoque",
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_imprimir)
 
         linha = QHBoxLayout()
         self.campo_busca = QLineEdit()

@@ -20,14 +20,17 @@ from PySide6.QtWidgets import (
 
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
+from ..aplicacao.impressao import ServicoImpressao
 from ..aplicacao.relatorios import ServicoRelatorios
 from ..dominio.dinheiro import Dinheiro
 from ..dominio.erros import ErroBussola
+from ..dominio.impressao import DocumentoImpresso
 from ..dominio.produto import Produto, StatusEstoque
 from ..dominio.usuario import Acao, Usuario
 from .exportacao import BotaoExportar
+from .impressao import BotaoImprimir, botao_para_relatorio
 from .login import DialogoAutorizacao
-from .responsivo import GradeDeIndicadores
+from .responsivo import FluxoDeAcoes, GradeDeIndicadores
 from .tema import cor_da_tonalidade
 from .widgets import CaixaInfo, Cartao, ajustar_colunas, preparar_tabela
 
@@ -52,6 +55,7 @@ class TelaProdutos(QWidget):
             "Saldo é posição corrente; o status vem da regra de estoque do domínio",
         )
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -59,6 +63,14 @@ class TelaProdutos(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_exportar)
+        self.botao_imprimir = botao_para_relatorio(
+            ator=usuario,
+            servico=self.impressao,
+            construir=lambda: self.exportacao.relatorio_catalogo(self.campo_busca.text()),
+            rotulo="catalogo",
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_imprimir)
         self.rotulo_resumo = QLabel()
         cartao.adicionar_ferramenta(self.rotulo_resumo)
 
@@ -159,6 +171,7 @@ class TelaVendas(QWidget):
 
         cartao = Cartao("Vendas", "Cancelamento exige autorização e motivo registrado")
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -169,23 +182,48 @@ class TelaVendas(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_exportar)
-        linha = QHBoxLayout()
+        self.botao_imprimir = botao_para_relatorio(
+            ator=usuario,
+            servico=self.impressao,
+            construir=lambda: self.exportacao.relatorio_vendas(
+                self.data_ini.date().toString("yyyy-MM-dd"),
+                self.data_fim.date().toString("yyyy-MM-dd"),
+            ),
+            rotulo="vendas",
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_imprimir)
+        # Fluxo de ações: datas + filtrar + reimprimir + cancelar não cabem em 800 px.
+        linha = FluxoDeAcoes()
         self.data_ini = QDateEdit(QDate.currentDate().addDays(-30))
         self.data_ini.setCalendarPopup(True)
         self.data_fim = QDateEdit(QDate.currentDate())
         self.data_fim.setCalendarPopup(True)
         botao = QPushButton("Filtrar")
         botao.clicked.connect(self.atualizar)
+        self.botao_reimprimir = BotaoImprimir(
+            ator=usuario,
+            servico=self.impressao,
+            construir=self._documento_da_selecionada,
+            parent=self,
+            rotulo="Reimprimir cupom",
+        )
+        self.botao_reimprimir.setToolTip(
+            "Segunda via do cupom da venda selecionada (o cupom é lido do banco)"
+        )
         self.botao_cancelar = QPushButton("Cancelar venda selecionada")
         self.botao_cancelar.setObjectName("perigo")
         self.botao_cancelar.clicked.connect(self._cancelar)
-        linha.addWidget(QLabel("De:"))
-        linha.addWidget(self.data_ini)
-        linha.addWidget(QLabel("Até:"))
-        linha.addWidget(self.data_fim)
-        linha.addWidget(botao)
-        linha.addStretch(1)
-        linha.addWidget(self.botao_cancelar)
+        for widget in (
+            QLabel("De:"),
+            self.data_ini,
+            QLabel("Até:"),
+            self.data_fim,
+            botao,
+            self.botao_reimprimir,
+            self.botao_cancelar,
+        ):
+            linha.adicionar(widget)
 
         self.tabela = QTableWidget(0, 8)
         self.tabela.setHorizontalHeaderLabels(
@@ -197,7 +235,7 @@ class TelaVendas(QWidget):
         ajustar_colunas(self.tabela, 3)
         self.mensagem = QLabel("")
 
-        cartao.adicionar_layout(linha)
+        cartao.adicionar(linha)
         cartao.adicionar(self.tabela, 1)
         cartao.adicionar(self.mensagem)
         layout.addWidget(cartao, 1)
@@ -245,6 +283,19 @@ class TelaVendas(QWidget):
                 if coluna in (5, 6):
                     celula.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.tabela.setItem(linha, coluna, celula)
+
+    def _documento_da_selecionada(self) -> DocumentoImpresso:
+        """2ª via do cupom da venda selecionada, montada a partir do banco.
+
+        Reimprimir do banco (e não do carrinho, que já foi limpo) é o que garante
+        que a 2ª via mostre o que foi efetivamente cobrado, mesmo que o preço
+        tenha mudado depois.
+        """
+        linha = self.tabela.currentRow()
+        if linha < 0 or linha >= len(self._vendas):
+            raise ErroBussola("Selecione uma venda na lista para reimprimir o cupom.")
+        venda = self._vendas[linha]
+        return self.impressao.comprovante_por_id(str(venda["id"]), copia=True)
 
     def _cancelar(self) -> None:
         linha = self.tabela.currentRow()
@@ -307,6 +358,7 @@ class TelaAuditoria(QWidget):
             "Append-only: UPDATE e DELETE são bloqueados por trigger; a cadeia é verificável",
         )
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -314,6 +366,14 @@ class TelaAuditoria(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_exportar)
+        self.botao_imprimir = botao_para_relatorio(
+            ator=usuario,
+            servico=self.impressao,
+            construir=self.exportacao.relatorio_auditoria,
+            rotulo="auditoria",
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_imprimir)
         linha = QHBoxLayout()
         self.rotulo = QLabel()
         self.rotulo.setObjectName("textoAjuda")
@@ -373,6 +433,7 @@ class TelaFechamento(QWidget):
             "Conferência aritmética do dia; não representa confirmação bancária de PIX ou cartão",
         )
         self.exportacao = ServicoExportacao(contexto)
+        self.impressao = ServicoImpressao(contexto)
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -380,6 +441,14 @@ class TelaFechamento(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_exportar)
+        self.botao_imprimir = botao_para_relatorio(
+            ator=usuario,
+            servico=self.impressao,
+            construir=lambda: self.exportacao.relatorio_fechamento(self._data_iso()),
+            rotulo="fechamento",
+            parent=self,
+        )
+        cartao.adicionar_ferramenta(self.botao_imprimir)
         linha = QHBoxLayout()
         self.data = QDateEdit(QDate.currentDate())
         self.data.setCalendarPopup(True)

@@ -29,6 +29,7 @@ from . import __app_name__, __version__
 from .aplicacao.autenticacao import ServicoAutenticacao
 from .aplicacao.contexto import Contexto
 from .aplicacao.exportacao import ServicoExportacao
+from .aplicacao.impressao import ServicoImpressao
 from .aplicacao.relatorios import ServicoRelatorios
 from .caminhos import (
     banco_em,
@@ -43,9 +44,10 @@ from .caminhos import (
 )
 from .dominio.dinheiro import Dinheiro
 from .dominio.erros import ErroBussola, ErroValidacao
+from .dominio.impressao import PERFIS_PAPEL, Papel
 from .dominio.relatorio import Relatorio
 from .dominio.relogio import RelogioFixo
-from .dominio.usuario import Perfil
+from .dominio.usuario import Acao, Perfil
 from .infra.massa_demo import popular, relogio_demo
 from .infra.sqlite.conexao import abrir_conexao, fazer_backup, verificar_integridade
 
@@ -233,6 +235,62 @@ def _montar_relatorio(servico: ServicoExportacao, args: argparse.Namespace) -> R
     raise ErroValidacao(f"Tipo de relatório desconhecido: {tipo}.")
 
 
+def cmd_imprimir(args: argparse.Namespace) -> int:
+    """Manda um cupom ou relatório para o papel — ou para um arquivo.
+
+    Serve ao caso real de suporte e de retaguarda: "o cupom 1-000012 saiu errado",
+    "imprime a conferência do turno para o contador", "salva o fechamento em PDF
+    nesse pendrive". Faz o mesmo que a interface, com a mesma permissão e a mesma
+    auditoria — a impressão sempre passa por `ServicoImpressao`.
+
+    Sem `--saida`, imprime na impressora configurada. Com `--saida`, grava PDF ou
+    TXT (a extensão decide) e **não** gasta papel.
+    """
+    _exigir_banco(args.banco)
+    ctx = Contexto.abrir(Path(args.banco))
+    try:
+        senha = os.environ.get("BUSSOLA_SENHA") or getpass.getpass(f"Senha de {args.login}: ")
+        usuario = ServicoAutenticacao(ctx).entrar(args.login, senha).usuario
+        impressao = ServicoImpressao(ctx)
+        papel = Papel(args.papel) if args.papel else None
+
+        if args.tipo == "cupom":
+            if not args.venda:
+                raise ErroValidacao("Informe --venda (id ou rótulo do cupom, ex.: 1-000012).")
+            venda = impressao.venda_por_referencia(args.venda)
+            documento = impressao.comprovante_da_venda(venda, papel=papel, copia=True)
+        else:
+            relatorio = _montar_relatorio(ServicoExportacao(ctx), args)
+            documento = impressao.documento_de_relatorio(relatorio, papel=papel, rotulo=args.tipo)
+
+        if args.saida:
+            destino = Path(args.saida)
+            formato = destino.suffix.lstrip(".").lower() or "pdf"
+            if formato not in ("pdf", "txt"):
+                raise ErroValidacao("A saída aceita .pdf ou .txt.")
+            gravado = impressao.salvar(documento, destino.parent, formato=formato)
+            if gravado != destino:
+                gravado.replace(destino)
+            print(f"{__app_name__} {__version__}")
+            print(f"Documento: {documento.titulo}")
+            print(f"Papel: {PERFIS_PAPEL[documento.papel].rotulo} · linhas: {len(documento.layout())}")
+            print(f"Arquivo: {destino.resolve()} (nada foi impresso)")
+        else:
+            resultado = impressao.despachar(
+                documento, ator=usuario, permissao=Acao.CUPOM_REIMPRIMIR
+                if args.tipo == "cupom"
+                else Acao.EXPORTAR_DADOS
+            )
+            print(f"{__app_name__} {__version__}")
+            print(f"Documento: {documento.titulo}")
+            print(f"Enviado para: {resultado.destino}")
+            print(f"Papel: {resultado.papel.value} · linhas: {resultado.linhas}")
+        print("Documento interno: não é documento fiscal.")
+    finally:
+        ctx.fechar()
+    return 0
+
+
 def cmd_dados(args: argparse.Namespace) -> int:
     """Mostra — e opcionalmente muda — a pasta onde a instalação guarda dados.
 
@@ -394,6 +452,46 @@ def construir_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--limite", type=int, default=500, help="eventos (auditoria)")
     p_export.add_argument("--login", required=True, help="usuário que assina a exportação")
     p_export.set_defaults(func=cmd_exportar)
+
+    p_imprimir = sub.add_parser(
+        "imprimir", help="imprime cupom ou relatório (bobina 58/80 mm ou folha A4)"
+    )
+    p_imprimir.add_argument("--banco", default="dados/bussola.db")
+    p_imprimir.add_argument(
+        "--tipo",
+        default="cupom",
+        choices=[
+            "cupom",
+            "fechamento",
+            "vendas",
+            "catalogo",
+            "auditoria",
+            "crediario",
+            "clientes",
+            "estoque",
+            "turno",
+        ],
+    )
+    p_imprimir.add_argument("--venda", default=None, help="id ou rótulo do cupom (ex.: 1-000012)")
+    p_imprimir.add_argument(
+        "--papel", default=None, choices=["BOBINA_58", "BOBINA_80", "A4"],
+        help="padrão: o papel configurado nos parâmetros",
+    )
+    p_imprimir.add_argument(
+        "--saida", default=None, help="grava .pdf ou .txt em vez de imprimir"
+    )
+    p_imprimir.add_argument("--data", default=None, help="data de negócio (fechamento)")
+    p_imprimir.add_argument("--de", default=None, help="início do período (vendas)")
+    p_imprimir.add_argument("--ate", default=None, help="fim do período (vendas)")
+    p_imprimir.add_argument("--busca", default="", help="filtro (catálogo, estoque, clientes)")
+    p_imprimir.add_argument("--turno", default=None, help="id do turno (padrão: abertos)")
+    p_imprimir.add_argument(
+        "--incluir-pagos", action="store_true", dest="incluir_pagos",
+        help="inclui títulos já recebidos no crediário",
+    )
+    p_imprimir.add_argument("--limite", type=int, default=500, help="eventos (auditoria)")
+    p_imprimir.add_argument("--login", required=True, help="usuário que assina a impressão")
+    p_imprimir.set_defaults(func=cmd_imprimir)
 
     p_ui = sub.add_parser("ui", help="abre a interface desktop")
     p_ui.add_argument("--banco", default="dados/bussola.db")

@@ -192,6 +192,40 @@ class VendaRepositorio(RepositorioBase):
             raise ErroNaoEncontrado("Venda não encontrada.")
         return self._para_venda(linha)
 
+    def por_rotulo(self, rotulo: str) -> VendaRegistrada:
+        """Busca pelo rótulo do cupom (`1-000012`), que é o número que o cliente tem.
+
+        É o que o suporte precisa: "o cupom 1-000012 saiu errado" — e não um UUID.
+        Aceita também o número puro (`12`), assumindo a série única da instalação.
+        """
+        texto = str(rotulo).strip()
+        serie, _, numero = texto.partition("-")
+        if numero:
+            try:
+                numero_int = int(numero)
+            except ValueError as exc:
+                raise ErroNaoEncontrado(
+                    f"Cupom não encontrado: {rotulo}. Use o formato série-número (1-000012)."
+                ) from exc
+            linha = self.conexao.execute(
+                "SELECT * FROM vendas WHERE serie = ? AND numero = ?",
+                (serie, numero_int),
+            ).fetchone()
+        else:
+            try:
+                numero_int = int(texto)
+            except ValueError as exc:
+                raise ErroNaoEncontrado(
+                    f"Rótulo de cupom inválido: {rotulo!r}. Use o formato série-número (1-000012)."
+                ) from exc
+            linha = self.conexao.execute(
+                "SELECT * FROM vendas WHERE numero = ? ORDER BY criado_em DESC LIMIT 1",
+                (numero_int,),
+            ).fetchone()
+        if linha is None:
+            raise ErroNaoEncontrado(f"Cupom não encontrado: {rotulo}.")
+        return self._para_venda(linha)
+
     def por_chave_idempotencia(self, chave: str) -> VendaRegistrada | None:
         linha = self.conexao.execute("SELECT * FROM vendas WHERE chave_idempotencia = ?", (chave,)).fetchone()
         return self._para_venda(linha) if linha else None

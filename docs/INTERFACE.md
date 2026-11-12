@@ -93,14 +93,19 @@ Peças que reagem à largura:
   compacta, esconde os complementos e ajusta margens. O botão do menu continua valendo: a escolha
   manual do operador dura até a janela mudar de faixa.
 - **`Cartao`** — cabeçalho em grade: abaixo de 640 px de cartão, as ferramentas ("Exportar", resumo da
-  consulta) descem para a segunda linha em vez de alargar a página.
+  consulta) descem para a segunda linha em vez de alargar a página. Dentro da moldura de ferramentas há
+  um `FluxoDeAcoes`: com "Exportar" **e** "Imprimir" lado a lado a soma das larguras voltava a impor
+  largura mínima (Produtos pedia 732 px, Vendas 823 px) e o fluxo quebra a fileira.
 - **`ColunasDaTabela`** — mede o conteúdo (adiado 150 ms): se cabe, estica a coluna elástica; se não
   cabe, mantém cada coluna legível (piso de 84 px) e liga a rolagem horizontal da própria tabela.
 - **`QScrollArea`** em volta da pilha de páginas, nas duas janelas — em 600 px de altura o PDV rola em
   vez de sobrepor os grupos, e a área administrativa usa `PilhaDePaginas` para não herdar a largura
   mínima da seção mais larga.
 - **`FluxoDeAcoes`** — fileiras de botões quebram em várias linhas; `QHBoxLayout` não quebra e a
-  fileira de ações de Usuários saía pela borda em 800 px.
+  fileira de ações de Usuários saía pela borda em 800 px. Também é a fileira de filtros da tela de
+  Vendas (datas, Filtrar, Reimprimir cupom, Cancelar venda). Reparentar esconde o filho, então
+  `adicionar()` só chama `show()` quando o widget não estava escondido de propósito — senão o botão
+  sem permissão reaparecia.
 - **`GradeDeCartoes`** — dois blocos de conteúdo lado a lado (identidade/prévia da marca) empilham
   quando não cabem.
 - **`ajustar_dialogo()`** — login, autorização, primeiro uso e conferência de gaveta nunca nascem
@@ -154,6 +159,10 @@ função que devolve o `DocumentoImpresso` **no clique**, e o diálogo cuida do 
 - **Aviso quando o motor não serve**: `ESCPOS` + A4 mostra "o motor ESC/POS imprime bobina" em vez de
   falhar só no envio;
 - **Falha com saída**: erro de impressora aparece no diálogo, com o motivo, e a venda continua
-  registrada — o operador pode salvar PDF, tentar de novo (F8) ou seguir o expediente.
+  registrada — o operador pode salvar PDF, tentar de novo (F8) ou seguir o expediente;
+- **Onde está**: PDV (cupom e F8), Caixa (turno), Vendas (2ª via da venda selecionada) e o botão
+  "Imprimir" ao lado do "Exportar" em todas as telas de relatório — nesse caso montado por
+  `botao_para_relatorio()`, que usa a **mesma** função do `BotaoExportar`, só trocando o formato de
+  saída. A permissão muda junto: cupom pede `CUPOM_REIMPRIMIR`, relatório pede `EXPORTAR_DADOS`.
 
 ![Prévia de impressão](capturas/24_impressao_previa.png)

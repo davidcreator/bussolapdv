@@ -85,7 +85,45 @@ class TestWidgets:
         assert cartao.titulo.text() == "Catálogo"
         assert cartao.subtitulo.text() == "saldo corrente"
         assert cartao.corpo.count() == 1
-        assert cartao.ferramentas.count() == 1
+        # `ferramentas` é um fluxo (quebra de linha), não um QHBoxLayout
+        assert len(cartao.ferramentas.widgets) == 1
+
+    def test_ferramenta_escondida_continua_escondida_no_fluxo(self, app):
+        """`setVisible(False)` não pode ser desfeito ao entrar no cabeçalho.
+
+        As ferramentas do cartão vivem num `FluxoDeAcoes`, que reparenta o widget;
+        reparentar esconde o filho e o `show()` do fluxo reexibiria até o botão
+        proibido — e os testes de permissão passaram a ver "Exportar" para o
+        atendente.
+        """
+        from PySide6.QtWidgets import QPushButton
+
+        cartao = widgets.Cartao("Clientes")
+        proibido = QPushButton("Exportar")
+        proibido.setVisible(False)
+        cartao.adicionar_ferramenta(proibido)
+
+        assert proibido.isHidden()
+        assert cartao.ferramentas.widgets == [proibido]
+
+    def test_ferramentas_quebram_de_linha_em_cartao_estreito(self, app):
+        """Duas ferramentas lado a lado não impõem a soma das larguras ao cartão."""
+        from PySide6.QtWidgets import QPushButton
+
+        cartao = widgets.Cartao("Vendas")
+        for rotulo in ("Exportar Excel/PDF", "Imprimir"):
+            cartao.adicionar_ferramenta(QPushButton(rotulo))
+        cartao.show()
+        fluxo = cartao.ferramentas
+        soma = sum(acao.sizeHint().width() for acao in fluxo.widgets)
+        assert fluxo.minimumSizeHint().width() < soma
+        fluxo.resize(160, 100)
+        fluxo._recalcular()
+
+        alturas = {acao.y() for acao in fluxo.widgets}
+        assert len(alturas) == 2, alturas
+        assert fluxo.minimumSizeHint().width() < 300
+        cartao.deleteLater()
 
     def test_cabecalho_monta_a_trilha(self, app):
         cabecalho = widgets.CabecalhoConteudo("PDV", "frente de caixa")

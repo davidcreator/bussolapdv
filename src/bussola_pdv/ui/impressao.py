@@ -43,6 +43,7 @@ from ..aplicacao.impressao import (
 )
 from ..dominio.erros import ErroBussola
 from ..dominio.impressao import PERFIS_PAPEL, DocumentoImpresso, Papel
+from ..dominio.relatorio import Relatorio
 from ..dominio.usuario import Acao, Usuario
 from ..infra.impressao import impressoras as infra_impressoras
 from ..infra.impressao import papel as renderizador
@@ -105,10 +106,12 @@ class DialogoPreviaImpressao(QDialog):
         ator: Usuario | None = None,
         configuracao: ConfiguracaoImpressao | None = None,
         parent: QWidget | None = None,
+        permissao: Acao = Acao.CUPOM_REIMPRIMIR,
     ) -> None:
         super().__init__(parent)
         self.servico = servico
         self.ator = ator
+        self.permissao = permissao
         self.config = configuracao or servico.configuracao()
         self.documento = documento
         self.setWindowTitle(f"Prévia de impressão — {documento.titulo}")
@@ -160,9 +163,11 @@ class DialogoPreviaImpressao(QDialog):
             acoes.adicionar(botao)
         raiz.addWidget(acoes)
 
-        if ator is not None and not ator.pode(Acao.CUPOM_REIMPRIMIR):
+        if ator is not None and not ator.pode(permissao):
             self.botao_imprimir.setEnabled(False)
-            self._avisar("Seu perfil não imprime cupom. Peça ao gerente ou ao admin.")
+            self._avisar(
+                f"Seu perfil não imprime ({permissao.rotulo}). Peça ao gerente ou ao admin."
+            )
 
         self.atualizar_previa()
 
@@ -247,7 +252,10 @@ class DialogoPreviaImpressao(QDialog):
         documento = self.documento_atual()
         try:
             resultado = self.servico.despachar(
-                documento, ator=self.ator, configuracao=self.configuracao_atual()
+                documento,
+                ator=self.ator,
+                configuracao=self.configuracao_atual(),
+                permissao=self.permissao,
             )
         except ErroBussola as exc:
             self._avisar(str(exc))
@@ -312,17 +320,27 @@ class BotaoImprimir(QPushButton):
         construir: Callable[[], DocumentoImpresso],
         parent: QWidget | None = None,
         rotulo: str = "Imprimir",
+        permissao: Acao = Acao.CUPOM_REIMPRIMIR,
     ) -> None:
         super().__init__(rotulo, parent)
         self.ator = ator
         self.servico = servico
         self.construir = construir
+        self.permissao = permissao
         self.setObjectName("secundario")
         self.setIcon(icone("saida", "#212529", 16))
         self.setToolTip("Pré-visualizar e imprimir (térmica 58/80 mm ou folha A4)")
         self.clicked.connect(self.abrir_previa)
-        if ator is not None and not ator.pode(Acao.CUPOM_REIMPRIMIR):
-            self.setVisible(False)
+        self.setVisible(self.permitido)
+
+    @property
+    def permitido(self) -> bool:
+        """O perfil desta sessão pode imprimir este tipo de documento?
+
+        Exposto (e não só usado para esconder o botão) porque esconder widget não é
+        controle de acesso: quem barra de verdade é `ServicoImpressao.despachar`.
+        """
+        return self.ator is None or self.ator.pode(self.permissao)
 
     def abrir_previa(self) -> DialogoPreviaImpressao | None:
         try:
@@ -330,10 +348,51 @@ class BotaoImprimir(QPushButton):
         except ErroBussola as exc:
             QMessageBox.warning(self, "Imprimir", str(exc))
             return None
-        dialogo = DialogoPreviaImpressao(documento, self.servico, ator=self.ator, parent=self)
+        dialogo = DialogoPreviaImpressao(
+            documento, self.servico, ator=self.ator, parent=self, permissao=self.permissao
+        )
         dialogo.impresso.connect(self.impresso.emit)
         dialogo.exec()
         return dialogo
+
+
+def abrir_previa(
+    documento: DocumentoImpresso,
+    servico: ServicoImpressao,
+    *,
+    ator: Usuario | None = None,
+    parent: QWidget | None = None,
+    permissao: Acao = Acao.CUPOM_REIMPRIMIR,
+) -> DialogoPreviaImpressao:
+    """Abre a prévia e devolve o diálogo (usado pelos fluxos que não têm botão)."""
+    dialogo = DialogoPreviaImpressao(
+        documento, servico, ator=ator, parent=parent, permissao=permissao
+    )
+    dialogo.exec()
+    return dialogo
+
+
+def botao_para_relatorio(
+    *,
+    ator: Usuario | None,
+    servico: ServicoImpressao,
+    construir: Callable[[], Relatorio],
+    rotulo: str,
+    parent: QWidget | None = None,
+) -> BotaoImprimir:
+    """Botão \"Imprimir\" de uma tela de relatório: mesma fonte do botão Exportar.
+
+    O relatório é montado **no clique** (`construir()`), então o papel sai com o
+    filtro que está na tela naquele instante — e não com o retrato da abertura.
+    Relatório é dado da loja: exige `EXPORTAR_DADOS`, igual à exportação.
+    """
+    return BotaoImprimir(
+        ator=ator,
+        servico=servico,
+        construir=lambda: servico.documento_de_relatorio(construir(), rotulo=rotulo),
+        parent=parent,
+        permissao=Acao.EXPORTAR_DADOS,
+    )
 
 
 __all__ = [
@@ -341,5 +400,7 @@ __all__ = [
     "BotaoImprimir",
     "DialogoPreviaImpressao",
     "SeletorDeImpressoras",
+    "abrir_previa",
+    "botao_para_relatorio",
     "impressoras_instaladas",
 ]

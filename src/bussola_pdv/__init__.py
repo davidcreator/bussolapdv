@@ -8,6 +8,6 @@ auditoria e interface Qt inicial. Não é homologado para operação real nem
 substitui sistema fiscal.
 """
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 __app_name__ = "Bússola Sistema PDV Open Source"
 __license__ = "GPL-2.0-or-later"

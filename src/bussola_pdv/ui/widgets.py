@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 
 from ..dominio.marca import Paleta
 from .icones import icone
+from .responsivo import FluxoDeAcoes
 
 ALTURA_BARRA_SUPERIOR = 52
 ALTURA_ITEM_NAVEGACAO = 40
@@ -176,9 +177,10 @@ class Cartao(QFrame):
         self.subtitulo = QLabel(subtitulo)
         self.subtitulo.setObjectName("cartaoSubtitulo")
         self.subtitulo.setVisible(bool(subtitulo))
-        self.ferramentas = QHBoxLayout()
-        self.ferramentas.setContentsMargins(0, 0, 0, 0)
-        self.ferramentas.setSpacing(6)
+        # `FluxoDeAcoes` (e não `QHBoxLayout`) porque ferramenta de cartão cresce:
+        # "Exportar" + "Imprimir" + resumo do filtro não cabiam lado a lado e
+        # impunham largura mínima à página inteira. No fluxo, quebram de linha.
+        self.ferramentas = FluxoDeAcoes()
 
         self.titulo.setWordWrap(True)
         self.subtitulo.setWordWrap(True)  # em tela estreita o texto quebra em vez de alargar
@@ -196,13 +198,15 @@ class Cartao(QFrame):
         textos.setSpacing(0)
         textos.addWidget(self.titulo)
         textos.addWidget(self.subtitulo)
-        self._moldura_ferramentas = QWidget()
-        self._moldura_ferramentas.setLayout(self.ferramentas)
-        self.ferramentas.setContentsMargins(0, 0, 0, 0)
-        self.ferramentas.setSpacing(6)
+        self._moldura_ferramentas = self.ferramentas
         self._grade_cabecalho.addLayout(textos, 0, 0)
+        # sem alinhamento fixo: a célula entrega a largura disponível e o fluxo
+        # decide quantas ferramentas cabem por linha
         self._grade_cabecalho.addWidget(
-            self._moldura_ferramentas, 0, 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            self._moldura_ferramentas,
+            0,
+            1,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
         self._grade_cabecalho.setColumnStretch(0, 1)
         self._cabecalho_empilhado = False
@@ -227,7 +231,7 @@ class Cartao(QFrame):
         self.corpo.addLayout(layout, esticar)
 
     def adicionar_ferramenta(self, widget: QWidget) -> QWidget:
-        self.ferramentas.addWidget(widget)
+        self.ferramentas.adicionar(widget)
         return widget
 
     # -- responsividade -----------------------------------------------------

@@ -365,8 +365,13 @@ class FluxoDeAcoes(QWidget):
         return list(self._acoes)
 
     def adicionar(self, widget: QWidget) -> QWidget:
+        # `setParent` esconde o filho; só o reexibimos se ele não estava
+        # explicitamente escondido. Sem esta checagem, `widget.show()` desfazia o
+        # `setVisible(False)` de botões sem permissão (Exportar/Imprimir).
+        visivel = not widget.isHidden()
         widget.setParent(self)
-        widget.show()
+        if visivel:
+            widget.show()
         self._acoes.append(widget)
         self._recalcular()
         return widget

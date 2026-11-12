@@ -18,13 +18,14 @@ Regras que este módulo garante:
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 from ..dominio.auditoria import AcaoAuditoria, EventoAuditoria
 from ..dominio.dinheiro import Dinheiro, Quantidade
-from ..dominio.erros import ErroImpressao, ErroValidacao
+from ..dominio.erros import ErroImpressao, ErroNaoEncontrado, ErroValidacao
 from ..dominio.impressao import (
     PERFIS_PAPEL,
     Alinhamento,
@@ -53,6 +54,13 @@ from .marca import ServicoMarca
 
 #: Aviso que acompanha todo cupom: o projeto não emite documento fiscal.
 AVISO_NAO_FISCAL = "Documento interno, não fiscal. Não substitui nota fiscal."
+
+#: Abaixo disto uma coluna de tabela em papel não é legível (cabe "R$ 9,99" e pouco mais).
+LARGURA_MINIMA_COLUNA = 7
+
+
+def _sem_acento(texto: str) -> str:
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
 
 
 class MotorImpressao(StrEnum):
@@ -185,12 +193,26 @@ class ServicoImpressao:
         return [linha.strip() for linha in candidatas if linha.strip()]
 
     def _rodape(self, marca: Marca | None, *, extra: tuple[str, ...] = ()) -> list[Bloco]:
+        """Avisos do fim do papel, sem repetir o mesmo aviso três vezes.
+
+        Os relatórios já trazem o próprio "documento interno, não fiscal" no rodapé
+        que vem da exportação; somar o aviso padrão em cima disso imprimia três
+        linhas quase iguais e comia bobina. A regra é simples: aviso repetido sai,
+        e o aviso padrão só entra se nenhum outro já falar de documento fiscal.
+        """
         blocos: list[Bloco] = [Divisor("=")]
         if marca is not None and marca.rodape_comprovante.strip():
             blocos.append(Texto(marca.rodape_comprovante.strip(), Alinhamento.CENTRO))
+        vistos: list[str] = []
         for aviso in extra:
-            blocos.append(Texto(aviso, Alinhamento.CENTRO))
-        blocos.append(Texto(AVISO_NAO_FISCAL, Alinhamento.CENTRO, Enfase.NORMAL))
+            limpo = aviso.strip()
+            normalizado = _sem_acento(limpo.lower())
+            if not limpo or any(normalizado in visto or visto in normalizado for visto in vistos):
+                continue
+            vistos.append(normalizado)
+            blocos.append(Texto(limpo, Alinhamento.CENTRO))
+        if not any("fiscal" in visto for visto in vistos):
+            blocos.append(Texto(AVISO_NAO_FISCAL, Alinhamento.CENTRO, Enfase.NORMAL))
         return blocos
 
     # -- cupom de venda ------------------------------------------------------
@@ -281,6 +303,20 @@ class ServicoImpressao:
             rotulo=f"cupom-{venda.rotulo}",
         )
 
+    def venda_por_referencia(self, referencia: str) -> VendaRegistrada:
+        """Aceita o id da venda, o rótulo do cupom (`1-000012`) ou o número (`12`).
+
+        Existe para a CLI e o suporte: quem liga não sabe o UUID, sabe o número que
+        está impresso no papel.
+        """
+        texto = str(referencia).strip().removeprefix("cupom:").strip()
+        if not texto:
+            raise ErroValidacao("Informe a venda (id ou rótulo do cupom).")
+        try:
+            return self.ctx.vendas.por_id(texto)
+        except ErroNaoEncontrado:
+            return self.ctx.vendas.por_rotulo(texto)
+
     def comprovante_por_id(
         self, venda_id: str, *, papel: Papel | None = None, copia: bool = True
     ) -> DocumentoImpresso:
@@ -330,32 +366,84 @@ class ServicoImpressao:
         )
 
     def _linhas_da_tabela(self, tabela: Tabela, colunas: int) -> list[Bloco]:
-        """Tabela → blocos, respeitando o que cabe na largura do papel."""
+        """Tabela → blocos, decidindo pela **viabilidade**, não pela largura do papel.
+
+        A grade só vale se cada célula couber na coluna que lhe cabe. Antes o
+        critério era "menos de 40 colunas usa pares", e isso produzia bobina de
+        80 mm com `R$ 30,…` — valor monetário cortado é pior que tabela feia.
+        Agora: cabe tudo → grade; não cabe → pares rótulo/valor.
+        """
         if tabela.vazia:
             return [Texto("(sem registros)", Alinhamento.CENTRO)]
-        if colunas < 40:
-            blocos: list[Bloco] = []
-            for linha in tabela.linhas:
-                rotulo = " · ".join(
-                    str(celula(valor, coluna.tipo))
-                    for coluna, valor in zip(tabela.colunas[:-1], linha[:-1], strict=False)
-                    if str(valor) != ""
-                )
-                valor_final = celula(linha[-1], tabela.colunas[-1].tipo)
-                blocos.append(Par(rotulo or "—", valor_final))
-            return blocos
+        if not self._cabe_em_grade(tabela, colunas):
+            return [self._par_da_linha(tabela, linha) for linha in tabela.linhas]
         return self._tabela_em_colunas(tabela, colunas)
 
-    def _tabela_em_colunas(self, tabela: Tabela, colunas: int) -> list[Bloco]:
-        """Grade de largura fixa: cabeçalho, régua e linhas, com corte por reticências."""
-        declaradas = sum(max(coluna.largura, 6) for coluna in tabela.colunas)
+    @staticmethod
+    def _par_da_linha(tabela: Tabela, linha: tuple[object, ...]) -> Par:
+        """Linha de tabela vira `rótulo · rótulo   valor` na bobina.
+
+        O valor é a **última coluna numérica** (é o que interessa em cupom de
+        conferência); as demais viram rótulo, sem os campos vazios. Sem essa
+        escolha, a última coluna de uma tabela (autorizador, motivo) empurrava o
+        dinheiro para o meio da linha — e "R$ 30,00" aparecia como rótulo.
+        """
+        valores = [
+            celula(valor, coluna.tipo).strip()
+            for coluna, valor in zip(tabela.colunas, linha, strict=False)
+        ]
+        numericas = [i for i, coluna in enumerate(tabela.colunas) if coluna.numerica]
+        indice_valor = numericas[-1] if numericas else len(valores) - 1
+        rotulo = " · ".join(
+            valor
+            for indice, valor in enumerate(valores)
+            if indice != indice_valor and valor and valor != "—"
+        )
+        return Par(rotulo or "—", valores[indice_valor])
+
+    def _cabe_em_grade(self, tabela: Tabela, colunas: int) -> bool:
+        """Grade quando o que **não pode** ser cortado cabe; senão, pares.
+
+        A distinção é deliberada: `R$ 1.234,56` truncado é dado errado, enquanto
+        nome de produto comprido pode ser elidido com `…` sem prejuízo. Então a
+        grade exige que cabeçalho, dinheiro, quantidade e data caibam inteiros; só
+        as colunas de texto aceitam corte.
+        """
+        larguras = self._larguras_da_tabela(tabela, colunas)
+        for indice, largura in enumerate(larguras):
+            coluna = tabela.colunas[indice]
+            if largura_de(coluna.titulo) > largura:
+                return False
+            if coluna.tipo is TipoColuna.TEXTO:
+                continue
+            for linha in tabela.linhas:
+                if largura_de(celula(linha[indice], coluna.tipo)) > largura:
+                    return False
+        return True
+
+    @staticmethod
+    def _larguras_da_tabela(tabela: Tabela, colunas: int) -> list[int]:
+        """Divide a largura do papel na proporção das colunas declaradas."""
+        declaradas = sum(max(coluna.largura, LARGURA_MINIMA_COLUNA) for coluna in tabela.colunas)
         larguras = [
-            max(6, round(max(coluna.largura, 6) * colunas / max(declaradas, 1)))
+            max(
+                LARGURA_MINIMA_COLUNA,
+                round(max(coluna.largura, LARGURA_MINIMA_COLUNA) * colunas / max(declaradas, 1)),
+            )
             for coluna in tabela.colunas
         ]
         sobra = colunas - sum(larguras)
         if sobra:
             larguras[-1] += sobra
+        return larguras
+
+    def _tabela_em_colunas(self, tabela: Tabela, colunas: int) -> list[Bloco]:
+        """Grade de largura fixa: cabeçalho, régua e linhas.
+
+        Chega aqui só o que `_cabe_em_grade` aprovou; o corte com `…` fica como
+        rede de segurança para nomes longos de produto, não para valores.
+        """
+        larguras = self._larguras_da_tabela(tabela, colunas)
 
         def montar(valores: list[str]) -> str:
             celulas = [
@@ -383,14 +471,20 @@ class ServicoImpressao:
         *,
         ator: Usuario | None = None,
         configuracao: ConfiguracaoImpressao | None = None,
+        permissao: Acao = Acao.CUPOM_REIMPRIMIR,
     ) -> ResultadoImpressao:
         """Imprime pelo motor configurado e registra o resultado na auditoria.
 
         A permissão é conferida **aqui**, não só na tela: botão escondido não é
         controle de acesso, e a mesma chamada pode vir da CLI ou de um teste.
+
+        `permissao` existe porque imprimir **cupom** e imprimir **relatório** não
+        são a mesma coisa: cupom é operação de balcão (`CUPOM_REIMPRIMIR`, que o
+        atendente tem); relatório é tirar dado da loja (`EXPORTAR_DADOS`, que ele
+        não tem).
         """
         if ator is not None:
-            ator.exigir(Acao.CUPOM_REIMPRIMIR)
+            ator.exigir(permissao)
         cfg = configuracao or self.configuracao()
         destino = self.impressora_efetiva(cfg)
         try:

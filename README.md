@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.8.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.8.1).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -188,18 +188,33 @@ O mesmo documento impresso em três suportes — sem uma linha de texto duplicad
   A4) e `ESCPOS` (bytes crus: corte automático, gaveta e código de barras nativo na térmica).
 - **Prévia antes do papel**: papel, impressora e cópias escolhidos no diálogo, desenho feito pelo
   mesmo código que imprime. `Salvar PDF` e `Salvar TXT` quando não há impressora à mão.
-- **Onde imprimir**: cupom ao finalizar a venda, **F8** para a 2ª via, `Imprimir turno` no Caixa e o
-  comprovante de fechamento logo depois de fechar o turno.
+- **Onde imprimir**: cupom ao finalizar a venda, **F8** para a 2ª via da última venda, "Reimprimir
+  cupom" na tela de **Vendas** (qualquer venda do período), "Imprimir turno" no Caixa, o comprovante
+  de fechamento logo depois de fechar o turno e **"Imprimir" em toda tela de relatório** (fechamento,
+  vendas, catálogo, auditoria, clientes, crediário, estoque) — sempre ao lado do "Exportar" e pela
+  mesma consulta.
 - **Código de barras CODE 39** com o número do cupom (`1-000012`), desenhado módulo a módulo no papel
   e nativo na térmica.
-- **Cada impressão é auditada** (`IMPRESSAO_REALIZADA` / `IMPRESSAO_FALHOU`) e exige a permissão
-  `CUPOM_REIMPRIMIR`.
+- **Cada impressão é auditada** (`IMPRESSAO_REALIZADA` / `IMPRESSAO_FALHOU`). Cupom exige
+  `CUPOM_REIMPRIMIR` (atendente tem); relatório exige `EXPORTAR_DADOS` (o atendente não tem).
 - Cupom é **documento interno, não fiscal** — o aviso vai impresso nele.
 
 Exemplos (dados fictícios): [`cupom 58 mm`](docs/exemplos/cupom-exemplo-bobina58.pdf),
 [`cupom 80 mm`](docs/exemplos/cupom-exemplo-bobina80.pdf),
 [`cupom em A4`](docs/exemplos/cupom-exemplo-a4.pdf) e
 [`cupom em texto`](docs/exemplos/cupom-exemplo-58mm.txt).
+Pela linha de comando (senha em `BUSSOLA_SENHA` ou no prompt):
+
+```bash
+bussola imprimir --banco dados/pdv.db --tipo cupom --venda 1-000012 --login atendente1
+bussola imprimir --banco dados/pdv.db --tipo turno --papel BOBINA_58 --login gerente
+bussola imprimir --banco dados/pdv.db --tipo fechamento --data 2026-11-11 \
+    --saida /mnt/pendrive/fechamento.pdf --login master
+```
+
+Sem `--saida`, imprime na impressora configurada; com `--saida .pdf` ou `.txt`, grava arquivo e não
+gasta papel.
+
 Configuração, arquitetura, roteiro de teste em impressora real e tabela de problemas comuns em
 [docs/IMPRESSAO.md](docs/IMPRESSAO.md).
 
@@ -323,8 +338,8 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             610 testes: unidade, integração com SQLite real, falhas, UI offscreen,
-                   exportação, impressão (documento, PDF, ESC/POS) e empacotamento
+tests/             623 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+                   exportação, impressão (documento, PDF, ESC/POS, CLI) e empacotamento
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,
                    impressão, instalação no Windows, plano e capturas

@@ -480,6 +480,92 @@ class TestServicoImpressao:
         assert any("…" in linha.texto for linha in documento.layout())
 
 
+
+# -- relatórios impressos, reimpressão e linha de comando ----------------------
+class TestRelatoriosImpressos:
+    """O que a v0.8.1 acrescentou: imprimir relatório, reimprimir por cupom e CLI."""
+
+    def test_grade_so_quando_o_que_nao_pode_ser_cortado_cabe(self, cenario):
+        """Bobina de 80 mm: tabela de quatro colunas vira par — dinheiro não é truncado."""
+        from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+
+        venda_de_exemplo(cenario)  # gera o movimento de dinheiro do turno
+        relatorio = ServicoExportacao(cenario.ctx).relatorio_turno(cenario.turno_id)
+        documento = ServicoImpressao(cenario.ctx).documento_de_relatorio(
+            relatorio, papel=Papel.BOBINA_80
+        )
+        texto = documento.texto()
+        assert "VENDA_DINHEIRO" in texto
+        assert "R$ …" not in texto  # dinheiro truncado seria dado errado
+        assert "R$ 31,80" in texto  # o valor do movimento aparece inteiro
+
+    def test_rodape_nao_repete_o_aviso_fiscal(self, cenario):
+        from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+
+        relatorio = ServicoExportacao(cenario.ctx).relatorio_turno(cenario.turno_id)
+        documento = ServicoImpressao(cenario.ctx).documento_de_relatorio(
+            relatorio, papel=Papel.BOBINA_80
+        )
+        normalizado = " ".join(documento.texto().lower().split())
+        assert normalizado.count("não substitui nota fiscal") == 0  # absorvido pelo do relatório
+        assert normalizado.count("fiscal") <= 4  # rodapé da loja + avisos do relatório
+
+    def test_relatorio_turno_em_a4_continua_em_grade(self, cenario):
+        from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+
+        relatorio = ServicoExportacao(cenario.ctx).relatorio_turno(cenario.turno_id)
+        documento = ServicoImpressao(cenario.ctx).documento_de_relatorio(
+            relatorio, papel=Papel.A4
+        )
+        linhas = [linha.texto for linha in documento.layout()]
+        assert any("Item" in linha and "Valor" in linha for linha in linhas)
+
+    def test_venda_por_referencia_aceita_id_rotulo_e_numero(self, cenario):
+        venda = venda_de_exemplo(cenario).venda
+        servico = ServicoImpressao(cenario.ctx)
+        assert servico.venda_por_referencia(venda.id).id == venda.id
+        assert servico.venda_por_referencia(venda.rotulo).id == venda.id
+        assert servico.venda_por_referencia(str(venda.numero)).id == venda.id
+        assert servico.venda_por_referencia(f"cupom:{venda.rotulo}").id == venda.id
+        from bussola_pdv.dominio.erros import ErroNaoEncontrado
+
+        with pytest.raises(ErroNaoEncontrado):
+            servico.venda_por_referencia("1-999999")
+
+    def test_relatorio_exige_exportar_dados_e_cupom_exige_cupom(self, cenario, monkeypatch):
+        """Permissões diferentes: cupom é balcão; relatório é tirar dado da loja."""
+        from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+        from bussola_pdv.dominio.erros import AutorizacaoNegada
+
+        monkeypatch.setattr(renderizador, "imprimir", lambda *a, **k: None)
+        servico = ServicoImpressao(cenario.ctx)
+        relatorio = ServicoExportacao(cenario.ctx).relatorio_turno(cenario.turno_id)
+        documento = servico.documento_de_relatorio(relatorio, papel=Papel.BOBINA_80)
+
+        # atendente imprime cupom, não relatório
+        cupom = servico.comprovante_da_venda(venda_de_exemplo(cenario).venda)
+        assert (
+            servico.despachar(
+                cupom, ator=cenario.operador, permissao=_acao_cupom()
+            ).destino
+            is not None
+        )
+        with pytest.raises(AutorizacaoNegada):
+            servico.despachar(documento, ator=cenario.operador, permissao=_acao_exportar())
+
+        # contabilidade imprime relatório, não cupom
+        from bussola_pdv.dominio.usuario import Acao
+
+        assert (
+            servico.despachar(
+                documento, ator=cenario.contabilidade, permissao=Acao.EXPORTAR_DADOS
+            ).linhas
+            > 0
+        )
+        with pytest.raises(AutorizacaoNegada):
+            servico.despachar(cupom, ator=cenario.contabilidade, permissao=_acao_cupom())
+
+
 # -- interface -----------------------------------------------------------------
 pytestmark_ui = pytest.mark.ui
 
@@ -534,7 +620,7 @@ class TestInterfaceImpressao:
         monkeypatch.setattr(
             servico,
             "despachar",
-            lambda documento, ator=None, configuracao=None: _resultado(documento),
+            lambda documento, ator=None, configuracao=None, permissao=None: _resultado(documento),
         )
         documento = servico.comprovante_da_venda(venda_de_exemplo(cenario).venda)
         dialogo = ui_impressao.DialogoPreviaImpressao(documento, servico, ator=cenario.operador)
@@ -556,8 +642,65 @@ class TestInterfaceImpressao:
         do_contador = BotaoImprimir(ator=cenario.contabilidade, servico=servico, construir=construir)
         assert cenario.operador.pode(_acao_cupom())
         assert not cenario.contabilidade.pode(_acao_cupom())
-        assert not do_contador.isVisible()
+        assert do_atendente.permitido
+        assert not do_contador.permitido
         assert do_atendente.text() == "Imprimir"
+
+    def test_botao_de_relatorio_segue_a_permissao_de_exportar(self, app, cenario):
+        from PySide6.QtWidgets import QWidget
+
+        from bussola_pdv.aplicacao.exportacao import ServicoExportacao
+        from bussola_pdv.ui.impressao import botao_para_relatorio
+
+        servico = ServicoImpressao(cenario.ctx)
+        exportacao = ServicoExportacao(cenario.ctx)
+        construir = lambda: exportacao.relatorio_turno(cenario.turno_id)  # noqa: E731
+        pai = QWidget()
+        pai.show()
+        do_contador = botao_para_relatorio(
+            ator=cenario.contabilidade,
+            servico=servico,
+            construir=construir,
+            rotulo="turno",
+            parent=pai,
+        )
+        do_atendente = botao_para_relatorio(
+            ator=cenario.operador,
+            servico=servico,
+            construir=construir,
+            rotulo="turno",
+            parent=pai,
+        )
+        assert do_contador.permitido  # contabilidade exporta, logo imprime relatório
+        assert not do_atendente.permitido  # atendente não tira dado da loja
+        assert cenario.contabilidade.pode(_acao_exportar())
+        assert not cenario.operador.pode(_acao_exportar())
+        pai.close()
+
+    def test_tela_de_vendas_reimprime_a_venda_selecionada(self, app, cenario):
+        from PySide6.QtCore import QDate
+
+        from bussola_pdv.dominio.erros import ErroBussola
+        from bussola_pdv.ui.telas_consulta import TelaVendas
+
+        resultado = venda_de_exemplo(cenario)
+        tela = TelaVendas(cenario.ctx, cenario.gerente)
+        tela.data_ini.setDate(QDate(2026, 11, 1))
+        tela.data_fim.setDate(QDate(2026, 11, 30))
+        tela.atualizar()
+        assert tela._vendas, "a venda do cenário precisa aparecer na lista"
+
+        # sem seleção, o botão explica em vez de estourar
+        tela.tabela.setCurrentCell(-1, -1)
+        with pytest.raises(ErroBussola):
+            tela._documento_da_selecionada()
+
+        tela.tabela.setCurrentCell(0, 0)
+        documento = tela._documento_da_selecionada()
+        assert documento.papel is Papel.BOBINA_80
+        assert "2ª VIA" in documento.titulo
+        assert resultado.venda.rotulo in documento.texto()
+        tela.deleteLater()
 
     def test_administracao_tem_os_parametros_de_impressao(self, app, cenario):
         from bussola_pdv.aplicacao.parametros import ServicoParametros, TipoParametro
@@ -613,3 +756,94 @@ def test_cupom_gerado_do_zero_fica_na_pasta_pedida(cenario, tmp_path):
     documento = servico.comprovante_da_venda(venda_de_exemplo(cenario).venda)
     assert Path(documento.rotulo).suffix == ""
     assert documento.rotulo.startswith("cupom-")
+
+
+def _acao_exportar():
+    from bussola_pdv.dominio.usuario import Acao
+
+    return Acao.EXPORTAR_DADOS
+
+
+# -- linha de comando ----------------------------------------------------------
+class TestCliImpressao:
+    """`bussola imprimir`: o mesmo serviço, com a mesma permissão e auditoria."""
+
+    def test_cupom_em_pdf_pelo_cli(self, cenario, tmp_path, monkeypatch, capsys):
+        from bussola_pdv.cli import main as cli_main
+
+        monkeypatch.setenv("BUSSOLA_SENHA", "senha-de-teste")
+        rotulo = venda_de_exemplo(cenario).venda.rotulo
+        destino = tmp_path / "cli" / "cupom.pdf"
+        codigo = cli_main(
+            [
+                "imprimir",
+                "--banco", str(cenario.ctx.caminho),
+                "--tipo", "cupom",
+                "--venda", rotulo,
+                "--papel", "BOBINA_58",
+                "--saida", str(destino),
+                "--login", "operador",
+            ]
+        )
+        assert codigo == 0
+        assert destino.is_file()
+        assert destino.read_bytes().startswith(b"%PDF")
+        saida = capsys.readouterr().out
+        assert "2ª VIA" in saida
+        assert "nada foi impresso" in saida
+
+    def test_turno_em_txt_pelo_cli(self, cenario, tmp_path, monkeypatch):
+        from bussola_pdv.cli import main as cli_main
+
+        monkeypatch.setenv("BUSSOLA_SENHA", "senha-de-teste")
+        destino = tmp_path / "turno.txt"
+        codigo = cli_main(
+            [
+                "imprimir",
+                "--banco", str(cenario.ctx.caminho),
+                "--tipo", "turno",
+                "--turno", cenario.turno_id,
+                "--saida", str(destino),
+                "--login", "gerente",
+            ]
+        )
+        assert codigo == 0
+        texto = destino.read_text(encoding="utf-8")
+        assert "FECHAMENTO DO TURNO" in texto
+        assert "Esperado na gaveta" in texto
+        assert all(largura_de(linha) <= 48 for linha in texto.splitlines())
+
+    def test_cli_recusa_cupom_inexistente(self, cenario, tmp_path, monkeypatch, capsys):
+        from bussola_pdv.cli import main as cli_main
+
+        monkeypatch.setenv("BUSSOLA_SENHA", "senha-de-teste")
+        saida_proibida = tmp_path / "nao-deve-existir.pdf"
+        codigo = cli_main(
+            [
+                "imprimir",
+                "--banco", str(cenario.ctx.caminho),
+                "--tipo", "cupom",
+                "--venda", "1-999999",
+                "--saida", str(saida_proibida),
+                "--login", "operador",
+            ]
+        )
+        assert codigo == 2
+        assert "não encontrado" in capsys.readouterr().err.lower()
+        assert not saida_proibida.exists()
+
+    def test_cli_impede_perfil_sem_permissao(self, cenario, monkeypatch, capsys):
+        from bussola_pdv.cli import main as cli_main
+
+        monkeypatch.setenv("BUSSOLA_SENHA", "senha-de-teste")
+        codigo = cli_main(
+            [
+                "imprimir",
+                "--banco", str(cenario.ctx.caminho),
+                "--tipo", "cupom",
+                "--venda", venda_de_exemplo(cenario).venda.rotulo,
+                "--login", "contador",
+            ]
+        )
+        assert codigo == 2
+        assert "permissão" in capsys.readouterr().err.lower()

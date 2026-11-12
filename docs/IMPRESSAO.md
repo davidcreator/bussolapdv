@@ -20,12 +20,24 @@ confirma em impressora de verdade.
 
 Três caminhos de saída, todos a partir **do mesmo documento**:
 
-1. **Pré-visualizar e imprimir** — `Imprimir` no PDV (ao finalizar a venda), `Reimprimir
-   cupom (F8)` e `Imprimir turno` na tela de Caixa;
+1. **Pré-visualizar e imprimir** — de onde se imprime, hoje:
+   | Onde | O que sai | Permissão |
+   |---|---|---|
+   | PDV, ao finalizar a venda | cupom da venda | `CUPOM_REIMPRIMIR` |
+   | PDV, **F8** | 2ª via da última venda da estação | `CUPOM_REIMPRIMIR` |
+   | **Vendas** → "Reimprimir cupom" | 2ª via da venda selecionada (qualquer venda do período) | `CUPOM_REIMPRIMIR` |
+   | Caixa → "Imprimir turno" / após fechar | conferência do turno | `CUPOM_REIMPRIMIR` |
+   | Fechamento, Vendas, Produtos, Auditoria, Clientes, Crediário, Estoque | o relatório da tela, com o filtro atual | `EXPORTAR_DADOS` |
+   | `bussola imprimir` (CLI) | cupom ou qualquer relatório | a mesma do tipo |
 2. **Salvar PDF** — o mesmo desenho, no tamanho exato do papel (57,9 × 175 mm de bobina
    vira uma página única, não um A4 com um cupom perdido no canto);
 3. **Salvar TXT** — texto de largura fixa, para mandar por WhatsApp/e-mail ao suporte ou
    ler no Bloco de Notas do Windows.
+
+> Cupom e relatório têm permissões **diferentes** de propósito: cupom é operação de balcão
+> (o atendente imprime a 2ª via do cliente); relatório é dado saindo da loja, então exige
+> `EXPORTAR_DADOS`, a mesma de exportar. A checagem é feita no serviço, não só escondendo o
+> botão.
 
 Exemplos versionados em `docs/exemplos/`:
 `cupom-exemplo-bobina58.pdf`, `cupom-exemplo-bobina80.pdf`, `cupom-exemplo-a4.pdf`,
@@ -114,14 +126,39 @@ Sem isso, "saiu o cupom da venda 45?" não teria resposta conferível.
 
 ### Permissão
 
-A ação `CUPOM_REIMPRIMIR` foi criada para isso. Por padrão: Admin Master, Admin, Gerente e
-Atendente imprimem; Contabilidade não (o perfil dela é de leitura e exportação).
+Duas ações, por tipo de papel:
+
+| Papel | Ação exigida | Quem tem por padrão |
+|---|---|---|
+| cupom / conferência de turno | `CUPOM_REIMPRIMIR` | Admin Master, Admin, Gerente, Atendente |
+| relatório da tela | `EXPORTAR_DADOS` | Admin Master, Admin, Gerente, Contabilidade |
+
+Contabilidade, portanto, imprime o relatório do turno mas **não** imprime cupom de venda — o
+contrário do atendente. É a mesma lógica que já valia para exportar.
+
+### Linha de comando
+
+```bash
+# 2ª via do cupom 1-000012 na impressora configurada
+bussola imprimir --banco dados/pdv.db --tipo cupom --venda 1-000012 --login gerente
+
+# cupom em PDF de 58 mm, sem gastar papel
+bussola imprimir --tipo cupom --venda 1-000012 --papel BOBINA_58 \
+    --saida /tmp/cupom.pdf --login atendente1
+
+# conferência do turno em texto, para o contador
+bussola imprimir --tipo turno --turno <id> --saida turno.txt --login contador
+```
+
+`--tipo` aceita `cupom` e os mesmos relatórios do `bussola exportar`. `--venda` aceita id,
+rótulo (`1-000012`), número puro (`12`) e `cupom:1-000012`. Sem `--saida`, imprime; com
+`--saida .pdf`/`.txt`, grava arquivo.
 
 ---
 
 ## 4. O que foi testado — e o que não foi
 
-Verificado automaticamente (`tests/test_impressao.py`, 47 testes):
+Verificado automaticamente (`tests/test_impressao.py`, 58 testes):
 
 * nenhuma linha do cupom passa das colunas do papel, em 58, 80 e A4;
 * o cupom traz os dados **gravados** da venda (itens, desconto, troco, operador, aviso);
@@ -135,7 +172,14 @@ Verificado automaticamente (`tests/test_impressao.py`, 47 testes):
 * impressora inexistente falha com mensagem acionável, em vez de "imprimir no vazio";
 * CODE 39: 159 módulos para `1-000012`, 50 barras, razão 3:1;
 * parâmetros de impressão aparecem na administração, com lista fechada de opções;
-* a prévia troca 58 ↔ 80 ↔ A4 e avisa quando o motor ESC/POS não imprime folha.
+* a prévia troca 58 ↔ 80 ↔ A4 e avisa quando o motor ESC/POS não imprime folha;
+* tabela de quatro colunas em bobina de 80 mm vira par rótulo/valor, e dinheiro **nunca** sai
+  truncado (`R$ …` não aparece);
+* o rodapé não repete o aviso fiscal três vezes;
+* relatório exige `EXPORTAR_DADOS` e cupom exige `CUPOM_REIMPRIMIR`, conferido no serviço;
+* `bussola imprimir` grava PDF/TXT de verdade, recusa cupom inexistente (`1-999999`) e barra o
+  perfil sem permissão;
+* a tela de Vendas monta a 2ª via da venda selecionada e explica quando nada está selecionado.
 
 **Não testado neste ambiente** (declarado, não presumido):
 

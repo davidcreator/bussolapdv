@@ -2,6 +2,56 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.8.1] — 2026-11-11 — imprimir relatório, reimprimir por cupom e imprimir pela CLI
+
+Complemento da v0.8.0: a impressão deixa de ser só do cupom do PDV e do turno do Caixa.
+
+### Adicionado
+
+- **"Imprimir" em todas as telas de relatório** — Fechamento, Vendas, Produtos (catálogo),
+  Auditoria, Clientes, Crediário e Estoque ganharam o botão ao lado do "Exportar", alimentado pela
+  **mesma função** que monta o relatório exportado (`botao_para_relatorio`). O relatório é montado no
+  clique, então o papel sai com o filtro que está na tela.
+- **Reimpressão pela tela de Vendas**: selecionar a venda e clicar em "Reimprimir cupom" imprime a 2ª
+  via daquela venda — fecha a lacuna do F8, que só alcançava a última venda da estação.
+- **`bussola imprimir` na linha de comando**: cupom (`--venda 1-000012`) ou qualquer relatório
+  (`--tipo turno|fechamento|vendas|…`) para a impressora configurada ou para `.pdf`/`.txt`
+  (`--saida`). Mesma autenticação, mesma permissão e mesma auditoria da interface.
+- **`VendaRepositorio.por_rotulo`**: busca pelo número que está impresso no papel (`1-000012`), não
+  só pelo UUID — é o que o suporte tem em mãos.
+- **`ServicoImpressao.venda_por_referencia`**: aceita id, rótulo, número puro e `cupom:1-000012`.
+
+### Alterado
+
+- **Permissão de impressão passou a depender do documento**: cupom continua exigindo
+  `CUPOM_REIMPRIMIR` (atendente tem); **relatório** exige `EXPORTAR_DADOS` (atendente não tem,
+  contabilidade tem) — imprimir relatório é tirar dado da loja, igual a exportar. A checagem é no
+  serviço (`despachar(..., permissao=...)`), não só no botão.
+- **Grade × pares na bobina agora é decidida pela viabilidade, não pela largura do papel**: antes uma
+  tabela com 4 colunas em 80 mm saía como `R$ 30,…` — dinheiro truncado é dado errado. Agora a grade
+  só é usada quando cabeçalho, dinheiro, quantidade e data cabem inteiros; texto pode ser elidido com
+  `…` e, se o resto não couber, a tabela vira pares rótulo/valor.
+- **Par na bobina usa a última coluna numérica como valor** (e não a última coluna qualquer): a coluna
+  "Autorizador" vazia empurrava o dinheiro para o meio da linha.
+- **Rodapé sem aviso fiscal repetido**: os relatórios já trazem "não é documento fiscal"; o aviso
+  padrão só entra se nenhum outro falar de documento fiscal (antes saíam três linhas quase iguais).
+- `BotaoImprimir` expõe `permitido` e recebe `permissao`; `DialogoPreviaImpressao` idem.
+- **Ferramentas de cartão passaram a quebrar de linha**: `Cartao.ferramentas` virou um
+  `FluxoDeAcoes`. Com "Exportar" + "Imprimir" + resumo do filtro lado a lado, a tela de Produtos
+  pedia 732 px e a de Vendas 823 px num espaço de 731 px — o `make responsivo` reprovava as duas.
+  A fileira de filtros da tela de Vendas (datas, Filtrar, Reimprimir cupom, Cancelar venda) também
+  virou fluxo. `FluxoDeAcoes.adicionar` deixou de chamar `show()` em widget escondido de propósito:
+  reparentar escondia o filho e o `show()` reexibia o botão sem permissão.
+
+### Verificado
+
+- 623 testes (13 novos), `ruff`, `mypy` (89 arquivos) e `make responsivo` verdes
+  (`800×600`, `1024×768`, `1280×800`, `1366×768`, `1920×1080`, sem tela cortada).
+- CLI exercitada de verdade contra base de demonstração: cupom `1-000012` em PDF de 58 mm, turno em
+  TXT de 80 mm, cupom inexistente (`1-999999`) recusado com mensagem, contabilidade barrada no cupom.
+- **Limite declarado mantido**: nenhuma impressão em hardware real; segue valendo o roteiro manual de
+  `docs/IMPRESSAO.md`.
+
 ## [0.8.0] — 2026-11-11 — impressão em impressora comum e em térmica (58/80 mm)
 
 ### Adicionado
