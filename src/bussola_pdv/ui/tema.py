@@ -471,6 +471,59 @@ QTabBar::tab:selected {{ background: {p.superficie}; color: {p.texto}; font-weig
 #textoAjuda {{ color: {suave}; font-size: 8.5pt; }}
 #destaqueAdmin {{ color: {p.primaria}; font-weight: 700; font-size: 12pt; }}
 
+/* ---------- ajuda e mentor (v0.10.0) ---------- */
+#tituloAjuda {{
+    color: {p.texto};
+    font-size: 16pt;
+    font-weight: 700;
+}}
+#conteudoAjuda {{
+    background: {p.superficie};
+    color: {p.texto};
+    padding: 14px 16px;
+}}
+QListWidget#indiceAjuda {{
+    background: {p.superficie};
+    border: 1px solid {p.borda};
+    border-radius: 4px;
+    outline: none;
+    padding: 4px;
+}}
+QListWidget#indiceAjuda::item {{
+    padding: 7px 8px;
+    border-radius: 4px;
+    color: {p.texto};
+}}
+QListWidget#indiceAjuda::item:selected {{
+    background: {selecao_tabela};
+    color: {p.texto};
+    font-weight: 600;
+}}
+QScrollArea#rolagemAjuda, QScrollArea#rolagemAjuda > QWidget > QWidget {{
+    background: {p.superficie};
+    border: 1px solid {p.borda};
+    border-radius: 4px;
+}}
+/* Faixa do mentor: mesma família visual das cartas, com a cor de destaque na
+   borda esquerda para não competir com o conteúdo. */
+#painelMentor {{
+    background: {selecao_tabela};
+    border-top: 2px solid {p.primaria};
+}}
+#mentorTitulo {{
+    color: {p.texto};
+    font-size: 9.5pt;
+    font-weight: 700;
+}}
+#mentorTexto {{ color: {p.texto}; font-size: 9pt; }}
+#mentorContador {{ color: {suave}; font-size: 8pt; }}
+
+/* Destaque do alvo do passo: borda visível, sem mexer no tamanho da tela. */
+*[destaqueMentor="true"] {{
+    border: 2px solid {p.destaque};
+    border-radius: 4px;
+}}
+
 /* ---------- rodapé, status e diversos ---------- */
 #rodape {{
     background: {p.superficie};

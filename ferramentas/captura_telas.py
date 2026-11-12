@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from PySide6.QtCore import QDate, QTimer
 
+from bussola_pdv.aplicacao.ajuda import ServicoAjuda
 from bussola_pdv.aplicacao.contexto import Contexto
 from bussola_pdv.aplicacao.marca import ServicoMarca
 from bussola_pdv.dominio.marca import Marca
@@ -34,6 +35,10 @@ def main() -> int:
         banco.unlink()
     ctx = Contexto.abrir(banco, relogio=relogio_demo())
     popular(ctx)
+    # As capturas "comuns" saem sem a faixa do mentor, como as versões anteriores:
+    # quem mostra o mentor são as capturas 30 e 31, e misturar as duas coisas
+    # esconderia o conteúdo das telas na documentação.
+    ServicoAjuda(ctx).definir_guiado(False)
 
     app = criar_aplicacao(["captura"])
     operador = ctx.usuarios.por_login("operador")
@@ -201,6 +206,7 @@ def main() -> int:
 
     capturar_compacto(app, banco)
     capturar_escala(app, banco)
+    capturar_ajuda(app, banco)
 
     ctx.fechar()
     QTimer.singleShot(0, app.quit)
@@ -263,6 +269,53 @@ def capturar_escala(app, banco: Path) -> None:
     janela.grab().save(str(SAIDA / "29_vendas_911x512.png"))
     print("captura:", SAIDA / "29_vendas_911x512.png")
     janela.close()
+    ctx.fechar()
+
+
+def capturar_ajuda(app, banco: Path) -> None:
+    """Capturas do mentor e do guia (v0.10.0).
+
+    O mentor aparece porque o uso orientado vem ligado no primeiro uso; a captura da
+    janela de Ajuda é feita com o diálogo **mostrado** (e não só construído), senão
+    sairia um retângulo vazio.
+    """
+    ctx = Contexto.abrir(banco, relogio=relogio_demo())
+    ServicoAjuda(ctx).definir_guiado(True)  # é esta a captura do mentor
+    janela = JanelaPrincipal(ctx, ctx.usuarios.por_login("gerente"))
+    janela.resize(1280, 820)
+    janela.show()
+    fim = time.monotonic() + 0.5
+    while time.monotonic() < fim:
+        app.processEvents()
+    janela.grab().save(str(SAIDA / "30_mentor_pdv.png"))
+    print("captura:", SAIDA / "30_mentor_pdv.png")
+
+    janela._selecionar("Caixa")
+    fim = time.monotonic() + 0.4
+    while time.monotonic() < fim:
+        app.processEvents()
+    janela.grab().save(str(SAIDA / "31_mentor_caixa.png"))
+    print("captura:", SAIDA / "31_mentor_caixa.png")
+
+    janela._abrir_ajuda("caixa")
+    ajuda = janela._janela_ajuda
+    if ajuda is not None:
+        ajuda.show()
+        fim = time.monotonic() + 0.4
+        while time.monotonic() < fim:
+            app.processEvents()
+        ajuda.grab().save(str(SAIDA / "32_ajuda_guia.png"))
+        print("captura:", SAIDA / "32_ajuda_guia.png")
+        # A segunda captura mostra as duas coisas que o pedido citou: a busca do guia
+        # e o modo guiado **desligado**, com o botão que o religa à vista.
+        ajuda.campo_busca.setText("sangria")
+        ajuda._alternar_guiado()
+        app.processEvents()
+        ajuda.grab().save(str(SAIDA / "33_ajuda_busca.png"))
+        print("captura:", SAIDA / "33_ajuda_busca.png")
+        ajuda.close()
+    janela.close()
+    ServicoAjuda(ctx).definir_guiado(False)  # devolve a base ao estado das outras capturas
     ctx.fechar()
 
 

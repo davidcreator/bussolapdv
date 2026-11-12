@@ -473,6 +473,46 @@ necessidade de lembrar do `#rolagemDialogo` ao criar outro diálogo rolável.
 
 ---
 
+## ADR-027 — O mentor aponta pelo nome do widget, e nunca cobre a tela
+
+**Contexto.** O pedido foi *"gerar um mentor que irá explicar como as telas e os campos dentro do PDV
+funcionam"*, junto com *"deixar no menu a opção ajuda onde tenha o guia completo"* e a possibilidade de
+*"ativar novamente o uso orientado"*. Três decisões de implementação aparecem na hora:
+
+1. **Como o mentor encontra o campo do passo?** Guardar coordenadas, guardar ponteiros para os widgets,
+   ou guardar o **nome do atributo** e resolver com `getattr` na tela aberta.
+2. **Onde ele aparece?** Máscara escura com recorte em volta do campo (o padrão de *tour* de site) ou uma
+   faixa própria, sem sobrepor nada.
+3. **Onde mora a preferência** de ligado/desligado, e o que acontece quando o operador manda parar.
+
+**Decisão.**
+
+1. **O passo guarda o nome do atributo** (`Passo.alvo = "campo_codigo"`); o painel resolve com
+   `getattr(tela, alvo)` e aplica a propriedade `destaqueMentor`, que a folha de estilo transforma em
+   borda. Consequências que valem o preço: não há estado de geometria para manter em dia (a tela é
+   responsiva e reorganiza a cada `resize`); renomear um campo vira erro visível — `tests/test_ajuda.py`
+   percorre as telas reais e falha se o alvo não existir; e um alvo ausente **não quebra** o mentor, só
+   deixa o passo como texto. Quando o campo está fora da área visível, o painel rola o `QScrollArea`
+   ancestral até ele.
+2. **Faixa no rodapé do conteúdo, sem sobreposição.** Máscara escura esconde exatamente aquilo que o
+   operador precisa ver, atrapalha quem já sabe fazer metade do caminho e é a primeira coisa a quebrar
+   em tela pequena. A faixa usa `FluxoDeAcoes` (a fileira quebra em linhas) e o destaque é borda, não
+   realce de fundo — borda não desloca layout.
+3. **Preferência em `parametros`** (`ajuda.guiado`, `ajuda.versao`), sem auditoria, porque é
+   preferência de interface e não regra de negócio. "Parar" grava `0` e o mentor não volta nas próximas
+   telas; "Reativar o uso orientado" (na Ajuda) grava `1` e reinicia no primeiro passo. A versão do guia
+   é gravada ao concluir o tour, o que permite reapresentar o mentor quando o texto mudar de verdade —
+   sem repetir a cada abertura. O serviço **não faz cache**: o mesmo parâmetro pode ser editado na tela
+   de Parâmetros com o programa aberto.
+
+**Consequências.** Explicação e código passam a envelhecer juntos: um teste amarra os alvos às telas e
+o teste de conteúdo amarra os temas aos módulos do menu. Custo: cada tela nova que ganhar mentor precisa
+de teste de alvo (já coberto pelo teste genérico), e o `getattr` exige atributo com nome estável — foi o
+motivo de transformar o botão "Verificar cadeia de hashes" da Auditoria de variável local em
+`self.botao_verificar`.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

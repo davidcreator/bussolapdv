@@ -169,6 +169,11 @@ class ParametroRepositorio(RepositorioBase):
         "impressao.abrir_gaveta": "0",
         "impressao.codigo_de_barras": "1",
         "impressao.imprimir_automatico": "0",
+        # Ajuda (v0.10.0): preferência de interface, não regra de negócio.
+        # `guiado` liga a faixa do mentor; `versao` guarda qual versão do guia o
+        # operador já viu, para o tour não reaparecer toda vez que o PDV abre.
+        "ajuda.guiado": "1",
+        "ajuda.versao": "0",
     }
 
     def obter(self, chave: str) -> str:

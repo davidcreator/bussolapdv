@@ -2,6 +2,50 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.10.0] — 2026-11-11 — mentor que explica a tela, e o guia completo na Ajuda
+
+Pedido: *"gerar um mentor que irá explicar como as telas e os campos dentro do PDV funcionam e deixar
+no menu a opção ajuda onde tenha o guia completo de uso do PDV e também se deseja ativar novamente o
+uso orientado ou guiado"*.
+
+### Adicionado — mentor (uso orientado)
+
+- **Faixa de condução no rodapé do conteúdo.** Ao abrir uma tela com o uso orientado ligado, o mentor
+  apresenta os passos daquele módulo — *Identifique a venda*, *Lance o produto*, *Pagamento*,
+  *Finalize* — com o **campo do passo destacado** (borda na cor de destaque) e a tela rolando até ele.
+- **Nada cobre a tela.** A faixa fica entre o conteúdo e o rodapé, não é máscara escura: o operador
+  continua vendo e usando o que o mentor está explicando.
+- **Anterior / Próximo / Concluir / Parar** e o atalho para o guia completo. Concluir o tour ou clicar
+  em Parar gravam a escolha; o tour não volta a importunar. A fileira de botões quebra em linhas em
+  janela estreita (`FluxoDeAcoes`) em vez de sair pela borda.
+- Mentor por módulo: PDV, Caixa, Produtos, Vendas, Fechamento, Auditoria, Clientes, Crediário,
+  Estoque e Administração. Entradas e Parâmetros não têm o que explicar — ali ele não aparece.
+
+### Adicionado — Ajuda no menu
+
+- **Item "Ajuda" com `F1`** (atalho de aplicação inteira). Não é página: abre a janela do guia e devolve
+  o menu à página que estava aberta.
+- **14 temas com busca**: começando o dia, PDV, caixa, produtos, vendas, fechamento, auditoria,
+  clientes, crediário, estoque, administração, backup/reinstalação, mensagens de erro e atalhos. A busca
+  ignora acento e caixa e varre título, resumo, passos, campos, atalhos e cuidados.
+- **Campos explicados um a um** — o que é, o que aceita, o que acontece se errar — com os nomes que
+  estão na tela.
+- **Reativar o uso orientado**: botão no rodapé da Ajuda, além de "Começar do primeiro passo". A
+  preferência mora em `ajuda.guiado` e sobrevive ao fechamento do programa.
+- **Salvar o guia (.md)**: o guia inteiro em Markdown, para imprimir ou compartilhar.
+
+### Verificação
+
+- Suíte: **712 passando, 8 pulados**; `ruff` e `mypy` (93 arquivos) limpos; `make responsivo` OK em
+  640×440 … 2560×1440 — agora medindo **com o mentor ligado**, que é como o programa abre no primeiro
+  uso.
+- `tests/test_ajuda.py` (34 testes) amarra guia e telas: todo `Passo.alvo` tem que existir como widget
+  na tela real do módulo, todo tema com módulo tem que ter passo, todo ícone citado tem que existir em
+  `icones.DESENHOS`, o parâmetro de preferência tem que estar em `ParametroRepositorio.PADROES`, e
+  ligar/desligar/reativar tem que persistir.
+- Capturas novas em `docs/capturas/`: `30_mentor_pdv.png`, `31_mentor_caixa.png`,
+  `32_ajuda_guia.png`, `33_ajuda_busca.png`.
+
 ## [0.9.2] — 2026-11-11 — textos e campos que voltaram a aparecer
 
 Dois relatos com print do Windows: *"na janela de login o botão de login não aparece texto"* e

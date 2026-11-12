@@ -48,9 +48,12 @@ def janela(app, cenario, monkeypatch):
 
 
 def test_janela_monta_com_todos_os_modulos(janela):
-    from bussola_pdv.ui.janela import MODULOS
+    from bussola_pdv.ui.janela import MODULO_AJUDA, MODULOS
 
-    assert janela.navegacao.count() == len(MODULOS)
+    # O menu mostra os módulos do usuário + Ajuda, que não é página (abre o guia).
+    assert MODULO_AJUDA in janela.modulos
+    assert janela.navegacao.count() == len(MODULOS) + 1
+    assert janela.pilha.count() == len(janela.modulos) - 1
     assert janela.tela_pdv.botao_finalizar.isEnabled()  # turno aberto no cenário
 
 

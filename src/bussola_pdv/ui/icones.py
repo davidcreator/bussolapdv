@@ -89,6 +89,11 @@ DESENHOS: dict[str, str] = {
         '<circle cx="12" cy="12" r="2.8"/>'
     ),
     "menu": '<path d="M4 6.6h16M4 12h16M4 17.4h16"/>',
+    "ajuda": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.2-2.8 4"/>'
+        '<circle cx="12" cy="17.3" r="0.9"/>'
+    ),
     "aviso": (
         '<path d="M12 3.4 2.8 20h18.4z"/><path d="M12 9.6v4.2"/><circle cx="12" cy="17" r="0.9"/>'
     ),

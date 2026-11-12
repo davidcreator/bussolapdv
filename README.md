@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.9.2).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.10.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -120,7 +120,7 @@ informa quantas seções o perfil tem liberadas.
 A casca é inspirada no [AdminLTE](https://github.com/ColorlibHQ/AdminLTE) (MIT) — barra lateral
 escura com a marca no topo, painel do usuário, menu com ícones, barra superior com botão de recolher,
 cabeçalho de página com trilha, cartões e *small-boxes* de indicador. Nada do projeto original é
-copiado: o CSS do AdminLTE não entra aqui, e os ícones são 25 SVGs desenhados neste repositório.
+copiado: o CSS do AdminLTE não entra aqui, e os ícones são 26 SVGs desenhados neste repositório.
 Como a folha de estilo é gerada a partir da paleta da loja, trocar o tema no painel administrativo
 repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
 
@@ -141,6 +141,28 @@ simulado.
 Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.md).
 
 ![Menu recolhido](docs/capturas/15_menu_recolhido.png)
+
+## Ajuda e modo guiado
+
+Quem chega ao balcão sem ter visto o sistema não precisa de manual na gaveta: o programa explica a
+si mesmo, em dois níveis.
+
+- **Mentor (uso orientado)** — uma faixa no rodapé do conteúdo conduz o operador pela tela aberta, passo
+  a passo, e **destaca o campo de cada passo** (borda na cor de destaque) rolando a tela até ele. É
+  ligado no primeiro uso. Dá para avançar, voltar, concluir ou parar — e "parar" desliga o modo guiado
+  para as próximas telas.
+- **Guia completo (Ajuda, no menu, ou `F1`)** — 14 temas com busca sem acento: cada tela, cada campo,
+  atalhos, backup, mensagens de erro e o que fazer. O texto é escrito a partir das telas deste
+  programa (nomes de campo, botões e atalhos reais), e um teste amarra os dois lados: se um campo for
+  renomeado e o guia não acompanhar, a suíte falha.
+- **Reativar o uso orientado** — é o botão no rodapé da Ajuda. A escolha fica gravada na base
+  (`ajuda.guiado`) e sobrevive a fechar o programa; "Começar do primeiro passo" religa e recomeça.
+- **Salvar o guia (.md)** — o guia inteiro em Markdown, para imprimir, colar no wiki da loja ou mandar
+  para quem está sendo treinado.
+
+![Mentor conduzindo o PDV](docs/capturas/30_mentor_pdv.png)
+
+![Guia completo](docs/capturas/32_ajuda_guia.png)
 
 ## Exportação (Excel e PDF)
 
@@ -331,7 +353,7 @@ make limpar      # remove caches
 ```
 
 Atalhos na tela de PDV: `F2` foca o código, `Enter` adiciona, `Del` remove o item selecionado,
-`F4` finaliza, `F6` cancela o cupom, `Esc` limpa a mensagem.
+`F4` finaliza, `F6` cancela o cupom, `Esc` limpa a mensagem. `F1` abre a Ajuda em qualquer tela.
 
 ## Estrutura
 

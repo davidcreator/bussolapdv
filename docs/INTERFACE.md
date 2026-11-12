@@ -68,10 +68,12 @@ na tela de tema; se o branco sobre a primária não passar, o texto do botão vi
 | `BotaoImprimir` | `card-tools` | abre a prévia de impressão do documento que a tela montar; só aparece com `CUPOM_REIMPRIMIR` |
 | `DialogoPreviaImpressao` | `modal` | papel (58/80/A4), impressora instalada, cópias, prévia desenhada e ações Imprimir / Salvar PDF / Salvar TXT |
 | `ajustar_colunas` | `table-responsive` | coluna esticada + demais pelo conteúdo, para não cortar "Ponto de pedido" |
+| `PainelMentor` | `callout` / *tour* | faixa no rodapé do conteúdo que conduz o uso orientado, com Anterior/Próximo/Concluir/Parar; destaca o campo do passo pela propriedade `destaqueMentor` |
+| `JanelaAjuda` | `modal-lg` | guia de uso em duas colunas (índice + texto), busca, "Salvar o guia (.md)" e o botão que reativa o uso orientado |
 
 ## Ícones (`ui/icones.py`)
 
-25 desenhos SVG de 24×24 escritos neste repositório, com traço de 1,8 e pontas arredondadas,
+26 desenhos SVG de 24×24 escritos neste repositório, com traço de 1,8 e pontas arredondadas,
 coloridos em tempo de execução (cache por nome/cor/tamanho). Não há dependência de rede nem de
 pacote de ícones; nome inexistente devolve ícone vazio em vez de quebrar a tela.
 
@@ -175,6 +177,11 @@ oito resoluções**.
    mesmo `Relatorio` que o botão Exportar grava (ADR-019): o que está na tela e o que vai para a
    planilha são a mesma consulta, no mesmo instante.
 6. **Tudo que altera é auditado** — o rodapé lembra isso em todas as telas.
+7. **A explicação mora junto do programa** (v0.10.0). O guia (`aplicacao/ajuda.py`) cita nomes reais de
+   campo e de atalho, e o mentor aponta para o widget pelo **nome do atributo**. Um teste percorre
+   todos os passos de todos os temas contra as telas de verdade: passo que aponta para campo
+   inexistente quebra a suíte, não a loja. Onde não há o que explicar (Entradas, Parâmetros) o mentor
+   simplesmente não aparece.
 
 ## Capturas
 
@@ -186,6 +193,8 @@ pasta dos dados). As capturas `21`, `22` e `23` são o mesmo PDV, Produtos e Cai
 ao lado das de 1280×820 para mostrar a interface se reorganizando (sidebar só de ícones, indicadores 2
 por linha, ferramentas do cartão na segunda linha, tabela rolando na horizontal). As capturas `28` e
 `29` são o PDV e Vendas em **911×512** — o que sobra de tela em 1366×768 com escala de 150% do Windows.
+As capturas `30` a `33` são as da v0.10.0: mentor no PDV, mentor no caixa, guia completo e o guia com
+o modo guiado desligado.
 
 As capturas de fechamento, clientes, crediário, estoque e do caixa com exportação usam a sessão de
 gerente de propósito: o perfil Atendente não tem `EXPORTAR_DADOS` e, para ele, o botão não existe —

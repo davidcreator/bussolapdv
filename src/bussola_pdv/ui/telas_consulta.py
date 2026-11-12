@@ -377,14 +377,15 @@ class TelaAuditoria(QWidget):
         linha = QHBoxLayout()
         self.rotulo = QLabel()
         self.rotulo.setObjectName("textoAjuda")
-        botao = QPushButton("Verificar cadeia de hashes")
-        botao.clicked.connect(self._verificar)
+        # Atributo (e não variável local): o mentor destaca este botão pelo nome.
+        self.botao_verificar = QPushButton("Verificar cadeia de hashes")
+        self.botao_verificar.clicked.connect(self._verificar)
         botao_atualizar = QPushButton("Atualizar")
         botao_atualizar.setObjectName("secundario")
         botao_atualizar.clicked.connect(self.atualizar)
         linha.addWidget(self.rotulo, 1)
         linha.addWidget(botao_atualizar)
-        linha.addWidget(botao)
+        linha.addWidget(self.botao_verificar)
 
         self.tabela = QTableWidget(0, 6)
         self.tabela.setHorizontalHeaderLabels(["Seq.", "Quando (UTC)", "Ação", "Ator", "Entidade", "Motivo"])

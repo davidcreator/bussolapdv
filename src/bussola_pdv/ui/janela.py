@@ -8,7 +8,7 @@ cor vem da paleta da loja; toda a lógica continua nas telas e na camada de apli
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QKeySequence, QResizeEvent, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -21,9 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__
+from ..aplicacao.ajuda import TEMA_DO_MODULO, ServicoAjuda
 from ..aplicacao.contexto import Contexto
 from ..dominio.usuario import Acao, Usuario
 from .admin.janela import JanelaAdmin, contexto_marca
+from .ajuda import JanelaAjuda
+from .mentor import PainelMentor, alvos_da_tela
 from .responsivo import CascaResponsiva, abrir_no_tamanho_da_tela
 from .tela_caixa import TelaCaixa
 from .tela_pdv import TelaPDV
@@ -57,6 +60,8 @@ MODULOS = [
 ]
 
 MODULO_ADMIN = "Administração"
+#: Entrada de menu que **não** é página: abre a janela de Ajuda (F1).
+MODULO_AJUDA = "Ajuda"
 
 #: Ícone e descrição de cada módulo (a descrição aparece no cabeçalho da página).
 DETALHES_MODULO: dict[str, tuple[str, str]] = {
@@ -72,6 +77,7 @@ DETALHES_MODULO: dict[str, tuple[str, str]] = {
     "Entradas": ("entradas", "Entradas de fornecedor"),
     "Parâmetros": ("parametros", "Configuração da operação"),
     MODULO_ADMIN: ("administracao", "Dependências, marca, usuários, permissões e manutenção"),
+    MODULO_AJUDA: ("ajuda", "Guia completo de uso, campo por campo, e o modo guiado"),
 }
 
 
@@ -86,6 +92,10 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         self.modulos = list(MODULOS)
         if usuario.pode(Acao.ADMIN_ACESSAR):
             self.modulos.append(MODULO_ADMIN)
+        # Ajuda fecha o menu e nunca vira página: `_selecionar` abre a janela do guia.
+        self.modulos.append(MODULO_AJUDA)
+        self.ajuda = ServicoAjuda(contexto)
+        self._janela_ajuda: JanelaAjuda | None = None
 
         self.setWindowTitle(f"{self.marca.nome_fantasia} · Bússola PDV")
         # Abaixo disso a operação deixa de ser confortável: a janela não encolhe mais
@@ -113,6 +123,8 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         # do `QStackedWidget`: o clique parecia não fazer nada e a página anterior
         # continuava na tela (o placeholder era inalcançável).
         for modulo in self.modulos[self.pilha.count() :]:
+            if modulo == MODULO_AJUDA:
+                continue
             self.pilha.addWidget(self._placeholder(modulo))
 
         self.tela_pdv.solicitar_caixa.connect(lambda: self._selecionar("Caixa"))
@@ -120,6 +132,10 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         self.tela_pdv.venda_finalizada.connect(self.tela_caixa.atualizar)
 
         self.setCentralWidget(self._montar_casca())
+        # F1 abre o guia de qualquer lugar da janela (atalho de aplicação inteira).
+        self.atalho_ajuda = QShortcut(QKeySequence("F1"), self)
+        self.atalho_ajuda.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.atalho_ajuda.activated.connect(lambda: self._abrir_ajuda())
         self.ajustar_complementos(self.cabecalho, self.rodape)
         self.reorganizar_casca(self.width())
         self.navegacao.setCurrentRow(0)
@@ -189,6 +205,12 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         coluna.addWidget(self.barra_superior)
         coluna.addWidget(self.cabecalho)
         coluna.addWidget(self.moldura, 1)
+        # Mentor entre o conteúdo e o rodapé: faixa própria, sem cobrir a tela.
+        self.mentor = PainelMentor()
+        self.mentor.guia_pedido.connect(self._abrir_ajuda)
+        self.mentor.encerrado.connect(self._desligar_guiado)
+        self.mentor.concluido.connect(self._registrar_conclusao)
+        coluna.addWidget(self.mentor)
         coluna.addWidget(self.rodape)
 
         raiz = QWidget()
@@ -234,6 +256,15 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             self._voltar_ao_pdv()
             return
 
+        if modulo == MODULO_AJUDA:
+            # Não é página: devolve o menu à página que estava aberta e abre o guia.
+            anterior = max(0, self.pilha.currentIndex())
+            self.barra_lateral.lista.blockSignals(True)
+            self.barra_lateral.lista.setCurrentRow(anterior)
+            self.barra_lateral.lista.blockSignals(False)
+            self._abrir_ajuda()
+            return
+
         _icone, descricao = DETALHES_MODULO.get(modulo, ("menu", modulo))
         self.cabecalho.definir(
             titulo=modulo,
@@ -245,6 +276,7 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         tela = self.pilha.currentWidget()
         if tela is not None and hasattr(tela, "atualizar"):
             tela.atualizar()
+        self._atualizar_mentor(inicio=True)  # trocou de tela: tour recomeça no passo 1
 
     def _placeholder(self, modulo: str) -> QWidget:
         from .widgets import Cartao
@@ -285,6 +317,66 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         janela.marca_alterada.connect(self._aplicar_marca)
         janela.dados_alterados.connect(self._recarregar_usuario)
         janela.exec()
+
+    # -- ajuda e modo guiado ------------------------------------------------
+    def _abrir_ajuda(self, tema: str | None = None) -> None:
+        """Abre (ou traz para a frente) o guia. F1, menu Ajuda e mentor caem aqui."""
+        if self._janela_ajuda is None:
+            self._janela_ajuda = JanelaAjuda(self.ctx, self.usuario, parent=self)
+            self._janela_ajuda.guiado_alterado.connect(self._guiado_alterado)
+            self._janela_ajuda.reiniciar_pedido.connect(self._reiniciar_mentor)
+        janela = self._janela_ajuda
+        janela.show()
+        janela.raise_()
+        janela.activateWindow()
+        if tema:
+            janela.abrir_tema(tema)
+        else:
+            atual = self.pilha.currentWidget()
+            chave = TEMA_DO_MODULO.get(self.cabecalho.titulo.text()) if atual else None
+            if chave:
+                janela.abrir_tema(chave)
+
+    def _guiado_alterado(self, ativo: bool) -> None:
+        if ativo:
+            self._reiniciar_mentor()
+        else:
+            self.mentor.parar()
+
+    def _desligar_guiado(self) -> None:
+        """O operador clicou em 'Parar' no mentor: a escolha vale para as próximas telas."""
+        self.ajuda.definir_guiado(False)
+        self.mentor.parar()
+
+    def _registrar_conclusao(self) -> None:
+        """Tour concluído: marca a versão vista para não repetir a cada abertura."""
+        self.ajuda.definir_guiado(True)
+
+    def _reiniciar_mentor(self) -> None:
+        self._atualizar_mentor(inicio=True)
+
+    def _atualizar_mentor(self, *, inicio: bool = False) -> None:
+        """Liga/desliga e reinicia o mentor conforme o módulo aberto.
+
+        Só há mentor onde há o que explicar (PDV, Caixa, consultas, Administração) e
+        só quando o uso orientado está ligado. Ao trocar de tela o tour recomeça do
+        primeiro passo daquele módulo, porque a explicação é por tela.
+        """
+        if not self.ajuda.guiado_ativo():
+            self.mentor.parar()
+            return
+        if getattr(self, "mentor", None) is None:  # pragma: no cover - casca incompleta
+            return
+        titulo = self.cabecalho.titulo.text()
+        tema = self.ajuda.tema_do_modulo(titulo)
+        if tema is None or not tema.passos:
+            self.mentor.parar()
+            return
+        tela = self.pilha.currentWidget()
+        alvos = alvos_da_tela(tela, tema.passos)
+        mesmo_tema = self.mentor.tema is not None and self.mentor.tema.chave == tema.chave
+        indice = self.mentor.indice if (mesmo_tema and not inicio) else 0
+        self.mentor.iniciar(tema, alvos, indice=indice)
 
     # -- marca e sessão -----------------------------------------------------
     def _aplicar_marca(self) -> None:
