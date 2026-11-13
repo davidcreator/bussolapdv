@@ -155,6 +155,7 @@ class DialogoPrimeiroUso(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
+        # Sem base ainda: a faixa mostra o logo oficial do Bússola.
         _finalizar_cartao(cartao, corpo, _faixa("Bússola PDV · instalação"), layout)
 
         self.campo_senha2.returnPressed.connect(self._criar)

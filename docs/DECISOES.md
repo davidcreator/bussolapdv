@@ -513,6 +513,52 @@ motivo de transformar o botão "Verificar cadeia de hashes" da Auditoria de vari
 
 ---
 
+## ADR-028 — Dois logos oficiais, e a área administrativa não veste a marca da loja
+
+**Contexto.** O responsável enviou duas imagens e definiu o uso: uma **mini** (símbolo quadrado com o
+"B" dentro da rosa dos ventos) e uma **comercial** (assinatura horizontal com o nome e o slogan). O
+pedido, nas palavras dele: o logo mini no menu lateral, no **ícone oficial do programa** e no
+**assistente de instalação**; o comercial na instalação, no login e nas telas do programa *"na parte do
+usuário, até a loja colocar logo próprio"*; e — a parte que decide o resto — *"a área administrativa
+nunca troca"*. Antes disso, o canto do menu desenhava **a inicial do nome da loja** num quadrado branco:
+funcionava, mas não era o logo de ninguém.
+
+**Decisão.**
+
+1. **Os dois arquivos são versionados no pacote**, em `src/bussola_pdv/recursos/` — não são gerados no
+   build nem baixados. O `.ico`, os BMPs do assistente e a versão 256 px para documentação são
+   *derivados* de `logo_mini.png` por `empacotamento/gerar_icone.py`; o comando é determinístico e pode
+   ser rodado de novo a qualquer momento. Consequência: o executável precisa dos PNG no bundle
+   (`datas` no `bussola.spec`) e a leitura em tempo de execução procura em `sys._MEIPASS` antes de
+   procurar ao lado do código-fonte — sem isso o `.exe` abre sem logo.
+2. **No quadrado branco do menu, o símbolo é tingido com a cor primária da paleta.** Duas alternativas
+   foram descartadas pelo responsável — manter as cores originais e trocar o quadrado por um logo
+   "solto" — porque o quadrado branco é o que garante contraste em qualquer tema. Como o arquivo é de
+   tinta única sobre transparência, pintar preserva exatamente o desenho. E, para não trocar um problema
+   por outro, a tinta passa por `tinta_do_simbolo`: se a primária escolhida for clara demais para
+   aparecer no branco, ela é escurecida **o mínimo** necessário para 3:1 (o mesmo critério de elemento
+   gráfico da ADR-024). Sem isso, uma loja com tema "quase branco" ficaria com o logo invisível.
+3. **O logo da loja vence o oficial em todo lugar do programa do usuário** — login, primeiro uso, telas
+   internas e menu lateral — e **não é tingido**: pode ser colorido, e a cor é de quem enviou. O oficial
+   só aparece quando não há logo enviado.
+4. **A área administrativa é a exceção**: ali o logo do Bússola é fixo. A barra lateral recebe
+   `definir_logo("")` na construção e a cada gravação de *Marca e tema*, e o topo da coluna mostra a
+   assinatura comercial oficial. O `logo_data_uri` da loja é ignorado — inclusive porque é por essa
+   tela que se troca o logo, e ver o resultado *antes* de salvar é o que o Admin Master precisa.
+5. **Na faixa do login, o logo comercial fica sozinho e maior (48 px).** A assinatura traz o nome e o
+   slogan em corpo pequeno: a 34 px o slogan viraria borrão, e repetir o título "Bússola Sistema PDV"
+   ao lado seria dizer a mesma coisa duas vezes. Nos diálogos de ação (*Confirmar ação*, *Ação
+   excepcional*) o título é a informação e fica ao lado do logo, em 34 px.
+
+**Consequências.** Identidade deixou de ser texto e passou a ser arquivo: os testes de interface
+verificam pixmap, tinta e tamanho, não a inicial — e o teste de empacotamento falha se o `datas` do
+`spec` perder os PNG. O logo é bitmap (não há vetor por trás): acima de ~296 px de largura o comercial
+perde nitidez, por isso o assistente usa a maior cópia disponível e o ícone do programa sai do arquivo
+quadrado de 450 px, reduzido com suavização. Registrado também o que **não** foi feito: nenhuma cor,
+traço ou texto do logo foi redesenhado — os arquivos são os enviados.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

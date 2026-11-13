@@ -28,6 +28,7 @@ from ...aplicacao.contexto import Contexto
 from ...dominio.erros import AutorizacaoNegada
 from ...dominio.marca import Marca
 from ...dominio.usuario import Acao, Usuario
+from ..identidade import LOGO_COMERCIAL, RotuloLogo
 from ..responsivo import CascaResponsiva, abrir_no_tamanho_da_tela
 from ..tema import folha_estilo_da_marca
 from ..widgets import (
@@ -139,6 +140,9 @@ class JanelaAdmin(QDialog, CascaResponsiva):
             perfil=usuario.perfil.rotulo,
             paleta=self.marca.paleta,
         )
+        # A área administrativa mantém a identidade do Bússola: `logo` fica vazio
+        # de propósito, mesmo quando a loja enviou um logo (ADR-028).
+        self.barra_lateral.definir_logo("")
         self.barra_lateral.rotulo_versao_marca.setText("Administração")
         self.barra_lateral.definir_modulos(
             [
@@ -154,6 +158,14 @@ class JanelaAdmin(QDialog, CascaResponsiva):
             titulo="Administração", usuario=usuario.nome, perfil=usuario.perfil.rotulo
         )
         self.barra_superior.recolher_pedido.connect(self.alternar_casca_recolhida)
+
+        # Assinatura oficial fixa na barra superior (ADR-028): aqui a identidade é a
+        # do Bússola, e o logo da loja não aparece nem é trocável. Na barra ela fica
+        # visível sem cobrir a trilha de navegação — dentro do conteúdo o logo caía
+        # sobre o "Início › Administração".
+        self.logo_oficial = RotuloLogo(LOGO_COMERCIAL, altura=28)
+        self.logo_oficial.setToolTip("Bússola PDV — identidade fixa da área administrativa")
+        self.barra_superior.definir_marca(self.logo_oficial)
 
         self.cabecalho = CabecalhoConteudo("Administração", "Área restrita · tudo é auditado")
         self.rotulo_rodape = self.cabecalho.descricao  # nome herdado
@@ -257,9 +269,11 @@ class JanelaAdmin(QDialog, CascaResponsiva):
     def _marca_salva(self) -> None:
         self.marca = contexto_marca(self.ctx)
         self.setStyleSheet(folha_estilo_da_marca(self.marca))
+        # Sem `logo=`: salvar a marca da loja não troca a marca **desta** janela.
         self.barra_lateral.atualizar_identidade(
             self.marca.nome_fantasia, self.usuario.nome, self.usuario.perfil.rotulo
         )
+        self.barra_lateral.definir_logo("")
         self.marca_alterada.emit()
 
 

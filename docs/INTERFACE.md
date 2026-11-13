@@ -52,6 +52,22 @@ Presets: `BUSSOLA` (padrão), `GRAFITE`, `ESMERALDA`, `NOTURNO`, `OCEANO`, além
 `PERSONALIZADO` quando o lojista troca uma cor. Paletas com contraste abaixo de 4,5:1 recebem aviso
 na tela de tema; se o branco sobre a primária não passar, o texto do botão vira escuro.
 
+## Identidade visual (`ui/identidade.py`, ADR-028)
+
+| Onde | O que aparece | Tamanho |
+|---|---|---|
+| Quadrado branco do menu lateral | símbolo oficial (ou logo da loja), tingido com `paleta.primaria` | 26 px dentro de um quadrado de 34 px |
+| Faixa do login | assinatura comercial, sozinha e centralizada (48 px) | 48 px de altura |
+| Faixa dos diálogos de ação (*Confirmar ação*, *Ação excepcional*) | logo + título ao lado | 34 px |
+| Primeiro uso | assinatura comercial + título "instalação" | 34 px |
+| Topo da coluna da Administração | assinatura oficial, **sempre** a do Bússola | 24 px |
+| Ícone do programa (janela e `.exe`) | `logo_mini.png` / `bussola.ico` | 16→256 px |
+
+O logo da loja (`logo_data_uri`, enviado em *Marca e tema*) substitui o oficial em **tudo** no
+programa do usuário; a Administração ignora esse logo de propósito. O logo oficial é tingido — é de
+tinta única sobre transparência —, e a tinta nunca fica invisível no quadrado branco: se a primária
+for clara demais, ela é escurecida o mínimo necessário para 3:1.
+
 ## Componentes (`ui/widgets.py`)
 
 | Componente | Equivalente no AdminLTE | Uso |

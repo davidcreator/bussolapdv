@@ -487,11 +487,15 @@ class TestDialogosLegiveis:
         from bussola_pdv.ui.tema import folha_estilo
 
         # Paleta de primária claríssima: é onde branco fixo desaparece (1,14:1).
+        # Desde a v0.11.0 a faixa é um bloco (logo + título): o fundo fica em
+        # `#loginMarca` e a tinta do texto em `#loginMarcaTitulo`.
         paleta = Paleta(primaria="#FDECEF")
         folha = folha_estilo(paleta)
-        trecho = folha.split("#loginMarca {", 1)[1].split("}", 1)[0]
+        fundo = folha.split("#loginMarca {", 1)[1].split("}", 1)[0]
+        titulo = folha.split("#loginMarcaTitulo {", 1)[1].split("}", 1)[0]
+        assert paleta.primaria.lower() in fundo.lower()
         esperada = tinta_sobre(paleta.primaria, escura=paleta.texto)
-        assert esperada.lower() in trecho.lower()
+        assert esperada.lower() in titulo.lower()
         assert razao_contraste(esperada, paleta.primaria) >= 4.5
 
     def test_tinta_do_botao_acompanha_a_paleta(self, app, cenario):

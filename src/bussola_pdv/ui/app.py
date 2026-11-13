@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,14 +18,28 @@ from .janela import JanelaPrincipal
 from .login import DialogoLogin
 from .tema import FOLHA_ESTILO, folha_estilo_da_marca, paleta_do_tema
 
+logger = logging.getLogger(__name__)
+
 
 def criar_aplicacao(argv: list[str] | None = None) -> QApplication:
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication
 
     existente = QApplication.instance()
     app = existente if isinstance(existente, QApplication) else QApplication(argv or sys.argv)
     app.setApplicationName("Bússola Sistema PDV Open Source")
     app.setOrganizationName("Bússola Sistema PDV Open Source")
+    # Ícone oficial em todas as janelas (barra de tarefas, Alt+Tab e diálogos).
+    # O `.exe` já carrega o ícone do recurso Windows; isto cobre quem roda do código.
+    # Ícone ausente **não** impede o login: vira aviso no log e a interface segue.
+    from .identidade import LOGO_MINI, caminho_do_logo
+
+    try:
+        caminho_icone = caminho_do_logo(LOGO_MINI)
+    except OSError as exc:
+        logger.warning("Ícone do programa indisponível (%s); seguindo sem ele.", exc)
+    else:
+        app.setWindowIcon(QIcon(str(caminho_icone)))
     fixar_aparencia_clara(app)
     app.setStyleSheet(FOLHA_ESTILO)
     return app

@@ -383,7 +383,10 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         self.marca = contexto_marca(self.ctx)
         self.setWindowTitle(f"{self.marca.nome_fantasia} · Bússola PDV")
         self.barra_lateral.atualizar_identidade(
-            self.marca.nome_fantasia, self.usuario.nome, self.usuario.perfil.rotulo
+            self.marca.nome_fantasia,
+            self.usuario.nome,
+            self.usuario.perfil.rotulo,
+            logo=self.marca.logo_data_uri,
         )
         self.barra_superior.definir_pagina(
             f"{self.marca.nome_fantasia} · {self.cabecalho.titulo.text() or 'PDV'}"
@@ -405,7 +408,10 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             return
         self.usuario = atualizado
         self.barra_lateral.atualizar_identidade(
-            self.marca.nome_fantasia, atualizado.nome, atualizado.perfil.rotulo
+            self.marca.nome_fantasia,
+            atualizado.nome,
+            atualizado.perfil.rotulo,
+            logo=self.marca.logo_data_uri,
         )
         self.barra_superior.definir_usuario(atualizado.nome, atualizado.perfil.rotulo)
         for tela in (

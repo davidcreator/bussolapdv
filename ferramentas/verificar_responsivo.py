@@ -237,6 +237,41 @@ def _verificar_tamanho_inicial(janela: QWidget, rotulo: str) -> list[str]:
     return problemas
 
 
+def _verificar_dialogo(dialogo: QWidget, rotulo: str, app: QApplication) -> list[str]:
+    """Diálogos também precisam caber: no balcão eles abrem em 640×440.
+
+    O cartão de login tem logo no topo (ADR-028); se o logo crescer demais, o
+    mínimo do diálogo passa da tela e o formulário fica fora de alcance.
+    """
+    problemas: list[str] = []
+    dialogo.resize(640, 440)
+    app.processEvents()
+    _esperar(app)
+    from PySide6.QtWidgets import QFrame
+
+    minimo = dialogo.minimumSizeHint()
+    if minimo.width() > 640 or minimo.height() > 440:
+        problemas.append(
+            f"{rotulo}: mínimo {minimo.width()}×{minimo.height()} não cabe em 640×440"
+        )
+    # O cartão é quem carrega a faixa do logo: é ele que não pode passar da tela.
+    cartao = dialogo.findChild(QFrame, "cartaoLogin")
+    if cartao is not None:
+        pede = cartao.minimumSizeHint()
+        if pede.width() > 640:
+            problemas.append(
+                f"{rotulo}: o cartão do login pede {pede.width()} px de 640 disponíveis "
+                "(logo ou faixa largos demais)"
+            )
+        print(
+            f"{rotulo} — mínimo {minimo.width()}×{minimo.height()} · "
+            f"cartão {pede.width()}×{pede.height()} (cabe em 640×440)"
+        )
+    else:
+        print(f"{rotulo} — mínimo {minimo.width()}×{minimo.height()} (cabe em 640×440)")
+    return problemas
+
+
 def main() -> int:
     banco = Path("/tmp/bussola_demo_responsivo.db")
     if banco.exists():
@@ -258,6 +293,12 @@ def main() -> int:
     print(f"JanelaAdmin — mínimo declarado {admin.minimumWidth()}×{admin.minimumHeight()}")
     problemas += _verificar_tamanho_inicial(admin, "JanelaAdmin")
     problemas += verificar(admin, "JanelaAdmin", app)
+
+    from bussola_pdv.ui.login import DialogoLogin
+
+    login = DialogoLogin(ctx)
+    problemas += _verificar_dialogo(login, "DialogoLogin", app)
+    login.close()
 
     janela.close()
     admin.close()

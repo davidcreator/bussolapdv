@@ -573,15 +573,21 @@ QScrollArea#rolagemDialogo, QScrollArea#rolagemDialogo > QWidget > QWidget {{
     border: none;
 }}
 
+/* A faixa virou um bloco (logo + título) na v0.11.0: o fundo da primária fica no
+   bloco e o texto recebe a tinta por regra própria, porque folha não herda cor. */
 #loginMarca {{
     background: {p.primaria};
-    color: {texto_botao};
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
-    padding: 16px;
+    padding: 12px 16px;
+}}
+#loginMarcaTitulo {{
+    background: transparent;
+    color: {texto_botao};
     font-size: 13pt;
     font-weight: 700;
 }}
+#loginMarcaLogo, #logoOficial {{ background: transparent; }}
 #loginSubtitulo {{ color: {suave}; font-size: 8.5pt; }}
 """
 

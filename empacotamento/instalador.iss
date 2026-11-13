@@ -20,7 +20,7 @@
 ;  * Sem tarefa agendada, sem serviço, sem acesso à rede: o app é offline.
 
 #ifndef AppVersion
-  #define AppVersion "0.10.1"
+  #define AppVersion "0.11.0"
 #endif
 #define AppName "Bússola Sistema PDV"
 #define AppShortName "BussolaPDV"
@@ -54,6 +54,10 @@ OutputDir=..\dist\instalador
 OutputBaseFilename={#AppShortName}-{#AppVersion}-setup
 SetupIconFile=bussola.ico
 UninstallDisplayIcon={app}\{#AppExe}
+; Logo oficial no assistente de instalação (gerados por gerar_icone.py; o Inno
+; exige BMP, então são imagens com fundo branco e o logo centralizado).
+WizardImageFile=instalador_lateral.bmp
+WizardSmallImageFile=instalador_pequeno.bmp
 UninstallDisplayName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes

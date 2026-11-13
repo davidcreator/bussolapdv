@@ -276,7 +276,13 @@ Escolhas da receita (`empacotamento\bussola.spec`), e por quê:
   arquivo no Windows (versão, produto, licença). A versão ali é conferida por
   `tests/test_empacotamento.py`.
 - **`icon=` (`empacotamento\bussola.ico`)**: ícone multi-resolução 16→256 px,
-  gerado do desenho da própria interface (nenhum arquivo de terceiro).
+  **derivado de `src/bussola_pdv/recursos/logo_mini.png`** (o logo oficial enviado pelo
+  responsável) por `empacotamento/gerar_icone.py` — nenhum arquivo de terceiro, e nenhum
+  desenho feito à mão no código. O mesmo script gera `bussola.png` (256²) e os dois BMP do
+  assistente (`WizardImageFile`/`WizardSmallImageFile`).
+- **`datas`**: além das migrações SQL, leva `src/bussola_pdv/recursos` para
+  `bussola_pdv/recursos` dentro do pacote. Sem essa linha o executável abre **sem logo**
+  (`ui/identidade.py` procura em `sys._MEIPASS`).
 
 ### C.4 Instalador com Inno Setup
 

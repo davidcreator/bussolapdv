@@ -7,6 +7,7 @@ de páginas assume a altura da página atual e a folha de estilo carrega a palet
 
 from __future__ import annotations
 
+import base64
 import os
 
 import pytest
@@ -186,9 +187,44 @@ class TestBarraLateral:
         barra = self._barra()
         barra.atualizar_identidade("Mercado Bom Preço", "Ana Administradora", "Admin")
         assert barra.rotulo_marca.text() == "Mercado Bom Preço"
-        assert barra.monograma.text() == "M"
         assert barra.avatar.text() == "AA"
         assert barra.rotulo_perfil.text() == "Admin"
+
+    def test_monograma_e_o_logo_e_nao_a_inicial(self, app):
+        """v0.11.0: o quadrado do menu mostra o logo oficial, não a letra da loja."""
+        barra = self._barra()
+        barra.atualizar_identidade("Mercado Bom Preço", "Ana Administradora", "Admin")
+        pixmap = barra.monograma.pixmap()
+        assert not pixmap.isNull()
+        assert barra.monograma.text() == ""  # nada de letra desenhada por cima
+        # cabe no quadrado de 30 px, com folga
+        lado = pixmap.width() / pixmap.devicePixelRatio()
+        assert 0 < lado <= widgets.LADO_MONOGRAMA
+
+    def test_simbolo_do_menu_usa_a_cor_primaria(self, app):
+        """O quadrado branco do menu fica com o logo na cor da loja (ADR-028)."""
+        barra = widgets.BarraLateral(
+            "Loja Teste", "Carla Atendente", "Atendente", Paleta(primaria="#B5179E")
+        )
+        imagem = barra.monograma.pixmap().toImage()
+        cores = {
+            (imagem.pixelColor(x, y).red(), imagem.pixelColor(x, y).green())
+            for y in range(imagem.height())
+            for x in range(imagem.width())
+            if imagem.pixelColor(x, y).alpha() == 255
+        }
+        assert cores == {(0xB5, 0x17)}  # exatamente a primária, sem o azul do arquivo
+
+    def test_logo_da_loja_substitui_o_oficial_no_menu(self, app):
+        from bussola_pdv.ui.identidade import caminho_do_logo
+
+        barra = self._barra()
+        dados = base64.b64encode(caminho_do_logo("logo_comercial.png").read_bytes()).decode()
+        barra.definir_logo(f"data:image/png;base64,{dados}")
+        assert not barra.monograma.pixmap().isNull()
+        assert barra.monograma.toolTip() == "Logo da loja"
+        barra.definir_logo("")
+        assert barra.monograma.toolTip().startswith("Bússola PDV")
 
 
 class TestBarraSuperior:

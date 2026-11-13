@@ -24,12 +24,37 @@ from PySide6.QtWidgets import (
 from .. import __version__
 from ..aplicacao.autenticacao import ServicoAutenticacao
 from ..aplicacao.contexto import Contexto
+from ..aplicacao.marca import ServicoMarca
 from ..dominio.erros import ErroBussola
+from ..dominio.marca import Marca, tinta_sobre
 from ..dominio.usuario import Acao, Usuario
 from .icones import icone
+from .identidade import logo_comercial
 from .responsivo import ajustar_dialogo, envolver_em_rolagem
 from .tema import tinta_do_botao
 from .widgets import Rodape
+
+#: Altura do logo na faixa do cartão quando há título ao lado (px lógicos).
+ALTURA_LOGO_FAIXA = 34
+
+#: Altura quando o logo é o **único** conteúdo da faixa: a assinatura comercial
+#: traz o nome "Bússola PDV" e o slogan em corpo pequeno, que só é legível a
+#: partir de ~44 px. A faixa cresce 14 px e o formulário continua cabendo em
+#: 640×440 (medido por `make responsivo`).
+ALTURA_LOGO_FAIXA_SOZINHO = 48
+
+
+def marca_do_contexto(contexto: Contexto) -> Marca | None:
+    """Marca da loja para o logo da faixa; `None` quando ainda não há base.
+
+    A tela de primeiro uso roda **antes** de existir banco: ali não há o que ler e
+    o logo oficial do Bússola é o certo. Leitura com degradação segura — logo é
+    identidade, não pode impedir ninguém de fazer login.
+    """
+    try:
+        return ServicoMarca(contexto).obter()
+    except Exception:  # pragma: no cover - base em estado estranho
+        return None
 
 
 def _cartao_modal(subtitulo: str = "") -> tuple[QFrame, QVBoxLayout]:
@@ -48,7 +73,7 @@ def _cartao_modal(subtitulo: str = "") -> tuple[QFrame, QVBoxLayout]:
 
 
 def _finalizar_cartao(
-    cartao: QFrame, corpo: QVBoxLayout, faixa: QLabel, corpo_janela: QVBoxLayout
+    cartao: QFrame, corpo: QVBoxLayout, faixa: QWidget, corpo_janela: QVBoxLayout
 ) -> None:
     interno = QVBoxLayout(cartao)
     interno.setContentsMargins(0, 0, 0, 0)
@@ -77,10 +102,52 @@ def _finalizar_cartao(
     corpo_janela.addWidget(rolagem, 1)
 
 
-def _faixa(titulo: str) -> QLabel:
-    faixa = QLabel(titulo)
+def _faixa(titulo: str = "", *, marca: Marca | None = None) -> QWidget:
+    """Faixa colorida do topo do cartão: logo comercial e, às vezes, título.
+
+    `titulo` vazio quer dizer "o logo já diz tudo" — é o caso do login, em que a
+    faixa mostra a assinatura comercial grande e centrada. Nos diálogos de ação
+    (*Confirmar ação*, *Ação excepcional*) o título é a informação que importa e
+    fica ao lado do logo, menor.
+
+    O logo é tingido com a tinta legível sobre a primária (`tinta_sobre`, a mesma
+    régua da ADR-024). Sem logo da loja, entra o do Bússola; com logo enviado em
+    *Marca e tema*, é ele que aparece (ADR-028) — e aí ele **não** é tingido, sai
+    como a loja enviou.
+    """
+    faixa = QFrame()
     faixa.setObjectName("loginMarca")
-    faixa.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    linha = QHBoxLayout(faixa)
+    # O recuo vem do `padding` de `#loginMarca` na folha de estilo: um lugar só.
+    linha.setContentsMargins(0, 0, 0, 0)
+    linha.setSpacing(12)
+
+    tinta = tinta_sobre((marca or Marca()).paleta.primaria)
+    altura = ALTURA_LOGO_FAIXA if titulo else ALTURA_LOGO_FAIXA_SOZINHO
+    logotipo = QLabel()
+    logotipo.setObjectName("loginMarcaLogo")
+    desenhado = logo_comercial(marca, altura=altura, cor=tinta)
+    logotipo.setPixmap(desenhado)
+    logotipo.setFixedSize(
+        max(1, int(desenhado.width() / desenhado.devicePixelRatio())),
+        max(1, int(desenhado.height() / desenhado.devicePixelRatio())),
+    )
+    logotipo.setToolTip("")
+
+    if not titulo:
+        # Só o logo: centralizado, para a faixa não ficar pesada de um lado.
+        linha.addStretch(1)
+        linha.addWidget(logotipo, 0, Qt.AlignmentFlag.AlignVCenter)
+        linha.addStretch(1)
+        return faixa
+
+    linha.addWidget(logotipo, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    rotulo = QLabel(titulo)
+    rotulo.setObjectName("loginMarcaTitulo")
+    rotulo.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    rotulo.setWordWrap(True)
+    linha.addWidget(rotulo, 1)
     return faixa
 
 
@@ -139,7 +206,9 @@ class DialogoLogin(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        _finalizar_cartao(cartao, corpo, _faixa("Bússola Sistema PDV"), layout)
+        _finalizar_cartao(
+            cartao, corpo, _faixa(marca=marca_do_contexto(contexto)), layout
+        )
         layout.addWidget(rodape)
 
         self.campo_senha.returnPressed.connect(self._entrar)
@@ -207,7 +276,9 @@ class DialogoAutorizacao(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
-        _finalizar_cartao(cartao, corpo, _faixa("Ação excepcional"), layout)
+        _finalizar_cartao(
+            cartao, corpo, _faixa("Ação excepcional", marca=marca_do_contexto(self.ctx)), layout
+        )
         self.campo_senha.returnPressed.connect(self._autorizar)
         self.campo_login.setFocus()
 
@@ -235,6 +306,7 @@ class DialogoConfirmacao(QDialog):
         parent: QWidget | None = None,
         *,
         exige_motivo: bool = True,
+        marca: Marca | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(titulo)
@@ -261,7 +333,7 @@ class DialogoConfirmacao(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
-        _finalizar_cartao(cartao, corpo, _faixa("Confirmar ação"), layout)
+        _finalizar_cartao(cartao, corpo, _faixa("Confirmar ação", marca=marca), layout)
         self._exige_motivo = exige_motivo
 
     def _confirmar(self) -> None:

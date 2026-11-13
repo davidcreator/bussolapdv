@@ -35,8 +35,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..dominio.marca import Paleta
+from ..dominio.marca import Marca, Paleta
 from .icones import icone
+from .identidade import FOLGA_MONOGRAMA, simbolo, tinta_do_simbolo
 from .responsivo import FluxoDeAcoes
 
 ALTURA_BARRA_SUPERIOR = 52
@@ -403,6 +404,10 @@ class EntradaNavegacao:
     icone: str
 
 
+#: Lado do quadrado do símbolo no canto do menu (px lógicos).
+LADO_MONOGRAMA = 34
+
+
 class BarraLateral(QFrame):
     """Sidebar do AdminLTE: marca, painel do usuário, menu com ícones e rodapé."""
 
@@ -430,10 +435,14 @@ class BarraLateral(QFrame):
         linha_marca = QHBoxLayout(self.marca)
         linha_marca.setContentsMargins(14, 8, 10, 8)
         linha_marca.setSpacing(9)
-        self.monograma = QLabel(nome_loja[:1].upper())
+        # O quadrado branco continua (é ele que garante contraste em qualquer
+        # paleta); dentro dele agora vai o **logo**, não a inicial da loja.
+        self.monograma = QLabel()
         self.monograma.setObjectName("monograma")
         self.monograma.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.monograma.setFixedSize(30, 30)
+        self.monograma.setFixedSize(LADO_MONOGRAMA, LADO_MONOGRAMA)
+        self._logo_loja: str = ""
+        self._definir_simbolo()
         # Nome da loja e do operador comem a largura da sidebar (240 px) e o nome
         # comprido saía cortado na borda: com o rótulo elástico vira "Loja de Demo…".
         self.rotulo_marca = RotuloElastico(nome_loja)
@@ -526,12 +535,56 @@ class BarraLateral(QFrame):
     def rotulos(self) -> list[str]:
         return [entrada.rotulo for entrada in self._entradas]
 
-    def atualizar_identidade(self, nome_loja: str, usuario: str, perfil: str) -> None:
+    def atualizar_identidade(
+        self,
+        nome_loja: str,
+        usuario: str,
+        perfil: str,
+        *,
+        logo: str = "",
+    ) -> None:
+        """Nome da loja, operador e o logo do canto do menu.
+
+        `logo` é o PNG em data URI enviado pela loja (ADR-028). Vem vazio na
+        maioria dos casos, e aí o símbolo do Bússola aparece — a área
+        administrativa passa `oficial=True` em `definir_logo_oficial`.
+        """
         self.rotulo_marca.setText(nome_loja)
-        self.monograma.setText(nome_loja[:1].upper())
         self.rotulo_usuario.setText(usuario)
         self.rotulo_perfil.setText(perfil)
         self.avatar.setText(iniciais(usuario))
+        self.definir_logo(logo)
+
+    def definir_logo(self, logo: str) -> None:
+        """Troca o símbolo do menu pelo logo da loja (string vazia = oficial)."""
+        self._logo_loja = logo
+        self.monograma.setToolTip(
+            "Logo da loja" if logo else "Bússola PDV (marca oficial)"
+        )
+        self._definir_simbolo()
+
+    def _definir_simbolo(self) -> None:
+        """Desenha o logo dentro do quadrado, tingido com a cor primária.
+
+        Tingir não é capricho: o arquivo oficial é azul-marinho e a loja pode ter
+        escolhido um tema escuro, ou azul, no qual o traço desapareceria. Como o
+        logo é de tinta única, pintar preserva o desenho e o `#monograma` branco
+        garante o contraste (ADR-024).
+        """
+        janela = self.window()
+        tela = janela.screen() if janela is not None else None
+        densidade = float(tela.devicePixelRatio()) if tela is not None else 1.0
+        lado = LADO_MONOGRAMA - 2 * FOLGA_MONOGRAMA
+        marca = None
+        if self._logo_loja:
+            marca = Marca(nome_fantasia="Loja", logo_data_uri=self._logo_loja)
+        desenhado = simbolo(
+            marca,
+            lado=lado,
+            cor=tinta_do_simbolo(self._paleta.primaria),
+            proporcao=densidade,
+        )
+        self.monograma.setPixmap(desenhado)
 
     @property
     def recolhida(self) -> bool:
@@ -591,6 +644,19 @@ class BarraSuperior(QFrame):
         linha.addWidget(self.botao_menu, 0, Qt.AlignmentFlag.AlignVCenter)
         linha.addWidget(self.rotulo_pagina, 1)
         linha.addWidget(self.chip_usuario, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._linha = linha
+
+    def definir_marca(self, widget: QWidget | None) -> None:
+        """Põe (ou tira) uma marca à direita do título, antes do chip do usuário.
+
+        É o que a área administrativa usa para deixar a assinatura oficial do
+        Bússola sempre visível: o logo da loja não entra ali (ADR-028). O lugar
+        escolhido é a barra superior — dentro do conteúdo o logo caía sobre a
+        trilha e ficava ilegível.
+        """
+        if widget is None:
+            return
+        self._linha.insertWidget(self._linha.count() - 1, widget, 0, Qt.AlignmentFlag.AlignVCenter)
 
     def definir_cor_icone(self, cor: str) -> None:
         self.botao_menu.setIcon(icone("menu", cor, 20))

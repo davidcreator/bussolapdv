@@ -115,6 +115,47 @@ def test_instalacao_windows_avisa_do_tzdata():
     assert "tzdata" in texto
 
 
+def test_spec_leva_os_logos_oficiais():
+    """Regressão: sem os PNG no bundle a interface abre sem logo nenhum.
+
+    Eles não são gerados no build: são versionados em `src/bussola_pdv/recursos/`
+    e copiados para dentro de `bussola_pdv/recursos` no pacote, que é o caminho
+    que `ui/identidade.py` procura em `sys._MEIPASS`.
+    """
+    texto = (EMPACOTAMENTO / "bussola.spec").read_text(encoding="utf-8")
+    assert '"bussola_pdv/recursos"' in texto
+    recursos = RAIZ / "src" / "bussola_pdv" / "recursos"
+    for nome in ("logo_mini.png", "logo_comercial.png"):
+        assert (recursos / nome).is_file(), nome
+
+
+def test_roda_do_codigo_fonte_tambem_acha_os_logos():
+    from bussola_pdv.ui.identidade import caminho_do_logo, pasta_de_recursos
+
+    assert pasta_de_recursos() == RAIZ / "src" / "bussola_pdv" / "recursos"
+    assert caminho_do_logo("logo_mini.png").is_file()
+
+
+def test_instalador_usa_o_logo_no_assistente():
+    texto = (EMPACOTAMENTO / "instalador.iss").read_text(encoding="utf-8")
+    assert "WizardImageFile=instalador_lateral.bmp" in texto
+    assert "WizardSmallImageFile=instalador_pequeno.bmp" in texto
+    assert "SetupIconFile=bussola.ico" in texto
+
+
+def test_icone_do_exe_tem_todos_os_tamanhos():
+    """Um .ico com um tamanho só fica borrado no Explorer e na barra de tarefas."""
+    dados = (EMPACOTAMENTO / "bussola.ico").read_bytes()
+    reservado, tipo, quantidade = struct.unpack("<HHH", dados[:6])
+    assert (reservado, tipo) == (0, 1)
+    tamanhos = set()
+    for indice in range(quantidade):
+        inicio = 6 + indice * 16
+        largura, altura = dados[inicio], dados[inicio + 1]
+        tamanhos.add((largura or 256, altura or 256))
+    assert {(16, 16), (32, 32), (48, 48), (256, 256)} <= tamanhos
+
+
 def test_spec_e_python_valido():
     ast.parse((EMPACOTAMENTO / "bussola.spec").read_text(encoding="utf-8"))
 

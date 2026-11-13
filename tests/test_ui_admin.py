@@ -144,7 +144,55 @@ class TestSecaoMarca:
         assert all(not botao.isEnabled() for botao in secao.botoes_cor.values())
 
 
-class TestSecaoUsuarios:
+class TestIdentidadeFixa:
+    """ADR-028: a área administrativa é sempre do Bússola — o logo da loja não entra."""
+
+    def test_barra_superior_mostra_a_assinatura_oficial(self, janela_admin, cenario):
+        janela = janela_admin(cenario.master)
+        assert janela.logo_oficial.pixmap() is not None
+        assert not janela.logo_oficial.pixmap().isNull()
+        assert janela.logo_oficial.parent() is janela.barra_superior
+
+    def test_logo_da_loja_aparece_no_programa_do_usuario(self, cenario):
+        """A outra metade da regra: no PDV o logo da loja vence o oficial."""
+        import base64
+
+        from bussola_pdv.aplicacao.marca import ServicoMarca
+        from bussola_pdv.ui.identidade import caminho_do_logo
+        from bussola_pdv.ui.janela import JanelaPrincipal
+
+        dados = base64.b64encode(caminho_do_logo("logo_mini.png").read_bytes()).decode()
+        servico = ServicoMarca(cenario.ctx)
+        servico.salvar(
+            cenario.master, servico.obter().com(logo_data_uri=f"data:image/png;base64,{dados}")
+        )
+        janela = JanelaPrincipal(cenario.ctx, cenario.gerente)
+        try:
+            janela._aplicar_marca()
+            assert janela.barra_lateral.monograma.toolTip() == "Logo da loja"
+        finally:
+            janela.close()
+
+    def test_logo_da_loja_nao_aparece_no_admin(self, janela_admin, cenario):
+        """Mesmo com PNG salvo em *Marca e tema*, o canto do menu fica oficial."""
+        import base64
+
+        from bussola_pdv.aplicacao.marca import ServicoMarca
+        from bussola_pdv.ui.identidade import caminho_do_logo
+
+        dados = base64.b64encode(caminho_do_logo("logo_comercial.png").read_bytes()).decode()
+        servico = ServicoMarca(cenario.ctx)
+        servico.salvar(
+            cenario.master,
+            servico.obter().com(logo_data_uri=f"data:image/png;base64,{dados}"),
+        )
+        assert servico.obter().logo_data_uri.startswith("data:image/png")
+
+        janela = janela_admin(cenario.master)
+        assert janela.barra_lateral.monograma.toolTip().startswith("Bússola PDV")
+        # E o logo oficial do topo continua o do Bússola, não o da loja.
+        assert not janela.logo_oficial.pixmap().isNull()
+
     def test_lista_na_ordem_da_hierarquia(self, app, cenario):
         secao = SecaoUsuarios(cenario.ctx, cenario.master)
         assert secao.tabela.rowCount() == 5

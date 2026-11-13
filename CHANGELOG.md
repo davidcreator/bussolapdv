@@ -2,7 +2,47 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
-## [Não lançado]
+## [0.11.0] — 2026-11-11 — Identidade visual: os dois logos oficiais
+
+### Adicionado — identidade visual: os dois logos oficiais (ADR-028)
+
+- **`src/bussola_pdv/recursos/`**: os dois arquivos enviados pelo responsável passam a ser versionados
+  dentro do pacote — `logo_mini.png` (símbolo quadrado, 450×450) e `logo_comercial.png` (assinatura
+  horizontal, 296×132). Nenhuma cor, traço ou texto foi redesenhado.
+- **`src/bussola_pdv/ui/identidade.py`**: carrega, escala e tinge os logos; resolve o caminho em
+  `sys._MEIPASS` (executável) antes do código-fonte; `RotuloLogo` (widget que se redesenha quando a
+  densidade de tela muda, para não borrar em monitor a 150%).
+- **Menu lateral**: o quadrado branco deixou de mostrar a **inicial da loja** e passou a mostrar o
+  **símbolo oficial**, tingido com a cor primária da paleta. `tinta_do_simbolo` escurece o mínimo
+  necessário quando a primária é clara demais para aparecer no branco (3:1).
+- **Login, primeiro uso e diálogos**: faixa do cartão com o logo comercial. Quando há título de ação,
+  o logo fica a 34 px ao lado dele; no login, o logo fica sozinho e maior (48 px), porque a assinatura
+  já diz o nome e repetir o título seria redundante.
+- **Área administrativa**: nunca troca de logo — o topo da coluna mostra a assinatura oficial e o
+  `logo_data_uri` da loja é ignorado ali (inclusive ao salvar em *Marca e tema*).
+- **Logo da loja**: quando o Admin Master envia um PNG, ele substitui o oficial **em tudo** no programa
+  do usuário (login, primeiro uso, telas e menu) e não é tingido.
+- **Ícone do programa**: `ui/app.py` aplica `logo_mini.png` como ícone de janela; o `.exe` continua
+  usando o `.ico` embutido no recurso do Windows.
+- **Instalador**: `empacotamento/gerar_icone.py` foi reescrito — em vez de desenhar uma bússola
+  genérica, **deriva** tudo do `logo_mini.png`: `.ico` com 7 tamanhos (16 a 256), `bussola.png` 256² e
+  os dois BMP do assistente (`WizardImageFile` e `WizardSmallImageFile`).
+- **`empacotamento/bussola.spec`**: os PNG entram no bundle (`datas`). Sem isso o executável abriria
+  sem logo nenhum.
+
+### Verificação
+
+- `tests/test_ui_identidade.py` (novo, 21 testes): caminho normal e em `sys._MEIPASS`, queda para o
+  código-fonte quando o *data* falta, tinta do símbolo igual à primária (e escurecida quando a primária
+  não aparece no branco), símbolo quadrado e em HiDPI, logo da loja vencendo o oficial, **admin
+  ignorando o logo da loja**, data URI inválido recusado sem exceção, `RotuloLogo` com altura fixa.
+- `tests/test_empacotamento.py`: o `spec` precisa listar os logos, o `.iss` precisa usar os dois BMP e o
+  `.ico` precisa ter 16/32/48/256.
+- `make responsivo` passa a medir também o `DialogoLogin` (o cartão com logo não pode passar de 640 px).
+- Corrigidos dois testes que verificavam a implementação antiga (`monograma.text() == "M"` e a tinta da
+  faixa do login, que agora é a do título).
+- Suíte: **805 testes**, 0 falhas, 2 pulados; `ruff` e `mypy` (95 arquivos) limpos; `make responsivo` OK
+  em 640×440 até 2560×1440.
 
 ### Adicionado — documento de contribuição e doação
 

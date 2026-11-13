@@ -38,6 +38,12 @@ analise = Analysis(  # noqa: F821
         # `tzdata`. Sem estas linhas o executável abre e morre no primeiro uso
         # com `ZoneInfoNotFoundError: America/Sao_Paulo`.
         *collect_data_files("tzdata"),
+        # Logos oficiais (ADR-028). Ficam dentro do pacote porque a interface os
+        # lê por caminho: sem esta linha o executável abre sem logo nenhum.
+        (
+            str(RAIZ / "src" / "bussola_pdv" / "recursos"),
+            "bussola_pdv/recursos",
+        ),
         # Backup externo: fica ao lado do executável para o dia em que o
         # programa não abre (não importa `bussola_pdv`, só a stdlib).
         (str(RAIZ / "ferramentas" / "backup_externo.py"), "Backup"),
