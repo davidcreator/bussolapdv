@@ -96,15 +96,15 @@ garantia e emissão fiscal, este projeto não é (ainda) esse produto — veja o
 
 | Campo | Valor |
 |---|---|
-| **Chave PIX** | `«PREENCHER: chave PIX — e-mail, telefone (+55...), CPF/CNPJ ou chave aleatória»` |
-| **Tipo de chave** | `«PREENCHER: e-mail / telefone / CPF / CNPJ / aleatória»` |
-| **Titular** | `«PREENCHER: nome de quem recebe, igual ao do banco»` |
-| **Cidade do titular** | `«PREENCHER: cidade usada no cadastro da chave»` |
+| **Chave PIX** | `contato@davidalmeida.xyz` |
+| **Tipo de chave** | `Email` |
+| **Titular** | `David Lima de Almeida` |
+| **Cidade do titular** | `São Paulo - SP` |
 
 **Copia e cola** (gerado pela chave acima; enquanto estiver vazio, não há o que colar):
 
 ```text
-«PREENCHER: cole aqui o BR Code gerado por ferramentas/gerar_qr_pix.py»
+
 ```
 
 **QR Code:**

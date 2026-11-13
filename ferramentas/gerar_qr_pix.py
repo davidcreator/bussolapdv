@@ -28,8 +28,8 @@ Uso::
 
     # imprime o "copia e cola" e grava o QR em docs/doacoes/qr-pix.svg
     python ferramentas/gerar_qr_pix.py \\
-        --chave "doacoes@exemplo.com" \\
-        --nome "MARIA DA SILVA" \\
+        --chave "https://nubank.com.br/cobrar/gb03d/6af74cfa-7833-49fa-bb52-cf6355464d98" \\
+        --nome "DAVID LIMA DE ALMEIDA" \\
         --cidade "SAO PAULO"
 
     # só conferir o texto, sem escrever arquivo
