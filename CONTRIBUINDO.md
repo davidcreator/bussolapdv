@@ -111,45 +111,6 @@ garantia e emissão fiscal, este projeto não é (ainda) esse produto — veja o
 
 ![QR Code do PIX](docs/doacoes/qr-pix.svg)
 
-> O arquivo `docs/doacoes/qr-pix.svg` que está no repositório é **um espaço reservado**, não um QR
-> válido. Para gerar o de verdade, com a sua chave:
-
-```bash
-pip install "qrcode[pil]"
-python ferramentas/gerar_qr_pix.py \
-    --chave "«PREENCHER»" \
-    --nome "«PREENCHER: nome do titular»" \
-    --cidade "«PREENCHER: cidade»"
-```
-
-O comando imprime o **copia e cola**, grava `docs/doacoes/qr-pix.svg` e confere o CRC do payload.
-Antes de publicar, escaneie o QR com o aplicativo do seu banco e faça uma transferência de teste de
-R$ 1,00 para você mesmo: é o único jeito de saber que a chave está certa. Se quiser valor fixo
-(ex.: R$ 10,00), acrescente `--valor 10,00`; sem isso, quem doa escolhe o valor.
-
-### Transferência bancária
-
-| Campo | Valor |
-|---|---|
-| **Banco** | `«PREENCHER: nome e código do banco, ex.: Banco do Brasil (001)»` |
-| **Agência** | `«PREENCHER»` |
-| **Conta** | `«PREENCHER: número e dígito»` |
-| **Tipo de conta** | `«PREENCHER: corrente / poupança / pagamentos»` |
-| **Titular** | `«PREENCHER: nome completo»` |
-| **CPF/CNPJ do titular** | `«PREENCHER»` |
-| **Chave Pix da mesma conta** | `«PREENCHER (opcional, mas transfere mais rápido)»` |
-
-### PayPal
-
-| Campo | Valor |
-|---|---|
-| **Link de doação** | `«PREENCHER: https://www.paypal.com/donate/?business=...»` |
-| **paypal.me** | `«PREENCHER: https://paypal.me/...»` |
-| **E-mail da conta PayPal** | `«PREENCHER»` |
-| **Moeda** | `«PREENCHER: BRL / USD (defina uma e escreva aqui)»` |
-
-> Para doação internacional (fora do Brasil), o PayPal é o caminho mais simples — o PIX só funciona
-> entre contas brasileiras.
 
 ### Transparência
 
