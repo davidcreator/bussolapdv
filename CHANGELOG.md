@@ -2,6 +2,34 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [Não lançado]
+
+### Adicionado — documento de contribuição e doação
+
+- **`CONTRIBUINDO.md`**: como contribuir (relato de defeito, código, as regras que o projeto não abre
+  mão, áreas onde ajuda é bem-vinda) e como apoiar financeiramente — **PIX**, **transferência bancária**
+  e **PayPal**. Todos os campos de recebimento ficam como `«PREENCHER»`, com aviso explícito de que,
+  enquanto houver marcador, **nenhuma doação deve ser enviada** e nenhum dado bancário deve ser
+  inventado. Também diz o que a doação **não** compra (funcionalidade sob medida, prioridade, suporte
+  com prazo) e o que o projeto nunca pede (senha, token, acesso remoto à base).
+- **`ferramentas/gerar_qr_pix.py`**: gera o **BR Code** do PIX (padrão EMV do Banco Central) a partir da
+  chave real — TLV, CRC16-CCITT e o texto do "copia e cola" — e desenha o QR em SVG (ou PNG, com
+  Pillow). Sem serviço de terceiros no meio: a chave não sai da máquina. Uso:
+  `python ferramentas/gerar_qr_pix.py --chave "..." --nome "..." --cidade "..."`.
+- **`docs/doacoes/qr-pix.svg`**: espaço reservado que **diz na própria imagem** que não é QR válido —
+  melhor do que um QR de exemplo que alguém escaneia e recebe erro do banco.
+- **`.github/FUNDING.yml`**: liga o botão *Sponsor* do GitHub ao documento, com o modelo comentado para
+  PayPal/Buy Me a Coffee/Liberapay quando as contas existirem.
+- **README**: seção "Contribuir e apoiar" apontando para o documento.
+
+### Verificação
+
+- `tests/test_doacoes.py` (44 testes): CRC conferido contra o valor de referência do CCITT-FALSE
+  (`"123456789"` → `29B1`) e não contra o próprio código; estrutura do payload relida campo por campo;
+  chaves aceitas e recusadas; e — o ponto principal — o documento **falha no teste se alguém apagar os
+  marcadores `«PREENCHER»`** ou deixar um campo de recebimento em branco.
+- Suíte: **773 testes** passando; `ruff` e `mypy` (93 arquivos) limpos.
+
 ## [0.10.1] — 2026-11-11 — CI do Windows: testes de plataforma e falha que se explica
 
 O GitHub mostrava **CI vermelho** no repositório. O workflow `CI` (Linux, 3.12 e 3.13) estava verde

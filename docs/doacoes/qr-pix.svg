@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ESPAÇO RESERVADO — este arquivo NÃO é um QR Code.
+
+  Ele existe para o documento de doação não apontar para uma imagem inexistente
+  e para deixar claro, com todas as letras, que falta gerar o QR de verdade.
+
+  Para gerar o QR real com a sua chave PIX, instale "qrcode[pil]" e rode
+  ferramentas/gerar_qr_pix.py passando a chave, o nome do titular e a cidade
+  (o comando completo está em CONTRIBUINDO.md, seção PIX).
+
+  O comando sobrescreve este arquivo com o QR de verdade e imprime o texto do
+  "copia e cola" para colar em CONTRIBUINDO.md.
+
+  Nota: comentário XML não aceita dois hífens seguidos, por isso os parâmetros
+  da linha de comando não aparecem aqui com o prefixo habitual.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="380" viewBox="0 0 320 380"
+     role="img" aria-labelledby="titulo descricao">
+  <title id="titulo">Espaço reservado para o QR Code do PIX</title>
+  <desc id="descricao">Este arquivo não contém um QR Code válido. Ele deve ser substituído
+  pelo QR gerado com ferramentas/gerar_qr_pix.py usando a chave PIX real do projeto.</desc>
+
+  <rect width="320" height="380" fill="#FFFFFF"/>
+
+  <!-- moldura de "QR ausente": cantos marcados, miolo vazio -->
+  <g stroke="#ADB5BD" stroke-width="2" fill="none">
+    <rect x="26" y="26" width="268" height="268" rx="8" stroke-dasharray="10 8"/>
+    <rect x="46" y="46" width="56" height="56" rx="4"/>
+    <rect x="218" y="46" width="56" height="56" rx="4"/>
+  </g>
+  <g fill="#ADB5BD">
+    <rect x="60" y="60" width="28" height="28" rx="2"/>
+    <rect x="232" y="60" width="28" height="28" rx="2"/>
+  </g>
+
+  <g fill="#6C757D" font-family="Segoe UI, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <text x="160" y="148" font-size="19" font-weight="700" fill="#343A40">QR do PIX</text>
+    <text x="160" y="170" font-size="19" font-weight="700" fill="#343A40">ainda não gerado</text>
+    <text x="160" y="196" font-size="11.5">Este arquivo é um espaço reservado.</text>
+    <text x="160" y="212" font-size="11.5">Gere o QR com:</text>
+    <text x="160" y="248" font-size="11.5" font-family="Consolas, Menlo, monospace"
+          fill="#495057">ferramentas/gerar_qr_pix.py</text>
+  </g>
+
+  <g fill="#6C757D" font-family="Segoe UI, Helvetica, Arial, sans-serif" text-anchor="middle">
+    <text x="160" y="322" font-size="11">Enquanto este quadro estiver aqui,</text>
+    <text x="160" y="338" font-size="11">não há QR de doação para escanear.</text>
+    <text x="160" y="362" font-size="10" fill="#ADB5BD">CONTRIBUINDO.md · seção PIX</text>
+  </g>
+</svg>

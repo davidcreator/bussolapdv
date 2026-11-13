@@ -1,0 +1,22 @@
+# Botão "Sponsor" do GitHub.
+#
+# A única entrada ativa aponta para o documento que explica **todas** as formas de
+# apoiar (PIX com QR gerado na hora, transferência bancária e PayPal). Assim o botão
+# leva a algum lugar útil mesmo antes de os dados bancários estarem preenchidos.
+#
+# Quando a conta estiver pronta, troque/comente abaixo. As chaves aceitas pelo
+# GitHub são: github, patreon, open_collective, ko_fi, tidelift, community_bridge,
+# liberapay, issuehunt, lfx_crowdfunding, polar, buy_me_a_coffee, thanks_dev,
+# otechie, custom.
+#
+# `custom` aceita até 4 URLs https.
+
+custom: ["https://github.com/davidcreator/bussolapdv/blob/main/CONTRIBUINDO.md"]
+
+# Descomente e preencha quando existir:
+# buy_me_a_coffee: «PREENCHER: usuário do Buy Me a Coffee»
+# patreon: «PREENCHER: usuário do Patreon»
+# liberapay: «PREENCHER: usuário do Liberapay»
+# custom:
+#   - "https://www.paypal.com/donate/?business=«PREENCHER»"
+#   - "https://www.paypal.me/«PREENCHER»"

@@ -407,6 +407,21 @@ VBA e 20 scripts que geraram as planilhas. Ele é referência histórica e de re
 aplicação não lê nem executa nada dali. Antes de abrir qualquer planilha como se fosse o sistema,
 leia [prototipo/README.md](prototipo/README.md).
 
+## Contribuir e apoiar
+
+Contribuição de código, relato de defeito e revisão de texto são bem-vindos — o guia completo está em
+[CONTRIBUINDO.md](CONTRIBUINDO.md), junto com as regras que o projeto não abre mão (dinheiro em
+centavos inteiros, tela não calcula, tudo auditado, nada de rede).
+
+Quem quiser ajudar **financeiramente** encontra ali as três formas — **PIX** (com gerador de QR Code
+incluído no repositório, `ferramentas/gerar_qr_pix.py`), **transferência bancária** e **PayPal** — e o
+que a doação **não** compra: funcionalidade sob medida, prioridade na fila ou suporte com prazo. Os
+campos de recebimento estão marcados como `«PREENCHER»` até serem preenchidos pelo responsável, com
+dados conferidos por uma transferência de teste de R$ 1,00. Enquanto houver marcador, não há QR válido
+para escanear.
+
+[![Contribuir e apoiar](https://img.shields.io/badge/contribuir-e%20apoiar-informational)](CONTRIBUINDO.md)
+
 ## Licença
 
 GPL-2.0-or-later — veja [LICENSE](LICENSE) e [NOTICE.md](NOTICE.md). As imagens de referência do
