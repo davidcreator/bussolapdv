@@ -12,6 +12,7 @@ O pedido do usuário tem duas metades e os testes seguem essa divisão:
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -209,11 +210,13 @@ class TestFerramentaExterna:
     """`ferramentas/backup_externo.py` não pode depender do pacote instalado."""
 
     def _rodar(self, *args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
-        ambiente = {
-            "PATH": "/usr/bin:/bin:/usr/local/bin",
-            "PYTHONPATH": "",  # de propósito: sem o pacote
-            "PYTHONIOENCODING": "utf-8",
-        }
+        # Ambiente herdado, e não um dicionário montado à mão: no Windows o processo
+        # precisa de SYSTEMROOT/COMSPEC/PATH do sistema para iniciar ("The system
+        # cannot find the path specified"). O que importa aqui é apenas rodar **sem**
+        # o pacote instalado e com UTF-8 na saída.
+        ambiente = dict(os.environ)
+        ambiente["PYTHONPATH"] = ""
+        ambiente["PYTHONIOENCODING"] = "utf-8"
         return subprocess.run(  # noqa: S603 - comando fixo, sem shell
             [sys.executable, str(EXTERNO), *args],
             capture_output=True,

@@ -34,7 +34,15 @@ def ambiente_isolado(tmp_path, monkeypatch):
     """Nenhum teste toca a pasta real de dados/configuração da máquina."""
     monkeypatch.delenv("BUSSOLA_DADOS", raising=False)
     monkeypatch.setenv("BUSSOLA_CONFIG", str(tmp_path / "config"))
+    # Linux usa XDG; Windows usa %LOCALAPPDATA%/%APPDATA%. Isolar só o XDG fazia o
+    # Windows gravar de verdade no perfil de quem roda a suíte (e o CI do Windows
+    # falhava por acesso à pasta do usuário, não pelo teste).
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg_config"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "appdata"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     return tmp_path
 
 

@@ -48,7 +48,22 @@ jobs:
         continue-on-error: false
 
       - name: Testes
-        run: pytest -q --cov=src/bussola_pdv --cov-report=term-missing
+        run: pytest -q --cov=src/bussola_pdv --cov-report=term-missing --junitxml=relatorio-testes.xml
+
+      # Sem isto, uma falha na suíte aparecia no Actions apenas como
+      # "Process completed with exit code 1", sem o nome do teste.
+      - name: Anotar falhas de teste
+        if: failure()
+        run: python ferramentas/anotar_falhas.py relatorio-testes.xml
+
+      - name: Guardar relatório de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-testes-linux-${{ matrix.python }}
+          path: relatorio-testes.xml
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verificação de migrações e integridade
         run: |

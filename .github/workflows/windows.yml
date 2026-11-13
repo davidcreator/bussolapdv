@@ -46,7 +46,22 @@ jobs:
       - name: Testes (Qt offscreen)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest tests -q
+        run: python -m pytest tests -q --junitxml=relatorio-testes.xml
+
+      # O Windows é a plataforma de destino e a única que já falhou sem dizer por
+      # quê: aqui o relatório vira anotação (nome do teste + mensagem) e artefato.
+      - name: Anotar falhas de teste
+        if: failure()
+        run: python ferramentas/anotar_falhas.py relatorio-testes.xml
+
+      - name: Guardar relatório de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-testes-windows
+          path: relatorio-testes.xml
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Lint e tipos
         run: |

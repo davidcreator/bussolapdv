@@ -268,6 +268,18 @@ class TestRenderizadorPapel:
 
 
 # -- infra: envio cru e descoberta ---------------------------------------------
+def _executores(executor) -> dict:
+    """Mapa com as **duas** chaves de plataforma.
+
+    `enviar_bytes` escolhe `"win32"` ou `"posix"` conforme `sys.platform`. Registrar
+    só `"posix"` fazia este teste passar no Linux e falhar no Windows do CI, onde a
+    chave procurada é `"win32"` e o mapa vinha vazio (ImpressoraIndisponivel). O que
+    o teste quer provar é o repasse dos bytes ao executor escolhido, não o nome da
+    plataforma que roda a suíte.
+    """
+    return {"posix": executor, "win32": executor}
+
+
 class TestEnvioCru:
     def test_bytes_sao_entregues_ao_executor_da_plataforma(self):
         recebido: dict[str, object] = {}
@@ -276,14 +288,15 @@ class TestEnvioCru:
             recebido["nome"] = nome
             recebido["dados"] = dados
 
-        infra_impressoras.enviar_bytes("POS-80", b"\x1b@oi", executores={"posix": falso})
+        infra_impressoras.enviar_bytes("POS-80", b"\x1b@oi", executores=_executores(falso))
         assert recebido == {"nome": "POS-80", "dados": b"\x1b@oi"}
 
     def test_sem_dados_ou_sem_impressora_nao_envia(self):
+        sem_acao = _executores(lambda n, d: None)
         with pytest.raises(ErroImpressao):
-            infra_impressoras.enviar_bytes("POS-80", b"", executores={"posix": lambda n, d: None})
+            infra_impressoras.enviar_bytes("POS-80", b"", executores=sem_acao)
         with pytest.raises(ErroImpressao):
-            infra_impressoras.enviar_bytes("", b"x", executores={"posix": lambda n, d: None})
+            infra_impressoras.enviar_bytes("", b"x", executores=sem_acao)
 
     def test_dica_de_termica_vem_do_nome_mas_nao_decide_nada(self):
         assert infra_impressora_termica("POS-80C")

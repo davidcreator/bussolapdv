@@ -2,6 +2,47 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.10.1] — 2026-11-11 — CI do Windows: testes de plataforma e falha que se explica
+
+O GitHub mostrava **CI vermelho** no repositório. O workflow `CI` (Linux, 3.12 e 3.13) estava verde
+desde o primeiro run; o `Windows` falhava sempre no mesmo passo — *Testes (Qt offscreen)* — e a única
+mensagem na aba Actions era `Process completed with exit code 1`, sem dizer qual teste quebrou.
+
+### Corrigido — teste preso à plataforma de quem roda a suíte
+
+- **`TestEnvioCru` (envio ESC/POS cru).** O teste injetava `executores={"posix": ...}`, mas
+  `enviar_bytes()` escolhe a chave pela plataforma: no Windows procura `"win32"`, não encontrava nada e
+  levantava `ImpressoraIndisponivel`. Passava no Linux, falhava no Windows **por causa de uma chave de
+  dicionário**, não do comportamento. Agora o mapa leva as duas chaves; o que o teste prova continua
+  sendo o repasse dos bytes ao executor escolhido.
+- **`TestFerramentaExterna` (backup sem o app).** O subprocesso recebia um `env` montado à mão com
+  `PATH=/usr/bin:/bin:/usr/local/bin`. No Windows faltavam `SYSTEMROOT`/`COMSPEC` e o processo nem
+  iniciava. O ambiente passou a ser herdado (`dict(os.environ)`), mantendo o que o teste quer de fato:
+  `PYTHONPATH` vazio e `PYTHONIOENCODING=utf-8`.
+- **Isolamento da pasta de dados nos testes de `caminhos`.** O fixture isolava só `XDG_DATA_HOME`; no
+  Windows a pasta padrão vem de `%LOCALAPPDATA%`/`%APPDATA%`, então a suíte escrevia no perfil real do
+  usuário. Agora as quatro variáveis (`XDG_*`, `LOCALAPPDATA`, `APPDATA`, `HOME`/`USERPROFILE`) apontam
+  para o `tmp_path`.
+
+### Adicionado — o CI aprende a dizer o que quebrou
+
+- **`ferramentas/anotar_falhas.py`**: lê o JUnit XML do pytest e emite anotações no formato do GitHub
+  Actions (`::error file=...,title=<teste>::<mensagem>`), mais um resumo em texto. Só biblioteca padrão,
+  porque precisa rodar mesmo quando o projeto está quebrado.
+- **Os dois workflows** (`ci.yml` e `windows.yml`) agora rodam o pytest com
+  `--junitxml=relatorio-testes.xml`, chamam o anotador `if: failure()` e sobem o XML como artefato com
+  `if: always()`. O próximo vermelho aparece com nome de teste, arquivo e mensagem — não com "exit code 1".
+
+### Verificação
+
+- Suíte local: **729 testes, 0 falhas** (`pytest -q --junitxml`), `ruff` e `mypy` limpos.
+- `tests/test_anotar_falhas.py` (9 testes): o anotador extrai nome/arquivo/mensagem, não derruba o passo
+  quando o relatório está ausente ou corrompido, e — o que mais importa — **falha se alguém tirar o
+  `--junitxml` ou a chamada do anotador de qualquer um dos dois workflows**.
+- O que **não** foi verificado: a execução real no Windows. O diagnóstico dos dois defeitos acima saiu da
+  leitura do código (`sys.platform`, ambiente do subprocesso, variáveis de pasta); a confirmação vem do
+  próximo run, agora com anotações.
+
 ## [0.10.0] — 2026-11-11 — mentor que explica a tela, e o guia completo na Ajuda
 
 Pedido: *"gerar um mentor que irá explicar como as telas e os campos dentro do PDV funcionam e deixar
