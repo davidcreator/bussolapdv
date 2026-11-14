@@ -18,6 +18,10 @@ Três caminhos possíveis. Escolha **um**:
 | **B. Rodar do código** | quem vai usar e acompanhar o projeto | Python 3.12 | `bussola-pdv` no PowerShell |
 | **C. Compilar o `.exe`/instalador** | quem quer o binário ou distribuir para a loja | Python 3.12 + Inno Setup | `.exe` portátil e instalador |
 
+> **Atalho:** para gerar tudo com um comando (`python empacotamento/gerar_pacote.py`) e para
+> Linux e macOS, veja [PACOTES.md](PACOTES.md). Este documento continua sendo o passo a passo
+> detalhado do Windows — inclusive do instalador com Inno Setup.
+
 ## Requisitos (valem para os três caminhos)
 
 - **Windows 10 (versão 1903 ou mais recente) ou Windows 11, 64 bits.** Windows 7/8

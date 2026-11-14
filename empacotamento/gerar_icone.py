@@ -10,6 +10,7 @@ O que é produzido:
 
 ======================================  ======================================
 `empacotamento/bussola.ico`             ícone do `.exe` e do atalho, 7 tamanhos
+`empacotamento/bussola.icns`            ícone do `.app` no macOS, 5 tamanhos
 `empacotamento/bussola.png`             PNG 256 para documentação/loja
 `empacotamento/instalador_pequeno.bmp`  55×55 do assistente de instalação (Inno)
 `empacotamento/instalador_lateral.bmp`  164×314 do assistente de instalação
@@ -128,6 +129,34 @@ def montar_ico(destino: Path, tamanhos: tuple[int, ...] = TAMANHOS) -> Path:
     return destino
 
 
+#: Tipos de *chunk* do ICNS que aceitam PNG (Apple): 16, 32, 128, 256 e 512 px,
+#: mais as variantes @2x. Só os quadrados que existem na origem são usados.
+CHUNKS_ICNS = (
+    ("icp5", 32),
+    ("ic07", 128),
+    ("ic08", 256),
+    ("ic09", 512),
+    ("ic10", 1024),
+)
+
+
+def montar_icns(destino: Path, tamanhos: tuple[tuple[str, int], ...] = CHUNKS_ICNS) -> Path:
+    """Escreve um `.icns` (contêiner da Apple) com PNGs dentro.
+
+    O formato é simples: a assinatura `icns`, o tamanho total em big-endian e, na
+    sequência, blocos de `tipo (4 bytes) + tamanho (4 bytes) + PNG`. O Finder lê
+    PNG desde o Mac OS X 10.7, então não é preciso converter para o formato
+    antigo (RGB cru) nem usar `iconutil` — que só existe no macOS.
+    """
+    _garantir_aplicacao()
+    corpo = b""
+    for tipo, lado in tamanhos:
+        dados = _png(_imagem(lado))
+        corpo += tipo.encode("ascii") + struct.pack(">I", len(dados) + 8) + dados
+    destino.write_bytes(b"icns" + struct.pack(">I", len(corpo) + 8) + corpo)
+    return destino
+
+
 def desenhar_bmp(destino: Path, largura: int, altura: int, *, altura_do_logo: int) -> Path:
     """Imagem do assistente de instalação: logo centralizado sobre fundo branco.
 
@@ -153,6 +182,7 @@ def desenhar_bmp(destino: Path, largura: int, altura: int, *, altura_do_logo: in
 
 def main() -> int:
     ico = montar_ico(AQUI / "bussola.ico")
+    icns = montar_icns(AQUI / "bussola.icns")
     _imagem(256).save(str(AQUI / "bussola.png"), "PNG")
     pequeno = desenhar_bmp(
         AQUI / "instalador_pequeno.bmp", LADO_PEQUENO, LADO_PEQUENO, altura_do_logo=44
@@ -163,6 +193,7 @@ def main() -> int:
     _, nome = _recursos()
     print(f"Origem: {nome}")
     print(f"Ícone gerado: {ico} ({ico.stat().st_size / 1024:.1f} kB, {len(TAMANHOS)} tamanhos)")
+    print(f"Ícone do macOS: {icns} ({icns.stat().st_size / 1024:.1f} kB, {len(CHUNKS_ICNS)} tamanhos)")
     print(f"PNG de referência: {AQUI / 'bussola.png'}")
     print(f"Assistente (pequeno): {pequeno}")
     print(f"Assistente (lateral): {lateral}")

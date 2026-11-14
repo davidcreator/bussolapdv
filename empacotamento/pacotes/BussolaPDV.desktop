@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Bússola PDV
+GenericName=Ponto de venda
+Comment=PDV offline de código aberto
+Exec=BussolaPDV
+Icon=bussolapdv
+Terminal=false
+Categories=Office;Finance;
+StartupWMClass=BussolaPDV

@@ -2,6 +2,50 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [Não lançado]
+
+### Adicionado — pacotes de instalação para Windows, Linux e macOS
+
+Até aqui só existia a receita do Windows (`build_windows.ps1` + Inno Setup). Agora há **um comando
+só** para o sistema em que se está, e o mesmo pacote simples nos três: extrair (ou duplo clique),
+abrir, usar.
+
+- **`empacotamento/gerar_pacote.py`**: roda a suíte, chama o PyInstaller com a receita única e monta
+  o pacote da plataforma — `.zip` portátil e `setup.exe` no Windows (quando há Inno Setup),
+  `.tar.gz` com `Instalar.sh`/`Iniciar.sh`/atalho de menu no Linux, `.zip` com `BussolaPDV.app` e
+  `.dmg` no macOS. `--sem-pyinstaller` reaproveita `dist/`, `--lista` só mostra o plano.
+- **`empacotamento/pacotes/`**: os modelos que vão dentro do pacote — `Instalar.sh` (instala por
+  usuário, sem sudo, com `--remover` que não toca na base), `Iniciar.sh`, `BussolaPDV.desktop`,
+  `Iniciar.command` e o `LEIA-ME.txt` escrito para cada sistema.
+- **`empacotamento/gerar_icone.py`**: passou a gerar também o **`.icns`** do macOS (contêiner da
+  Apple com PNGs, escrito com `struct` — sem `iconutil`, que só existe no macOS) e o PNG 256 usado
+  no menu do Linux.
+- **`empacotamento/bussola.spec`**: no macOS cria o bundle `.app` (`BUNDLE`) com `Info.plist`,
+  identificador, versão e ícone; no Windows e no Linux o bloco não existe.
+- **`.github/workflows/pacotes.yml`**: matriz Linux + macOS que compila o pacote e sobe como
+  artefato — é o caminho para gerar os pacotes dos outros sistemas sem ter as máquinas. Traz teste
+  de fumaça (`--version` no binário empacotado) e não publica release sozinho.
+- **`docs/PACOTES.md`**: o caminho simples, o **passo a passo manual** de cada sistema (comandos de
+  PyInstaller, Inno Setup, `tar.gz`, `ditto`/`hdiutil`, AppImage opcional), a regra da compilação
+  cruzada e a separação entre o que foi verificado e o que não foi.
+- **`make pacote`** e `docs/INSTALACAO_WINDOWS.md` apontando para o documento novo.
+
+### Verificação
+
+- `tests/test_pacotes.py` (29 testes): três deles exercitam o empacotamento de verdade com um
+  `dist/` falso — o zip do Windows abre com `LEIA-ME` sem marcador, o `.tar.gz` do Linux traz os
+  scripts com bit de execução, e o macOS empacota o `.app`. O `.icns` é lido bloco a bloco (cabeçalho, tamanho declarado
+  igual ao real, PNGs em 128/256/512), o `.desktop` é relido como INI, os três scripts passam em
+  `sh -n` e estão com bit de execução, o `Instalar.sh` não usa sudo nem menciona a base, o `LEIA-ME`
+  só usa marcadores que o gerador substitui, o `spec` cria o `.app` só no macOS e o workflow não
+  publica release.
+- Rodado nesta máquina (Linux x86_64): `python empacotamento/gerar_pacote.py` completo em **~58 s**;
+  binário empacotado respondeu `--version`; `.tar.gz` de **100,3 MB** com migrações, `tzdata` e os
+  dois logos dentro; `Instalar.sh` num `HOME` vazio criou programa, ícone e atalho, o instalado
+  respondeu `--version`, e `--remover` apagou programa + atalho.
+- **Não** gerados nem executados aqui: `.exe`, `setup.exe`, `.app` e `.dmg` — dependem de Windows e
+  macOS.
+
 ## [0.11.0] — 2026-11-11 — Identidade visual: os dois logos oficiais
 
 ### Adicionado — identidade visual: os dois logos oficiais (ADR-028)

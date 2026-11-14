@@ -13,6 +13,7 @@ temporária a cada execução (abertura de 5–15 s e antivírus reclamando do
 executável automático). Onedir abre rápido e o instalador empacota a pasta.
 """
 
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -127,3 +128,26 @@ pasta = COLLECT(  # noqa: F821
     upx_exclude=[],
     name="BussolaPDV",
 )
+
+# macOS: o COLLECT acima é uma pasta; no macOS o que se abre com duplo clique é um
+# `.app` (bundle). Só é criado quando a receita roda no macOS — no Windows e no
+# Linux este bloco não existe.
+if sys.platform == "darwin":
+    ICONE_MACOS = EMPACOTAMENTO / "bussola.icns"
+    V = ".".join(str(parte) for parte in __import__("bussola_pdv").__version__.split(".")[:3])
+    aplicativo = BUNDLE(  # noqa: F821
+        pasta,
+        name="BussolaPDV.app",
+        icon=str(ICONE_MACOS) if ICONE_MACOS.exists() else None,
+        bundle_identifier="org.bussolapdv.pdv",
+        info_plist={
+            "CFBundleName": "Bússola PDV",
+            "CFBundleDisplayName": "Bússola PDV",
+            "CFBundleShortVersionString": V,
+            "CFBundleVersion": V,
+            "CFBundleInfoDictionaryVersion": "6.0",
+            "NSHighResolutionCapable": True,
+            "LSMinimumSystemVersion": "11.0",
+            "LSApplicationCategoryType": "public.app-category.business",
+        },
+    )

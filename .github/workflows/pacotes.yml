@@ -1,0 +1,116 @@
+name: Pacotes
+
+# Gera o pacote de instalação de cada sistema nos runners do GitHub.
+#
+# Existe porque o PyInstaller não faz compilação cruzada: binário Linux só nasce
+# em Linux e .app só nasce no macOS. Quem mantém o projeto em Windows (o caso
+# deste repositório) usa este workflow para obter os três pacotes sem ter as três
+# máquinas. O `.exe` continua no `windows.yml`, que também produz o Inno Setup.
+#
+# Não publica release: sobe como artefato do run. Para publicar, baixe o artefato
+# e anexe à release.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "empacotamento/**"
+      - "src/**"
+      - "pyproject.toml"
+      - ".github/workflows/pacotes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pacote:
+    name: Pacote (${{ matrix.so }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - so: linux
+            runner: ubuntu-latest
+            artefato: bussolapdv-linux
+          - so: macos
+            runner: macos-latest
+            artefato: bussolapdv-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dependências
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -e ".[empacotamento,dev]"
+
+      # As bibliotecas de sistema do Qt são necessárias para o build no Linux;
+      # no macOS o PySide6 já traz o que precisa.
+      - name: Bibliotecas do Qt (Linux)
+        if: matrix.so == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0
+
+      - name: Testes (Qt offscreen)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests -q
+
+      - name: Ícone
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python empacotamento/gerar_icone.py
+
+      - name: Pacote
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python empacotamento/gerar_pacote.py --sem-teste
+
+      # Fumaça: o binário empacotado inicia e responde à versão. Sem isso o
+      # artefato poderia subir quebrado — e quem descobre é o usuário.
+      - name: Fumaça — o binário responde --version
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          if [ "${{ matrix.so }}" = "macos" ]; then
+            BIN="dist/BussolaPDV.app/Contents/MacOS/BussolaPDV"
+          else
+            BIN="dist/BussolaPDV/BussolaPDV-console"
+          fi
+          saida=$("$BIN" --version 2>&1 || true)
+          echo "$saida"
+          case "$saida" in
+            *ssola*) echo "OK" ;;
+            *) echo "::error::O binário não respondeu ao --version"; exit 1 ;;
+          esac
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artefato }}
+          path: |
+            dist/BussolaPDV-*-linux-*.tar.gz
+            dist/BussolaPDV-*-linux-*.AppImage
+            dist/BussolaPDV-*-macos.zip
+            dist/BussolaPDV-*-macos.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Aviso de assinatura
+        if: matrix.so == 'macos'
+        run: |
+          echo "::warning::O .app não é assinado nem notarizado; o Gatekeeper vai avisar (docs/PACOTES.md)."

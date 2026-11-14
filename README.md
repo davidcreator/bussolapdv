@@ -6,7 +6,8 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
-> [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) — e todo relatório sai em **Excel e PDF**
+> [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) — e agora também pacote para **Linux e
+> macOS**, com um comando só: [docs/PACOTES.md](docs/PACOTES.md). Todo relatório sai em **Excel e PDF**
 > ([docs/EXPORTACAO.md](docs/EXPORTACAO.md)), inclusive das telas de clientes, crediário, estoque e
 > do turno de caixa. Também imprime em **impressora comum (A4)** e em **térmica de bobina 58/80 mm**,
 > com prévia, corte, gaveta e código de barras ([docs/IMPRESSAO.md](docs/IMPRESSAO.md)).

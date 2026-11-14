@@ -1,0 +1,40 @@
+Bússola Sistema PDV Open Source — %VERSAO% (%SISTEMA%)
+================================================================
+
+Programa de ponto de venda offline. Não acessa a internet, não emite documento
+fiscal e não instala serviço nenhum.
+
+COMO INSTALAR
+-------------
+%COMO_INSTALAR%
+
+COMO ABRIR
+----------
+%COMO_RODAR%
+
+ONDE FICAM SEUS DADOS
+---------------------
+%ONDE_FICAM_OS_DADOS%
+
+A base do PDV NUNCA fica dentro da pasta do programa: assim atualizar ou
+desinstalar o programa não apaga venda, cliente nem estoque. No primeiro uso o
+programa pergunta em que pasta você quer guardar a base (pode ser outro disco ou
+um pendrive).
+
+AVISO DO SISTEMA NA PRIMEIRA ABERTURA
+-------------------------------------
+O programa não tem assinatura digital (certificado pago). Por isso o Windows pode
+mostrar o SmartScreen e o macOS pode dizer que o aplicativo é de desenvolvedor
+não identificado. É esperado: o aviso fala da assinatura, não do programa. O que
+fazer está na seção COMO INSTALAR / COMO ABRIR acima.
+
+DESINSTALAR
+-----------
+%COMO_REMOVER%
+
+DOCUMENTAÇÃO
+------------
+Instalação, backup e uso: https://github.com/davidcreator/bussolapdv
+Problemas: https://github.com/davidcreator/bussolapdv/issues
+
+Licença GPL-2.0-or-later. O código-fonte é público.
