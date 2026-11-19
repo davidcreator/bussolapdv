@@ -1,9 +1,11 @@
-# API HTTP local
+# API HTTP (local e da rede da loja)
 
-> **Status:** funciona na v0.13.0, disponível por comando (`bussola api`).
-> **Escuta em `127.0.0.1` por padrão** e exige token em toda rota.
+> **Status:** v0.14.0. Completa para operar o dia: vender, abrir/fechar turno,
+> receber título (com encargo), lançar entrada, devolver e cancelar.
+> **Escuta em `127.0.0.1` por padrão** e exige token em toda rota. Para atender
+> terminais na rede, `--tls` (obrigatório fora do loopback) — `docs/REDE.md`.
 > Não é API de internet: é a porta para integrações locais e para o servidor
-> central do multi-caixa (`docs/REDE.md`).
+> central do multi-caixa.
 
 ## Por que existe
 
@@ -30,8 +32,32 @@ Saída: `API no ar em http://127.0.0.1:8765/v1`.
 |---|---|---|
 | `--banco` | `dados/bussola.db` | a base do PDV |
 | `--token` | `BUSSOLA_API_TOKEN` | mínimo de 16 caracteres, obrigatório |
-| `--host` | `127.0.0.1` | `0.0.0.0` só atrás de proxy com TLS |
+| `--host` | `127.0.0.1` | `0.0.0.0` **exige** `--tls` (senão o comando recusa) |
 | `--porta` | `8765` | porta efêmera com `0` (útil em teste) |
+| `--tls` | desligado | gera/reaproveita certificado autoassinado em `<dados>/tls` |
+| `--tls-pasta` | `<dados>/tls` | onde ficam `servidor.crt` e `servidor.key` |
+| `--terminal` | `CAIXA-01` | identificador deste caixa |
+| `--log-acesso` | `<dados>/logs/api-AAAA-MM-DD.jsonl` | uma linha JSON por requisição |
+
+### TLS na rede da loja
+
+O certificado é **autoassinado e gerado pelo programa** (RSA 2048 + X.509 v3, em
+biblioteca padrão — não precisa instalar OpenSSL). Na subida, o comando imprime:
+
+```
+TLS: certificado autoassinado em D:\pdv\tls\servidor.crt
+     impressão digital SHA-256: 3A:91:...:F0
+```
+
+Conferir essa impressão no terminal (por telefone ou olhando a tela do servidor) é o
+que substitui a autoridade certificadora. Vale para a rede local; **não** serve para
+expor a API na internet.
+
+### Quem fez: o cabeçalho do terminal
+
+`X-Bussola-Terminal: BALCAO-2` (opcional, padrão `--terminal`). O valor é gravado em
+`vendas.terminal_id` e `turnos.terminal_id` e aparece no log de acesso. Sem ele, dois
+caixas na mesma base são indistinguíveis no histórico.
 
 ## Autenticação em duas camadas
 
@@ -59,14 +85,25 @@ Falha na camada 1 → `401`. Falha na camada 2 → `401` também, mas com o moti
 | GET | `/v1/crediario?cliente_id=&incluir_pagos=` | títulos e saldos |
 | GET | `/v1/devolucoes?venda_id=&limite=` | devoluções registradas |
 | GET | `/v1/devolucoes/{id}` | uma devolução com os itens gravados (404 se não existe) |
+| GET | `/v1/turnos` | turnos abertos (caixa, terminal, operador, fundo) |
 | GET | `/v1/relatorios/{estoque,clientes,crediario,entradas,auditoria}` | relatório pronto, com avisos |
 
 ### Escrita (token + login/senha)
 
 | Método | Rota | Corpo |
 |---|---|---|
-| POST | `/v1/devolucoes` | `venda_id`, `tipo`, `destino`, `motivo`, `itens[{sequencia,quantidade}]`, `operador`, `autorizador?`, `caixa_id?`, `devolver_estoque?` |
+| POST | `/v1/vendas` | `caixa_id`, `itens[{codigo,quantidade,desconto_centavos?}]`, `pagamentos[{forma,valor_centavos}]`, `operador`, `cliente_id?`, `autorizador?`, `parcelas_crediario?`, `chave_idempotencia?` |
 | POST | `/v1/vendas/{id}/cancelar` | `motivo`, `operador`, `autorizador`, `devolver_estoque?` |
+| POST | `/v1/turnos` | `caixa`, `fundo_centavos`, `operador` |
+| POST | `/v1/turnos/{id}/fechar` | `contagens[{denominacao,quantidade}]`, `operador`, `motivo_diferenca?` |
+| POST | `/v1/crediario/{titulo_id}/receber` | `valor_centavos`, `forma`, `caixa_id`, `operador`, `cobrar_encargos?`, `motivo_dispensa?`, `autorizador?` |
+| POST | `/v1/entradas` | `fornecedor`, `documento`, `itens[{codigo,quantidade,custo_unitario_centavos}]`, `frete_centavos?`, `operador` |
+| POST | `/v1/devolucoes` | `venda_id`, `tipo`, `destino`, `motivo`, `itens[{sequencia,quantidade}]`, `operador`, `autorizador?`, `caixa_id?`, `devolver_estoque?` |
+
+`A_PRAZO` em `pagamentos` gera o crediário (`parcelas_crediario`). Formas eletrônicas
+nascem **pendentes**, como na tela — a API não confirma o que a adquirente não mandou.
+`chave_idempotencia` é o que evita venda duplicada quando a rede oscila e o terminal
+repete o `POST`: a segunda chamada devolve `ja_existia: true` em vez de vender duas vezes.
 
 `tipo`: `ARREPENDIMENTO`, `DEFEITO`, `GARANTIA`, `ERRO_OPERACIONAL`.
 `destino`: `DINHEIRO`, `CREDITO_CREDIARIO`, `TROCA` (regras em `docs/DEVOLUCOES.md`).
@@ -92,6 +129,18 @@ curl -s -X POST http://127.0.0.1:8765/v1/devolucoes \
     "operador":    {"login": "bruno", "senha": "…"},
     "autorizador": {"login": "ana",   "senha": "…"}
   }'
+
+# venda pelo terminal do balcão
+curl -s -X POST https://127.0.0.1:8765/v1/vendas \
+  -H "Authorization: Bearer $TOKEN" -H "X-Bussola-Terminal: BALCAO-2" \
+  -H "Content-Type: application/json" \
+  --cacert dados/tls/servidor.crt \
+  -d '{
+    "caixa_id": "ID-DO-CAIXA",
+    "itens": [{"codigo": "A001", "quantidade": "1"}],
+    "pagamentos": [{"forma": "DINHEIRO", "valor_centavos": 1590}],
+    "operador": {"login": "carla", "senha": "…"}
+  }'
 ```
 
 ## Códigos de erro
@@ -109,16 +158,25 @@ curl -s -X POST http://127.0.0.1:8765/v1/devolucoes \
 Nunca sai *stack trace* na resposta. O detalhe completo fica na auditoria e no log
 local.
 
-## Limites conhecidos (v0.13.0)
+## Limites conhecidos (v0.14.0)
 
-- **escrita parcial**: venda, turno, recebimento e entrada ainda são só pela tela
-  (as rotas entram junto com o modo servidor do `docs/REDE.md`);
-- **sem TLS embutido**: em rede, use proxy reverso com certificado;
+- **a tela ainda não é cliente da API**: o programa do balcão abre a base direto.
+  As rotas existem e estão testadas; transformar a tela em terminal remoto é o
+  incremento seguinte (`docs/REDE.md`, seção "o que falta");
 - **sem paginação por cursor**: `limite` corta, e o resto não vem;
-- **sem log de acesso**: deliberado no modo local — em rede, isso é requisito.
+- **sem rate limit por terminal**: um único token ou um por máquina, decisão da loja;
+- **sem revogação de token em quente**: trocar exige reiniciar o servidor.
 
 ## Como testar
 
-`tests/test_api.py` sobe o servidor em porta efêmera e fala HTTP de verdade: token
-ausente, token errado, produto com saldo, venda com itens devolvíveis, devolução com
-credencial, tipo inválido (com a lista dos aceitos) e cancelamento sem autorizador.
+- `tests/test_api.py` — servidor em porta efêmera, HTTP de verdade: token ausente,
+  token errado, produto com saldo, venda com itens devolvíveis, devolução com
+  credencial, tipo inválido (com a lista dos aceitos), cancelamento sem autorizador
+  e devolução consultada por id.
+- `tests/test_rede_multi_caixa.py` — **HTTPS** com o certificado gerado pelo
+  programa: handshake, recusa sem confiar no certificado, terminal por cabeçalho
+  gravado na venda, log de acesso em JSONL, as rotas de escrita novas e **dois
+  terminais vendendo ao mesmo tempo** com o último item disputado.
+- `tests/test_certificado.py` — o certificado em si: DER canônico, série positiva,
+  RDN em SET, SAN, assinatura RSA verificada com `pow(s, e, n)`, digital estável e
+  `obter_ou_criar` idempotente.

@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.13.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.14.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -18,9 +18,13 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > ([ADR-029](docs/DECISOES.md)), não por pendência. O cupom e os relatórios dizem, no rodapé, que
 > não são documento fiscal. Não há homologação externa (fiscal ou de contador) e não substitui
 > sistema fiscal certificado: o contrato do emissor existe e está **desligado**, com o roteiro de
-> homologação em [docs/FISCAL.md](docs/FISCAL.md). Vários caixas em rede têm arquitetura decidida
-> (servidor central + terminais) e a **API HTTP local** já funciona — o modo cliente é o que falta
-> ([docs/REDE.md](docs/REDE.md), [docs/API.md](docs/API.md)).
+> homologação em [docs/FISCAL.md](docs/FISCAL.md). Vários caixas em rede têm **servidor pronto**:
+> API de escrita completa, HTTPS com **certificado gerado pelo programa**, terminal identificado por
+> cabeçalho, log de acesso e concorrência testada — falta a tela do caixa conversar com ele
+> ([docs/REDE.md](docs/REDE.md), [docs/API.md](docs/API.md)). O backup agora sobe para **AWS S3 ou
+> Azure Blob** sem SDK, só com biblioteca padrão ([docs/NUVEM.md](docs/NUVEM.md)), e o crediário
+> **cobra multa e juros de atraso como receita separada** — desligado de fábrica, ligado em Parâmetros
+> ([docs/ENCARGOS.md](docs/ENCARGOS.md)).
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
 > antes de qualquer uso com dados reais.
 

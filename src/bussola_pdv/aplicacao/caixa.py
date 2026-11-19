@@ -54,6 +54,7 @@ class ServicoCaixa:
                 fundo=fundo,
                 aberto_em=agora,
                 data_negocio=data_negocio,
+                terminal_id=self.ctx.terminal,
             )
             self._auditar(
                 AcaoAuditoria.TURNO_ABERTO,

@@ -51,6 +51,7 @@ from .dominio.relatorio import Relatorio
 from .dominio.relogio import FUSO_PADRAO, RelogioFixo, RelogioSistema, avisos_de_fuso
 from .dominio.usuario import Acao, Perfil
 from .infra.massa_demo import popular, relogio_demo
+from .infra.nuvem import ConfiguracaoNuvem
 from .infra.sqlite.conexao import abrir_conexao, fazer_backup
 
 
@@ -165,6 +166,56 @@ def cmd_backup(args: argparse.Namespace) -> int:
     print(f"  {copia.resumo()}")
     print(f"  registros: {copia.contagens}")
     print(f"  manifesto: {copia.manifesto.name} (sha256 {copia.sha256[:16]}…)")
+    if args.nuvem:
+        return _enviar_para_nuvem(args, copia.arquivo, copia.manifesto)
+    return 0
+
+
+def _configuracao_nuvem(args: argparse.Namespace) -> ConfiguracaoNuvem:
+    provedor = "S3" if args.nuvem == "aws" else "AZURE_BLOB"
+    recipiente = args.nuvem_recipiente or os.environ.get(
+        "BUSSOLA_NUVEM_RECIPIENTE", ""
+    )
+    if not recipiente:
+        raise ErroValidacao(
+            "Informe --nuvem-recipiente (balde no S3 ou contêiner no Azure) ou defina "
+            "BUSSOLA_NUVEM_RECIPIENTE."
+        )
+    return ConfiguracaoNuvem(
+        provedor=provedor,
+        recipiente=recipiente,
+        regiao=args.nuvem_regiao or os.environ.get("BUSSOLA_AWS_REGIAO", "sa-east-1"),
+        conta=os.environ.get("BUSSOLA_AZURE_CONTA", ""),
+        prefixo=args.nuvem_prefixo,
+    )
+
+
+def _enviar_para_nuvem(args: argparse.Namespace, arquivo: Path, manifesto: Path) -> int:
+    """Sobe a cópia e o manifesto. Falhou a nuvem, a cópia local continua válida."""
+    from .infra.nuvem import (
+        ArmazenamentoNuvem,
+        ErroNuvem,
+        NuvemNaoConfigurada,
+        criar_armazenamento,
+        enviar_backup,
+    )
+
+    try:
+        armazenamento: ArmazenamentoNuvem = criar_armazenamento(_configuracao_nuvem(args))
+    except (NuvemNaoConfigurada, ErroNuvem) as exc:
+        print(f"Nuvem não configurada: {exc}")
+        print(f"A cópia local continua em {arquivo.parent} — nada foi perdido.")
+        return 2
+    try:
+        chave = enviar_backup(armazenamento, arquivo)
+        chave_manifesto = enviar_backup(armazenamento, manifesto)
+    except ErroNuvem as exc:
+        print(f"Falha ao enviar para a nuvem: {exc}")
+        print(f"A cópia local continua em {arquivo.parent} — nada foi perdido.")
+        return 2
+    print(f"Nuvem: {_configuracao_nuvem(args).rotulo}")
+    print(f"  enviado: {chave}")
+    print(f"  enviado: {chave_manifesto}")
     return 0
 
 
@@ -435,8 +486,9 @@ def _mover_dados(origem: str | None, destino: Path) -> None:
 
 
 def cmd_api(args: argparse.Namespace) -> int:
-    """Sobe a API local (127.0.0.1 + token) e fica servindo até Ctrl+C."""
+    """Sobe a API (127.0.0.1 por padrão, TLS na rede) e serve até Ctrl+C."""
     from .infra.api import ConfiguracaoAPI, ServidorAPI
+    from .infra.rede.certificado import obter_ou_criar
 
     _exigir_banco(args.banco)
     token = args.token or os.environ.get("BUSSOLA_API_TOKEN", "")
@@ -446,13 +498,41 @@ def cmd_api(args: argparse.Namespace) -> int:
             "Exemplo: python -m bussola_pdv.cli api --token \"$(python -c "
             "'import secrets;print(secrets.token_urlsafe(24))')\""
         )
+    certificado = None
+    if args.tls:
+        if args.host in {"127.0.0.1", "localhost"}:
+            print("Aviso: --tls com host local não protege nada além do loopback.")
+        # Gerado uma vez e reaproveitado; a chave fica em <dados>/tls.
+        pasta_tls = Path(args.tls_pasta) if args.tls_pasta else diretorio_de_dados() / "tls"
+        certificado = obter_ou_criar(pasta_tls)
+    elif args.host not in {"127.0.0.1", "localhost", "::1"}:
+        raise ErroValidacao(
+            f"Escutar em {args.host} sem TLS enviaria token e senha em claro na rede. "
+            "Use --tls (o programa gera o certificado) ou mantenha 127.0.0.1 com proxy."
+        )
     contexto = _contexto(args)
     servidor = ServidorAPI(
-        contexto, ConfiguracaoAPI(token=token, host=args.host, porta=args.porta)
+        contexto,
+        ConfiguracaoAPI(
+            token=token,
+            host=args.host,
+            porta=args.porta,
+            tls=certificado,
+            terminal=args.terminal,
+            log_acesso=args.log_acesso
+            or str(pasta_de_logs() / f"api-{datetime.now().strftime('%Y-%m-%d')}.jsonl"),
+        ),
     ).iniciar()
     print(f"API no ar em {servidor.endereco} (host {args.host}, porta {servidor.porta})")
-    print("Rotas: /v1/saude, /v1/produtos, /v1/estoque, /v1/vendas, /v1/crediario,")
-    print("       /v1/devolucoes, POST /v1/devolucoes, POST /v1/vendas/{id}/cancelar")
+    print(f"Terminal: {args.terminal} (o cabeçalho X-Bussola-Terminal troca por requisição)")
+    if certificado is not None:
+        print(f"TLS: certificado autoassinado em {certificado.certificado}")
+        print(f"     impressão digital SHA-256: {certificado.digital}")
+        print("     confira essa impressão no terminal antes de confiar no certificado")
+    print("Rotas: /v1/saude, /v1/produtos, /v1/estoque, /v1/vendas, /v1/crediario, /v1/turnos,")
+    print("       /v1/devolucoes, /v1/relatorios/...; escrita: POST /v1/vendas,")
+    print("       POST /v1/turnos, /v1/turnos/{id}/fechar, /v1/crediario/{id}/receber,")
+    print("       POST /v1/entradas, POST /v1/devolucoes, /v1/vendas/{id}/cancelar")
     print("Documentação: docs/API.md. Encerre com Ctrl+C.")
     try:
         while True:
@@ -547,6 +627,19 @@ def construir_parser() -> argparse.ArgumentParser:
     p_backup.add_argument("--restaurar", default=None, metavar="ARQUIVO")
     p_backup.add_argument("--verificar", default=None, metavar="ARQUIVO")
     p_backup.add_argument("--recuperar", default=None, metavar="ARQUIVO")
+    p_backup.add_argument(
+        "--nuvem",
+        choices=("aws", "azure"),
+        default=None,
+        help="depois de criar, envia a cópia para S3 (aws) ou Azure Blob (azure)",
+    )
+    p_backup.add_argument(
+        "--nuvem-recipiente", default=None, help="balde (S3) ou contêiner (Azure)"
+    )
+    p_backup.add_argument("--nuvem-regiao", default=None, help="região AWS (padrão sa-east-1)")
+    p_backup.add_argument(
+        "--nuvem-prefixo", default="bussolapdv/", help="pasta lógica dentro do recipiente"
+    )
     p_backup.set_defaults(func=cmd_backup)
 
     p_fech = sub.add_parser("fechamento", help="relatório de fechamento do dia")
@@ -644,9 +737,23 @@ def construir_parser() -> argparse.ArgumentParser:
     p_api.add_argument(
         "--host",
         default="127.0.0.1",
-        help="endereço de escuta; 127.0.0.1 por segurança, 0.0.0.0 só com TLS por proxy",
+        help="endereço de escuta; 127.0.0.1 é o padrão e 0.0.0.0 exige --tls",
     )
     p_api.add_argument("--porta", type=int, default=8765)
+    p_api.add_argument(
+        "--tls",
+        action="store_true",
+        help="servir em HTTPS com certificado autoassinado (obrigatório para host de rede)",
+    )
+    p_api.add_argument(
+        "--tls-pasta", default=None, help="pasta do certificado (padrão: <dados>/tls)"
+    )
+    p_api.add_argument(
+        "--terminal", default="CAIXA-01", help="identificador deste terminal (ex.: CAIXA-01)"
+    )
+    p_api.add_argument(
+        "--log-acesso", default=None, help="arquivo JSONL de acessos (padrão: <dados>/logs)"
+    )
     p_api.set_defaults(func=cmd_api)
 
     p_dados = sub.add_parser("dados", help="mostra ou muda a pasta de dados da instalação")

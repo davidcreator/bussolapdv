@@ -160,10 +160,19 @@ class TelaCrediario(QWidget):
 
         dialogo = DialogoRecebimento(self.ctx, self.usuario, parent=self)
         if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.resultado is not None:
+            resultado = dialogo.resultado
             self.atualizar()
+            detalhe = ""
+            if resultado.encargo.centavos > 0:
+                detalhe = (
+                    f" · encargos cobrados {resultado.encargo.formatado()} "
+                    f"({resultado.dias_atraso} dia(s) de atraso)"
+                )
+            elif resultado.encargos_dispensados:
+                detalhe = " · encargos perdoados com autorização"
             self.rotulo_resumo.setText(
                 "Recebimento registrado · saldo restante do título "
-                f"{dialogo.resultado.saldo_restante.formatado()}"
+                f"{resultado.saldo_restante.formatado()}{detalhe}"
             )
 
 

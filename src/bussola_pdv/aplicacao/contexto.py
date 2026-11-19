@@ -32,6 +32,10 @@ class Contexto:
     conexao: sqlite3.Connection
     relogio: Relogio
     caminho: Path | None = None
+    #: Identificador do terminal que fez a operação (rede multi-caixa, v0.14.0).
+    #: No caixa único fica o padrão; o servidor troca por requisição, lendo o
+    #: cabeçalho `X-Bussola-Terminal`.
+    terminal: str = "CAIXA-01"
 
     produtos: ProdutoRepositorio = field(init=False)
     clientes: ClienteRepositorio = field(init=False)

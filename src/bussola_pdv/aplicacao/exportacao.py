@@ -726,6 +726,7 @@ class ServicoExportacao:
                 ("Fundo de troco", _moeda(valores["fundo_centavos"])),
                 ("Vendas em dinheiro", _moeda(valores["vendas_dinheiro_centavos"])),
                 ("Recebimentos de títulos", _moeda(valores["recebimentos_centavos"])),
+                ("Encargos de atraso (multa + juros)", _moeda(valores["encargos_centavos"])),
                 ("Suprimentos", _moeda(valores["suprimentos_centavos"])),
                 ("Sangrias", _moeda(valores["sangrias_centavos"])),
                 ("Estornos", _moeda(valores["estornos_centavos"])),
@@ -745,8 +746,8 @@ class ServicoExportacao:
                     [("Item", TipoColuna.TEXTO, 30), ("Valor", TipoColuna.TEXTO, 34)],
                     itens,
                     nota=(
-                        "Esperado = fundo + vendas em dinheiro + recebimentos + suprimentos "
-                        "− sangrias − estornos."
+                        "Esperado = fundo + vendas em dinheiro + recebimentos + encargos "
+                        "+ suprimentos − sangrias − estornos."
                     ),
                 )
             )

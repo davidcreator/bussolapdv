@@ -43,6 +43,7 @@ from ..aplicacao.crediario import ResultadoRecebimento, ServicoCrediario
 from ..aplicacao.estoque import ServicoEstoque
 from ..dominio.cliente import Cliente
 from ..dominio.dinheiro import Dinheiro, Quantidade
+from ..dominio.encargos import EncargosDevidos
 from ..dominio.erros import ErroBussola
 from ..dominio.estoque import CriterioRateio, EntradaMercadoria, ItemEntrada
 from ..dominio.pagamentos import FormaPagamento
@@ -563,7 +564,25 @@ class DialogoRecebimento(_DialogoBase):
             "Referência", dica="opcional (comprovante, PIX…)"
         )
 
+        # -- encargos (v0.14.0) ---------------------------------------------
+        self.rotulo_encargos = QLabel()
+        self.rotulo_encargos.setWordWrap(True)
+        self.rotulo_encargos.setObjectName("dica")
+        self._campo("Encargos do atraso", self.rotulo_encargos)
+        self.combo_cobrar = QCheckBox("Cobrar multa e juros deste título")
+        self.combo_cobrar.setChecked(self.servico.cobranca_ligada())
+        self._campo("Cobrança", self.combo_cobrar)
+        self.campo_login = self._texto(
+            "Autorizador (login)", dica="obrigatório para perdoar o encargo"
+        )
+        self.campo_senha = self._texto("Senha do autorizador", dica="••••••")
+        self.campo_senha.setEchoMode(QLineEdit.EchoMode.Password)
+        self.campo_motivo = self._texto(
+            "Motivo do perdão", dica="por que o encargo não foi cobrado"
+        )
+
         self.combo_titulo.currentIndexChanged.connect(self._preencher_saldo)
+        self.combo_cobrar.toggled.connect(self._atualizar_encargos)
         self._preencher_saldo()
         if not self.titulos:
             self.mensagem.alerta("Nenhum título em aberto para receber.")
@@ -577,6 +596,53 @@ class DialogoRecebimento(_DialogoBase):
         titulo = self._titulo_atual()
         if titulo is not None and not self.campo_valor.text().strip():
             self.campo_valor.setText(_moeda(int(titulo["saldo_centavos"])))
+        self._atualizar_encargos()
+
+    def encargos_devidos(self) -> EncargosDevidos | None:
+        """Encargos do título selecionado, calculados na data de negócio."""
+        titulo = self._titulo_atual()
+        if titulo is None:
+            return None
+        return self.servico.encargos_do_titulo(str(titulo["id"]))
+
+    def precisa_autorizar_perdao(self) -> bool:
+        """Só há perdão a autorizar quando a loja cobra e o operador desmarcou."""
+        devidos = self.encargos_devidos()
+        return (
+            self.servico.cobranca_ligada()
+            and devidos is not None
+            and not devidos.isento
+            and not self.combo_cobrar.isChecked()
+        )
+
+    def _atualizar_encargos(self) -> None:
+        """Mostra quanto seria cobrado e pede autorização só quando há perdão."""
+        devidos = self.encargos_devidos()
+        if devidos is None:
+            self.rotulo_encargos.setText("—")
+            return
+        if not self.servico.cobranca_ligada():
+            self.combo_cobrar.setEnabled(False)
+            self.rotulo_encargos.setText(
+                "Cobrança de encargos desligada nos parâmetros "
+                f"({devidos.dias_atraso} dia(s) de atraso, sem cobrança)."
+            )
+        elif devidos.isento:
+            self.combo_cobrar.setEnabled(False)
+            self.rotulo_encargos.setText(
+                f"Sem atraso cobrável ({devidos.dias_atraso} dia(s) e carência aplicada)."
+            )
+        else:
+            self.combo_cobrar.setEnabled(True)
+            estado = "serão cobrados" if self.combo_cobrar.isChecked() else "NÃO serão cobrados"
+            self.rotulo_encargos.setText(
+                f"{devidos.dias_atraso} dia(s) de atraso · multa "
+                f"{devidos.multa.formatado()} + juros {devidos.juros.formatado()} = "
+                f"{devidos.total.formatado()} ({estado})"
+            )
+        perdao = self.precisa_autorizar_perdao()
+        for campo in (self.campo_login, self.campo_senha, self.campo_motivo):
+            campo.setEnabled(perdao)
 
     def _caixa_aberto(self) -> str:
         return caixa_aberto(self.ctx)
@@ -588,6 +654,14 @@ class DialogoRecebimento(_DialogoBase):
         valor = Dinheiro(_centavos(self.campo_valor.text()))
         if valor.centavos <= 0:
             raise ErroBussola("Informe o valor recebido.")
+        cobrar = self.combo_cobrar.isChecked() or not self.servico.cobranca_ligada()
+        autorizador = None
+        if self.precisa_autorizar_perdao():
+            autorizador = ServicoAutenticacao(self.ctx).autorizar(
+                self.campo_login.text().strip(),
+                self.campo_senha.text(),
+                Acao.TITULO_ENCARGO_DISPENSAR,
+            )
         self.resultado = self.servico.receber(
             titulo_id=str(titulo["id"]),
             valor=valor,
@@ -595,6 +669,9 @@ class DialogoRecebimento(_DialogoBase):
             operador=self.usuario,
             caixa_id=self._caixa_aberto(),
             referencia=self.campo_referencia.text().strip(),
+            cobrar_encargos=cobrar,
+            motivo_dispensa=self.campo_motivo.text().strip(),
+            autorizador=autorizador,
         )
 
 

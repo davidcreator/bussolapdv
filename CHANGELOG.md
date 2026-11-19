@@ -2,6 +2,79 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.14.0] — 2026-11-11 — pré-alfa: encargos cobrados, nuvem de verdade e servidor multi-caixa
+
+A v0.13.0 deixou três frentes "documentadas e preparadas". Esta rodada fecha as três — em código,
+com teste — menos a parte que o responsável mandou deixar para depois (a tela do caixa remoto) e a
+que está fora de escopo (emissão fiscal). As decisões estão nos **ADR-033**, **ADR-034** e
+**ADR-035**.
+
+### Adicionado — encargo de crediário cobrado como receita separada (ADR-033)
+
+- **Calculadora vira cobrança**: `ServicoCrediario.receber(..., cobrar_encargos=True)` calcula multa,
+  juros e dias de atraso e grava em `recebimentos`; o **título continua com o valor original**.
+- **Receita identificada**: o dinheiro do encargo entra no caixa como movimento próprio
+  `RECEBIMENTO_ENCARGOS`, e o resumo do turno passa a separar `recebimentos` de `encargos_centavos`.
+- **Nasce desligado**: `encargos.cobrar = 0` de fábrica; ligar é decisão da loja (Parâmetros →
+  Encargos), com auditoria da mudança.
+- **Perdoar exige autorizador e motivo**: permissão nova `TITULO_ENCARGO_DISPENSAR` (gerente ou
+  admin), `motivo_dispensa` obrigatório, valor perdoado na auditoria.
+- **Migração 0005** (tabela `recebimentos` com multa, juros, dias, dispensados + novo tipo de
+  movimento de caixa via rebuild, porque o `CHECK` de `movimentos_caixa.tipo` é fechado).
+- **Tela**: caixa de recebimento mostra multa, juros, dias e total; o botão de dispensar só aparece
+  para quem tem a permissão.
+- **Parâmetros**: `encargos.cobrar`, `encargos.multa_bp`, `encargos.juros_mes_bp`,
+  `encargos.carencia_dias`.
+
+### Adicionado — nuvem AWS S3 e Azure Blob em biblioteca padrão (ADR-034)
+
+- **`infra/nuvem/assinatura.py`**: AWS Signature V4 e Azure Shared Key escritas à mão
+  (`hmac` + `hashlib`), conferidas byte a byte contra os exemplos oficiais publicados.
+- **`ArmazenamentoS3`** e **`ArmazenamentoAzureBlob`** com `enviar`, `baixar`, `listar`, `remover`
+  (e `existe` no S3); `criar_armazenamento(config)` escolhe o provedor.
+- **`bussola backup --nuvem aws|azure`**: faz a cópia local, **verifica o `sha256`** e só então envia;
+  falha de nuvem devolve **código 2** com a variável que falta, sem invalidar a cópia local.
+- **Credencial só em ambiente**: `BUSSOLA_AWS_*` e `BUSSOLA_AZURE_*`; sem elas o cliente não nasce e
+  a mensagem diz qual falta. Nenhum SDK, nenhuma dependência nova.
+- **Teste sem conta de nuvem**: servidor HTTP local que exige assinatura e devolve os bytes enviados,
+  provando o caminho inteiro (ida e volta, listagem, remoção, erro de chave).
+
+### Adicionado — servidor de rede utilizável (ADR-035)
+
+- **Rotas de escrita**: `POST /v1/vendas`, `POST /v1/turnos`, `POST /v1/turnos/{id}/fechar`,
+  `POST /v1/crediario/{id}/receber` (com encargo), `POST /v1/entradas`, `POST /v1/devolucoes`,
+  `POST /v1/vendas/{id}/cancelar`, mais `GET /v1/turnos` — todas chamando os mesmos serviços da tela.
+- **TLS obrigatório fora do loopback**: `bussola api --host 0.0.0.0` sem `--tls` **falha na subida**;
+  com `--tls` o servidor sobe em HTTPS.
+- **Certificado gerado pelo programa** (`infra/rede/certificado.py`): RSA 2048 + X.509 v3 com SAN,
+  em Python puro — sem `openssl` e sem `cryptography`. Gerado uma vez em `<dados>/tls` (chave 0600) e
+  reaproveitado; a impressão digital SHA-256 aparece na subida.
+- **Identidade de terminal**: cabeçalho `X-Bussola-Terminal` (padrão `--terminal CAIXA-01`) gravado
+  em `vendas.terminal_id` e `turnos.terminal_id` (migração 0006).
+- **Log de acesso JSONL** (`logs/api-AAAA-MM-DD.jsonl`): quando, terminal, IP, método, rota, status e
+  latência — é o que permite reconstruir disputa entre caixas.
+- **Concorrência testada**: dois terminais vendendo o último item ao mesmo tempo — uma venda passa, a
+  outra é recusada, estoque termina em zero.
+
+### Documentação
+
+- `docs/DECISOES.md`: **ADR-033** (encargo como receita separada), **ADR-034** (nuvem em stdlib),
+  **ADR-035** (TLS gerado + terminal identificado); pendências P2, P3 e P14 atualizadas e P16 criada
+  (instalar o `.crt` nas máquinas).
+- `docs/ENCARGOS.md`, `docs/NUVEM.md`, `docs/REDE.md`, `docs/API.md` reescritos para o estado real.
+- Manual do usuário: capítulo Crediário ganhou **Juros e multa de atraso** (ligar, cobrar, perdoar,
+  limite legal), Backup ganhou **Guardar a cópia fora da loja (nuvem)**, Problemas ganhou servidor de
+  rede e nuvem, e a lista "em construção" passou a dizer o que já **funciona** e o que ainda não tem
+  tela.
+
+### Continua fora ou pendente
+
+- **Emissão fiscal**: fora de escopo (ADR-029); roteiro em `docs/FISCAL.md`.
+- **Tela do caixa remoto**: próxima fase, por decisão do responsável — o servidor está pronto e o
+  programa continua abrindo a base direto.
+- Sem multipart upload, sem retry automático na nuvem e sem paginação na listagem (limites em
+  `docs/NUVEM.md`).
+
 ## [0.13.0] — 2026-11-11 — pré-alfa: devolução tipada, API local e os caminhos de fiscal, rede e nuvem
 
 A v0.12.0 fechou as lacunas de cadastro. Esta rodada atende a um pedido de fôlego maior:

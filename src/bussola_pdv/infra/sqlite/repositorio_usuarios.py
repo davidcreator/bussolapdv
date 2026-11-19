@@ -161,7 +161,8 @@ class ParametroRepositorio(RepositorioBase):
         "devolucao.prazo_arrependimento_dias": "7",
         "devolucao.prazo_defeito_dias": "90",
         "devolucao.estoque_automatico": "1",
-        # Encargos (base pronta, ainda não cobrados): multa e juros de mora.
+        # Encargos (v0.14.0): desligado por padrão; a loja liga quando decidir cobrar.
+        "encargos.cobrar": "0",
         "encargos.multa_bp": "200",
         "encargos.juros_mes_bp": "100",
         "encargos.carencia_dias": "0",

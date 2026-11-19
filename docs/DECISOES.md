@@ -716,13 +716,103 @@ mitigado pelo fato de cada uma **falhar alto**, nunca em silêncio.
 
 ---
 
+## ADR-033 — Encargo de atraso é receita separada, e a cobrança nasce desligada
+
+**Contexto.** A calculadora de encargos existia desde a v0.13.0 e não cobrava nada. O
+responsável decidiu cobrar, e a pergunta que faltava era **onde o dinheiro do encargo
+aparece**: dentro do título (aumentando a dívida) ou como linha própria no recebimento.
+
+**Decisão.** O encargo é **receita identificada**, nunca acréscimo ao título:
+
+1. `titulos` fica intacto — o cliente quita o principal que deve; multa e juros não
+   viram dívida retroativa em documento que ele já assinou;
+2. multa, juros e dias de atraso são gravados em `recebimentos` (colunas próprias);
+3. o dinheiro do encargo entra na gaveta como `RECEBIMENTO_ENCARGOS`, tipo próprio de
+   movimento de caixa — o fechamento mostra "recebimentos" e "encargos" em linhas
+   diferentes (`encargos_centavos` no resumo do turno);
+4. a cobrança nasce **desligada** (`encargos.cobrar = 0`): ligar é decisão da loja,
+   registrada na auditoria de parâmetros;
+5. **perdoar** encargo exige autorizador com `TITULO_ENCARGO_DISPENSAR` (gerente ou
+   admin) **e motivo escrito**; o recebimento guarda `encargos_dispensados = 1` e a
+   auditoria guarda quanto foi perdoado, quem autorizou e por quê.
+
+**Consequências.** O contador consegue somar receita de mercadoria e receita de encargo
+separadamente, o que é o que se pede numa conferência. Risco aceito: duas linhas no
+fechamento em vez de uma — resolvido com rótulo explícito. Efeito colateral bom: como
+o título não muda, nenhum histórico é reescrito e nenhum relatório antigo passa a
+mostrar número diferente.
+
+---
+
+## ADR-034 — Nuvem com `hmac` e `hashlib`, não com SDK
+
+**Contexto.** O contrato de armazenamento existia desde a v0.13.0 e falhava ao ser
+usado, porque não havia cliente. As saídas eram instalar `boto3`/`azure-storage-blob`
+(mais peso na instalação do Windows, versão que quebra, download no cliente) ou
+escrever as assinaturas.
+
+**Decisão.** Escrever as assinaturas em biblioteca padrão:
+
+- **AWS Signature V4** (`infra/nuvem/assinatura.py`) — conferida byte a byte contra o
+  exemplo publicado da AWS (o `Authorization` com `Signature=5d672d79…`);
+- **Azure Shared Key** — o `StringToSign` é comparado com o exemplo publicado da
+  Microsoft, caractere por caractere, porque é ali que erro de formato se esconde;
+- credencial **só** em variável de ambiente; sem as variáveis o cliente **não nasce** e
+  a mensagem diz qual falta;
+- `bussola backup --nuvem aws|azure` cria e **verifica** a cópia local primeiro; falha
+  de nuvem nunca invalida a cópia local (código de saída 2, mensagem explicando);
+- teste de ida e volta contra um servidor HTTP local que exige assinatura e guarda os
+  bytes — prova o caminho inteiro sem conta de nuvem e sem internet.
+
+**Consequências.** Zero dependência nova e um teste que roda em qualquer máquina. Risco
+aceito: quando a AWS mudar a assinatura (SigV4 é estável há mais de uma década),
+alguém vai precisar mexer aqui — mitigado pelo teste de vetor oficial, que quebra na
+hora se a canonicalização mudar. Multipart upload e retry automático ficaram de fora
+(backup de bazar é pequeno; rede caiu, o comando falha dizendo o motivo).
+
+---
+
+## ADR-035 — Servidor de rede com TLS gerado pelo programa e terminal identificado
+
+**Contexto.** O multi-caixa estava decidido (servidor central + terminais) e a API
+existia, mas: (a) ligar em `0.0.0.0` mandaria token e senha do operador em claro; (b)
+pedir certificado a uma autoridade ou instalar OpenSSL no Windows é o tipo de passo
+que ninguém faz; (c) com uma base só, "quem fez isso" deixa de ser óbvio.
+
+**Decisão.**
+
+1. **TLS obrigatório fora do loopback**: `bussola api --host 0.0.0.0` **sem** `--tls`
+   falha na subida com mensagem; não existe "abrir sem criptografia por descuido".
+2. **Certificado autoassinado gerado pelo programa** (`infra/rede/certificado.py`,
+   RSA 2048 + X.509 v3 com SAN para `localhost`, o nome da máquina e os IPs), em
+   Python puro — sem `openssl`, sem `cryptography`. Gerado uma vez em `<dados>/tls` e
+   reaproveitado; a impressão digital SHA-256 aparece na subida para o operador
+   conferir no terminal. **Não** serve para internet.
+3. **Identidade de terminal por requisição**: cabeçalho `X-Bussola-Terminal` (padrão
+   `--terminal`), gravado em `vendas.terminal_id` e `turnos.terminal_id` (migração
+   0006) e no log de acesso.
+4. **Log de acesso JSONL** (quando, terminal, IP, rota, status, latência) ligado por
+   padrão no modo servidor — é o que permite reconstruir disputa entre caixas.
+5. **Rotas de escrita completas**: venda, turno (abrir/fechar), recebimento (com
+   encargo) e entrada de estoque, sempre chamando os mesmos serviços da tela.
+6. **Concorrência testada**, não supõe: dois terminais vendendo o último item ao mesmo
+   tempo — uma venda passa, a outra é recusada, estoque termina em zero.
+
+**Consequências.** O servidor pode ser ligado hoje e usado por qualquer cliente HTTP
+(planilha, totem, script). O que **não** existe é a tela do balcão falando com ele: o
+programa continua abrindo a base direto. Isso fica explícito em `docs/REDE.md`, junto
+com a ordem do que falta — prometer "multi-caixa pronto" sem tela cliente seria
+justamente o tipo de anúncio que o projeto evita.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |
 |---|---|---|---|
 | ~~P1~~ | ~~Emissão fiscal~~ | **Fora de escopo por decisão (ADR-029)** — uso interno de bazar de ONG; a UI e o cupom seguem dizendo "não é documento fiscal" | nada nesta fase; se um dia virar produto fiscal, é projeto separado |
-| P2 | Multi-caixa em rede | **Arquitetura decidida (ADR-032)**: servidor central + terminais; API local pronta; falta modo cliente | decisão de servidor e rede local (`docs/REDE.md`) |
-| P3 | Encargos de crediário | **Calculadora pronta e testada**, não aplicada nos títulos | regra comercial/jurídica (`docs/ENCARGOS.md`) |
+| P2 | Multi-caixa em rede | **Servidor pronto (ADR-035)**: API completa, TLS gerado, terminal identificado, log e concorrência testada; **falta a tela cliente** | decidir entre tela remota completa ou `bussola terminal` só de PDV (`docs/REDE.md`) |
+| P3 | Encargos de crediário | **Cobrança implementada (ADR-033)**, desligada de fábrica; liga em Parâmetros | confirmar percentuais e carência com o contador (`docs/ENCARGOS.md`) |
 | P4 | Limites de desconto | 5% operador / 15% gerente (exemplos do protótipo) | confirmação da política da loja |
 | P5 | Estoque negativo | Permitido com autorização de gerente | confirmar se a loja aceita |
 | P6 | Retenção/LGPD | Dados mínimos; documento mascarado na UI | prazo de guarda e base legal |
@@ -732,6 +822,7 @@ mitigado pelo fato de cada uma **falhar alto**, nunca em silêncio.
 | P11 | Recuperação do Admin Master | Sem tela de recuperação; única saída é procedimento no banco | procedimento aceito pela loja (quem guarda a senha mestra) |
 | P10 | Importação da planilha | Não implementada | mapeamento e validação aprovados |
 | P13 | Homologação fiscal | **Fora desta fase**; contrato do emissor pronto e desligado | decisão de negócio + contador + certificado (`docs/FISCAL.md`) |
-| P14 | Nuvem AWS/Azure | Contrato e configuração prontos; SDK não instalado | conta, chave e retenção definidas (`docs/NUVEM.md`) |
+| P14 | Nuvem AWS/Azure | **Clientes S3 e Azure funcionando (ADR-034)**, sem SDK; falta a conta | contratar conta, definir retenção e quem guarda a chave (`docs/NUVEM.md`) |
 | P15 | Crédito a favor do cliente | Devolução só abate parcela em aberto | decisão de produto (`docs/DEVOLUCOES.md`) |
+| P16 | TLS do servidor em rede | Certificado autoassinado gerado pelo programa; terminal confere a impressão digital | decidir se instala o `.crt` como confiável nas máquinas (item 3 de `docs/REDE.md`) |
 | P12 | Escala do Windows medida de verdade | `make responsivo` mede offscreen (tela de 800×800 do Qt); escala simulada só por cálculo | teste em máquina Windows com 100/125/150% e duas resoluções |

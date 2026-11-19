@@ -22,9 +22,7 @@ from bussola_pdv.aplicacao.fiscal import (
 from bussola_pdv.infra.nuvem import (
     PROVEDORES,
     REQUISITOS,
-    ArmazenamentoAzureBlob,
     ArmazenamentoMemoria,
-    ArmazenamentoS3,
     ConfiguracaoNuvem,
     ErroNuvem,
     NuvemNaoConfigurada,
@@ -49,19 +47,35 @@ class TestNuvem:
         armazenamento.remover(chave)
         assert armazenamento.listar() == []
 
-    def test_s3_e_azure_existem_mas_nao_estao_configurados(self):
-        for classe in (ArmazenamentoS3, ArmazenamentoAzureBlob):
-            servico = classe(ConfiguracaoNuvem(provedor="S3", recipiente="bazar"))
-            with pytest.raises(NuvemNaoConfigurada, match=r"docs/NUVEM\.md"):
-                servico.listar()
+    def test_sem_credencial_o_provedor_recusa_com_instrucao(self):
+        """v0.14.0: os clientes existem; o que falta é a chave, e a mensagem diz qual."""
+        for provedor, extra, variavel in (
+            ("S3", {}, "BUSSOLA_AWS_ACCESS_KEY_ID"),
+            ("AZURE_BLOB", {"conta": "loja"}, "BUSSOLA_AZURE_CHAVE"),
+        ):
+            configuracao = ConfiguracaoNuvem(provedor=provedor, recipiente="bazar", **extra)
+            with pytest.raises(NuvemNaoConfigurada, match=variavel):
+                criar_armazenamento(configuracao, ambiente={})
 
     def test_fabrica_escolhe_o_provedor(self):
+        from bussola_pdv.infra.nuvem.azure import ArmazenamentoAzureBlob
+        from bussola_pdv.infra.nuvem.s3 import ArmazenamentoS3
+
         assert isinstance(
-            criar_armazenamento(ConfiguracaoNuvem(provedor="S3", recipiente="b")),
+            criar_armazenamento(
+                ConfiguracaoNuvem(provedor="S3", recipiente="b"),
+                ambiente={
+                    "BUSSOLA_AWS_ACCESS_KEY_ID": "a",
+                    "BUSSOLA_AWS_SECRET_ACCESS_KEY": "s",
+                },
+            ),
             ArmazenamentoS3,
         )
         assert isinstance(
-            criar_armazenamento(ConfiguracaoNuvem(provedor="AZURE_BLOB", recipiente="c")),
+            criar_armazenamento(
+                ConfiguracaoNuvem(provedor="AZURE_BLOB", recipiente="c", conta="loja"),
+                ambiente={"BUSSOLA_AZURE_CHAVE": "Y2hhdmU="},
+            ),
             ArmazenamentoAzureBlob,
         )
 

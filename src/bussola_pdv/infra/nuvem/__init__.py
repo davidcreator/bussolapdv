@@ -1,17 +1,21 @@
-"""Armazenamento em nuvem: contrato único para AWS S3 e Azure Blob — **base**.
+"""Armazenamento em nuvem: contrato único e **dois clientes reais** sem SDK.
 
-O que está pronto nesta versão é o **contrato** e a configuração: qualquer código
-que precise guardar um arquivo (backup, exportação, anexo) fala com
-`ArmazenamentoNuvem`, e o provedor entra depois. Cadastrar credencial de nuvem
-nesta entrega seria prometer o que não foi homologado — quando a loja decidir,
-basta instalar o SDK (`boto3` ou `azure-storage-blob`) e implementar os quatro
-métodos; nada mais no programa muda.
+v0.14.0: o contrato deixou de ser só esqueleto. `ArmazenamentoS3` e
+`ArmazenamentoAzureBlob` fazem `PUT`/`GET`/`DELETE`/listagem de verdade, assinando
+as requisições em biblioteca padrão (`infra/nuvem/assinatura.py` — SigV4 e Shared
+Key, conferidos contra os exemplos publicados dos fornecedores).
 
-Por que assim: o programa é offline por decisão (ADR-029 mantém "nada de rede" no
-dia a dia). Nuvem aqui é **destino de cópia de segurança** e, no futuro, o
-servidor central do multi-caixa — não dependência do caixa.
+Por que sem SDK: o programa instala no Windows com Python do sistema; cada
+dependência nova é download, versão e suporte a mais. As duas assinaturas são
+HMAC-SHA256 — cabem em `hmac`/`hashlib`.
+
+O que continua fora do programa: a **credencial**. Chave de nuvem mora em variável
+de ambiente da máquina (`BUSSOLA_AWS_ACCESS_KEY_ID`,
+`BUSSOLA_AWS_SECRET_ACCESS_KEY`, `BUSSOLA_AZURE_CONTA`, `BUSSOLA_AZURE_CHAVE`),
+nunca no banco do PDV nem no repositório. Sem elas, o cliente recusa na construção
+com mensagem que diz o que falta — não tenta falar com a nuvem.
+
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -43,6 +47,7 @@ class ConfiguracaoNuvem:
     prefixo: str = "bussolapdv/"
     conta: str = ""  # Azure: nome da conta de armazenamento
     variavel_chave: str = ""  # nome da env var com a chave/secreta
+    variavel_acesso: str = ""  # S3: nome da env var com a chave de acesso (key id)
     endpoint: str = ""  # S3-compatível (MinIO, Wasabi, R2)
     criptografia: str = "AES256"  # SSE-S3 por padrão
 
@@ -86,40 +91,6 @@ class ArmazenamentoNuvem(Protocol):
     def remover(self, nome: str) -> None: ...
 
 
-class _BaseNaoConfigurada:
-    """Esqueleto compartilhado: falha com mensagem útil, nunca em silêncio."""
-
-    def __init__(self, configuracao: ConfiguracaoNuvem) -> None:
-        self.configuracao = configuracao
-
-    def _erro(self) -> NuvemNaoConfigurada:
-        return NuvemNaoConfigurada(
-            f"{self.configuracao.rotulo}: cliente do provedor não instalado nesta versão. "
-            "O contrato está pronto (docs/NUVEM.md) — falta instalar o SDK e implementar "
-            "enviar/baixar/listar/remover."
-        )
-
-    def enviar(self, caminho: Path, *, nome: str | None = None) -> str:
-        raise self._erro()
-
-    def baixar(self, nome: str, destino: Path) -> Path:
-        raise self._erro()
-
-    def listar(self) -> list[str]:
-        raise self._erro()
-
-    def remover(self, nome: str) -> None:
-        raise self._erro()
-
-
-class ArmazenamentoS3(_BaseNaoConfigurada):
-    """AWS S3 (ou S3-compatível: MinIO, Wasabi, Cloudflare R2)."""
-
-
-class ArmazenamentoAzureBlob(_BaseNaoConfigurada):
-    """Azure Blob Storage."""
-
-
 @dataclass
 class ArmazenamentoMemoria:
     """Implementação de teste: guarda em dicionário, prova o contrato sem rede."""
@@ -150,12 +121,21 @@ class ArmazenamentoMemoria:
         self.arquivos.pop(nome, None)
 
 
-def criar_armazenamento(configuracao: ConfiguracaoNuvem) -> ArmazenamentoNuvem:
-    """Fábrica: devolve o cliente do provedor escolhido (ainda não configurado)."""
+def criar_armazenamento(
+    configuracao: ConfiguracaoNuvem, *, ambiente: dict[str, str] | None = None
+) -> ArmazenamentoNuvem:
+    """Fábrica: cliente do provedor escolhido, ou erro dizendo o que falta na credencial.
+
+    `ambiente` existe para o teste injetar credenciais falsas sem mexer no processo.
+    O import é tardio para que `import bussola_pdv.infra.nuvem` não puxe `urllib`.
+    """
+    from .azure import ArmazenamentoAzureBlob
+    from .s3 import ArmazenamentoS3
+
     if configuracao.provedor == "S3":
-        return ArmazenamentoS3(configuracao)
+        return ArmazenamentoS3(configuracao, ambiente=ambiente)
     if configuracao.provedor == "AZURE_BLOB":
-        return ArmazenamentoAzureBlob(configuracao)
+        return ArmazenamentoAzureBlob(configuracao, ambiente=ambiente)
     raise ErroNuvem(f"Provedor não suportado: {configuracao.provedor}")
 
 
@@ -170,10 +150,8 @@ def enviar_backup(armazenamento: ArmazenamentoNuvem, caminho: Path) -> str:
 __all__ = [
     "PROVEDORES",
     "REQUISITOS",
-    "ArmazenamentoAzureBlob",
     "ArmazenamentoMemoria",
     "ArmazenamentoNuvem",
-    "ArmazenamentoS3",
     "ConfiguracaoNuvem",
     "ErroNuvem",
     "NuvemNaoConfigurada",

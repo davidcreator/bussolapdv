@@ -5,6 +5,7 @@ Fórmula única (docs/REGRAS_NEGOCIO.md)::
     esperado = fundo
              + vendas em dinheiro (valor aplicado)
              + recebimentos de títulos em dinheiro
+             + encargos de atraso recebidos em dinheiro
              + suprimentos
              - sangrias
              - estornos em dinheiro
@@ -25,6 +26,7 @@ from .erros import ErroValidacao
 class TipoMovimentoCaixa(StrEnum):
     VENDA_DINHEIRO = "VENDA_DINHEIRO"
     RECEBIMENTO_TITULO = "RECEBIMENTO_TITULO"
+    RECEBIMENTO_ENCARGOS = "RECEBIMENTO_ENCARGOS"
     SUPRIMENTO = "SUPRIMENTO"
     SANGRIA = "SANGRIA"
     ESTORNO_DINHEIRO = "ESTORNO_DINHEIRO"
@@ -38,6 +40,7 @@ class TipoMovimentoCaixa(StrEnum):
         return {
             TipoMovimentoCaixa.VENDA_DINHEIRO: "Venda em dinheiro",
             TipoMovimentoCaixa.RECEBIMENTO_TITULO: "Recebimento de título",
+            TipoMovimentoCaixa.RECEBIMENTO_ENCARGOS: "Encargos de atraso (multa + juros)",
             TipoMovimentoCaixa.SUPRIMENTO: "Suprimento",
             TipoMovimentoCaixa.SANGRIA: "Sangria",
             TipoMovimentoCaixa.ESTORNO_DINHEIRO: "Estorno em dinheiro",
@@ -120,6 +123,7 @@ class Turno:
             "fundo_centavos": self.fundo.centavos,
             "vendas_dinheiro_centavos": self.total_por_tipo(TipoMovimentoCaixa.VENDA_DINHEIRO).centavos,
             "recebimentos_centavos": self.total_por_tipo(TipoMovimentoCaixa.RECEBIMENTO_TITULO).centavos,
+            "encargos_centavos": self.total_por_tipo(TipoMovimentoCaixa.RECEBIMENTO_ENCARGOS).centavos,
             "suprimentos_centavos": self.total_por_tipo(TipoMovimentoCaixa.SUPRIMENTO).centavos,
             "sangrias_centavos": self.total_por_tipo(TipoMovimentoCaixa.SANGRIA).centavos,
             "estornos_centavos": self.total_por_tipo(TipoMovimentoCaixa.ESTORNO_DINHEIRO).centavos,

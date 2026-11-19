@@ -387,6 +387,94 @@ class TestDialogoRecebimento:
         dialogo.deleteLater()
 
 
+class TestDialogoRecebimentoComEncargos:
+    """v0.14.0: a tela mostra o encargo, cobra por padrão e perdoa com autorização."""
+
+    def _venda_vencida(self, cenario, *, atraso: int = 12):
+        from datetime import date, timedelta
+
+        from bussola_pdv.aplicacao.pdv import ServicoPDV, SolicitacaoVenda
+        from bussola_pdv.dominio.pagamentos import PlanoPagamento, pagamento_a_prazo
+        from bussola_pdv.dominio.venda import Carrinho
+
+        carrinho = Carrinho()
+        carrinho.adicionar(cenario.produto_a, "1")
+        total = carrinho.totais().total
+        ServicoPDV(cenario.ctx).finalizar_venda(
+            SolicitacaoVenda(
+                operador=cenario.operador,
+                caixa_id=cenario.caixa_id,
+                carrinho=carrinho,
+                plano=PlanoPagamento.de_pagamentos(pagamento_a_prazo(total)),
+                cliente_id=cenario.cliente.id,
+                parcelas_crediario=1,
+            )
+        )
+        titulo = next(
+            t for t in cenario.ctx.crediario.listar() if int(t["saldo_centavos"]) > 0
+        )
+        vencimento = (
+            date.fromisoformat(cenario.ctx.relogio.data_negocio()) - timedelta(days=atraso)
+        ).isoformat()
+        cenario.ctx.conexao.execute(
+            "UPDATE titulos SET vencimento = ? WHERE id = ?", (vencimento, titulo["id"])
+        )
+        return str(titulo["id"])
+
+    @pytest.mark.ui
+    def test_mostra_encargo_e_cobra_junto(self, app, cenario):
+        from bussola_pdv.aplicacao.parametros import ServicoParametros
+        from bussola_pdv.ui.cadastros import DialogoRecebimento
+
+        titulo_id = self._venda_vencida(cenario)
+        ServicoParametros(cenario.ctx).definir(cenario.admin, "encargos.cobrar", "1")
+
+        dialogo = DialogoRecebimento(cenario.ctx, cenario.gerente, titulo_id=titulo_id)
+        assert "atraso" in dialogo.rotulo_encargos.text()
+        assert dialogo.combo_cobrar.isChecked()
+        dialogo._salvar()
+
+        assert dialogo.resultado is not None
+        assert dialogo.resultado.encargo.centavos > 0
+        assert dialogo.resultado.encargos_dispensados is False
+        dialogo.deleteLater()
+
+    @pytest.mark.ui
+    def test_perdoar_na_tela_exige_login_do_gerente(self, app, cenario):
+        from bussola_pdv.aplicacao.parametros import ServicoParametros
+        from bussola_pdv.ui.cadastros import DialogoRecebimento
+
+        titulo_id = self._venda_vencida(cenario)
+        ServicoParametros(cenario.ctx).definir(cenario.admin, "encargos.cobrar", "1")
+
+        dialogo = DialogoRecebimento(cenario.ctx, cenario.gerente, titulo_id=titulo_id)
+        dialogo.combo_cobrar.setChecked(False)
+        dialogo.campo_motivo.setText("cliente avisou")
+        dialogo._confirmar()  # sem login/senha: erro na faixa, nada gravado
+        assert dialogo.resultado is None
+        assert dialogo.mensagem.text()
+
+        dialogo.campo_login.setText("gerente")
+        dialogo.campo_senha.setText("senha-de-teste")
+        dialogo._confirmar()
+        assert dialogo.resultado is not None
+        assert dialogo.resultado.encargos_dispensados is True
+        dialogo.deleteLater()
+
+    @pytest.mark.ui
+    def test_cobranca_desligada_nao_pede_autorizacao(self, app, cenario):
+        from bussola_pdv.ui.cadastros import DialogoRecebimento
+
+        titulo_id = self._venda_vencida(cenario)
+        dialogo = DialogoRecebimento(cenario.ctx, cenario.gerente, titulo_id=titulo_id)
+        assert dialogo.combo_cobrar.isChecked() is False
+        dialogo._salvar()
+        assert dialogo.resultado is not None
+        assert dialogo.resultado.encargo.centavos == 0
+        assert dialogo.resultado.encargos_dispensados is False
+        dialogo.deleteLater()
+
+
 class TestTelaEntradas:
     @pytest.mark.ui
     def test_mostra_o_historico_e_exporta(self, app, cenario):

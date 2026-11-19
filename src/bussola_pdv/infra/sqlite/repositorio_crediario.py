@@ -55,6 +55,10 @@ class CrediarioRepositorio(RepositorioBase):
         operador_id: str,
         criado_em: datetime,
         referencia: str = "",
+        multa_centavos: int = 0,
+        juros_centavos: int = 0,
+        dias_atraso: int = 0,
+        encargos_dispensados: bool = False,
     ) -> str:
         if valor.centavos <= 0:
             raise RecebimentoInvalido("Recebimento deve ter valor positivo.")
@@ -67,11 +71,15 @@ class CrediarioRepositorio(RepositorioBase):
                 f"Valor recebido ({valor.formatado()}) excede o saldo do título ({saldo.formatado()}).",
                 detalhe={"saldo_centavos": saldo.centavos},
             )
+        if min(multa_centavos, juros_centavos, dias_atraso) < 0:
+            raise RecebimentoInvalido("Multa, juros e dias de atraso não podem ser negativos.")
         recebimento_id = str(uuid.uuid4())
         self.conexao.execute(
             """INSERT INTO recebimentos (id, titulo_id, data_negocio, forma, valor_centavos,
-                                         turno_id, operador_id, estorno, referencia, criado_em)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                                         turno_id, operador_id, estorno, referencia, criado_em,
+                                         multa_centavos, juros_centavos, encargo_centavos,
+                                         dias_atraso, encargos_dispensados)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 recebimento_id,
                 titulo_id,
@@ -82,6 +90,11 @@ class CrediarioRepositorio(RepositorioBase):
                 operador_id,
                 referencia,
                 self.iso(criado_em),
+                multa_centavos,
+                juros_centavos,
+                multa_centavos + juros_centavos,
+                dias_atraso,
+                int(encargos_dispensados),
             ),
         )
         self._atualizar_status(titulo_id, data_negocio)

@@ -66,14 +66,15 @@ class VendaRepositorio(RepositorioBase):
         chave_idempotencia: str,
         cliente_id: str | None = None,
         serie: str = "1",
+        terminal_id: str = "",
     ) -> VendaRegistrada:
         numero = self.proximo_numero()
         self.conexao.execute(
             """INSERT INTO vendas (id, numero, serie, data_negocio, criado_em, operador_id,
                                    cliente_id, turno_id, status, subtotal_centavos,
                                    desconto_centavos, acrescimo_centavos, total_centavos,
-                                   custo_total_centavos, chave_idempotencia)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONCLUIDA', ?, ?, ?, ?, ?, ?)""",
+                                   custo_total_centavos, chave_idempotencia, terminal_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'CONCLUIDA', ?, ?, ?, ?, ?, ?, ?)""",
             (
                 venda_id,
                 numero,
@@ -89,6 +90,7 @@ class VendaRepositorio(RepositorioBase):
                 total.centavos,
                 custo_total.centavos,
                 chave_idempotencia,
+                terminal_id,
             ),
         )
         return self.por_id(venda_id)

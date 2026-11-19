@@ -203,6 +203,7 @@ class ServicoPDV:
                 total=totais.total,
                 custo_total=totais.custo_total,
                 chave_idempotencia=solicitacao.chave_idempotencia,
+                terminal_id=self.ctx.terminal,
             )
             self.ctx.vendas.inserir_itens(venda_id, solicitacao.carrinho.itens)
             self.ctx.vendas.inserir_pagamentos(venda_id, solicitacao.plano, criado_em=agora)

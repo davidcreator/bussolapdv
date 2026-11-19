@@ -145,6 +145,23 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - **Não verificado**: binário Windows (`.exe`), instalador `.iss` compilado e instalação em Windows real
   — exigem runner `windows-latest` (workflow `windows.yml`) ou máquina Windows.
 
+## Evidências da entrega de encargos, nuvem e rede (v0.14.0)
+
+- Encargos: `tests/test_encargos_cobranca.py` (12) e `tests/test_migracao_encargos.py` provam multa,
+  juros, carência, dispensa com autorizador e motivo, `RECEBIMENTO_ENCARGOS` no caixa, separação no
+  resumo do turno e o título **sem** valor reescrito.
+- Nuvem: `tests/test_nuvem_clientes.py` (17) assina contra as duas especificações (vetor oficial da
+  AWS e exemplo da Microsoft), envia/baixa/lista/remove contra um servidor local que **exige** a
+  assinatura, e cobre o caminho do `bussola backup --nuvem` com a nuvem fora do ar (código 2, cópia
+  local intacta).
+- Rede: `tests/test_rede_multi_caixa.py` (16) sobe o servidor em **HTTPS real** com o certificado
+  gerado pelo programa, recusa cliente que não confia no certificado, prova a digital SHA-256, o
+  reaproveitamento do certificado, o terminal no cabeçalho chegando ao banco, o log JSONL, entrada de
+  estoque, recebimento com encargo, e a **corrida do último item** (uma venda aceita, a outra
+  recusada, estoque 0). O mesmo arquivo cobre a recusa de `0.0.0.0` sem TLS.
+- **Não verificado nesta entrega**: instalação do `.crt` como confiável nas máquinas Windows
+  (P16) e a tela do caixa remoto (não existe ainda, por decisão).
+
 ## Próximos incrementos sugeridos (ordem)
 
 1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
@@ -157,8 +174,13 @@ repositório. **Nada é marcado como pronto sem teste executado.**
    **Pontos de construção** abertos na mesma versão, com documento e contrato: fiscal
    (`docs/FISCAL.md`), rede multi-caixa (`docs/REDE.md`), nuvem AWS/Azure (`docs/NUVEM.md`) e
    encargos de atraso (`docs/ENCARGOS.md`).
-4. **API HTTP**: rotas de escrita que faltam (venda, turno, recebimento, entrada) e modo cliente do
-   terminal, que é o caminho para vários caixas.
-5. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
-5. Assinatura digital dos binários Windows e hashes publicados na Release.
-6. Revisão de segurança/LGPD e homologação com operador real.
+4. ~~**Encargos cobrados, nuvem de verdade e servidor de rede utilizável**~~ — feito na v0.14.0
+   (ADR-033, ADR-034, ADR-035): cobrança de multa/juros como receita separada e desligada de fábrica,
+   clientes S3 e Azure em biblioteca padrão com `bussola backup --nuvem`, e API de escrita completa
+   com HTTPS gerado pelo programa, terminal identificado, log de acesso e concorrência provada.
+5. **Tela do caixa remoto** — o servidor existe; falta o programa do balcão conversar com ele
+   (decisão: tela completa ou `bussola terminal` só de PDV, `docs/REDE.md`).
+6. **Conta de nuvem e retenção** — clientes prontos, falta contratar e decidir quem guarda a chave.
+7. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
+8. Assinatura digital dos binários Windows e hashes publicados na Release.
+9. Revisão de segurança/LGPD e homologação com operador real.

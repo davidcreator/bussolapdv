@@ -19,21 +19,39 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 from ...aplicacao.autenticacao import ServicoAutenticacao
+from ...aplicacao.caixa import ServicoCaixa
 from ...aplicacao.contexto import Contexto
+from ...aplicacao.crediario import ServicoCrediario
 from ...aplicacao.devolucao import ItemSolicitado, ServicoDevolucao
+from ...aplicacao.estoque import ServicoEstoque
 from ...aplicacao.exportacao import ServicoExportacao
-from ...aplicacao.pdv import ServicoPDV
+from ...aplicacao.pdv import ServicoPDV, SolicitacaoVenda
+from ...dominio.caixa import ContagemDenominacao
 from ...dominio.devolucao import DestinoDevolucao, TipoDevolucao
+from ...dominio.dinheiro import Dinheiro, Quantidade
 from ...dominio.erros import ErroBussola, ErroNaoEncontrado, ErroValidacao
+from ...dominio.estoque import EntradaMercadoria, ItemEntrada
+from ...dominio.pagamentos import (
+    FormaPagamento,
+    Pagamento,
+    PlanoPagamento,
+    pagamento_a_prazo,
+    pagamento_dinheiro,
+    pagamento_eletronico,
+)
 from ...dominio.usuario import Acao
+from ...dominio.venda import Carrinho
 
 VERSAO_API = "v1"
 
@@ -53,6 +71,13 @@ class ConfiguracaoAPI:
     porta: int = 8765
     #: Rotas só de leitura não precisam de senha; qualquer escrita precisa.
     exigir_credenciais_na_escrita: bool = True
+    #: Certificado do servidor (v0.14.0). Sem ele, HTTP em claro — aceitável só
+    #: em 127.0.0.1; para a rede da loja, `bussola api --tls` gera e usa um.
+    tls: Any = None
+    #: Terminal padrão quando a requisição não manda `X-Bussola-Terminal`.
+    terminal: str = "CAIXA-01"
+    #: Arquivo JSONL de acessos (um por requisição). `None` = não registra.
+    log_acesso: str = ""
 
 
 @dataclass
@@ -69,12 +94,22 @@ class ServicoWeb:
     rotas_escrita: tuple[str, ...] = field(default=("POST", "PUT", "PATCH", "DELETE"))
     _local: threading.local = field(default_factory=threading.local, init=False, repr=False)
 
+    #: Terminal da requisição em andamento (o manipulador troca antes de tratar).
+    @property
+    def terminal(self) -> str:
+        return getattr(self._local, "terminal", self.configuracao.terminal)
+
+    @terminal.setter
+    def terminal(self, valor: str) -> None:
+        self._local.terminal = valor or self.configuracao.terminal
+
     @property
     def contexto(self) -> Contexto:
         contexto = getattr(self._local, "contexto", None)
         if contexto is None:
             contexto = self.fabrica()
             self._local.contexto = contexto
+        contexto.terminal = self.terminal
         return contexto
 
     # -- roteamento ---------------------------------------------------------
@@ -90,11 +125,25 @@ class ServicoWeb:
             return self.produtos(consulta)
         if recurso == "estoque" and metodo == "GET":
             return self.estoque(consulta)
-        if recurso == "crediario" and metodo == "GET":
-            return self.crediario(consulta)
+        if recurso == "crediario":
+            if metodo == "GET":
+                return self.crediario(consulta)
+            if metodo == "POST" and len(partes) == 4 and partes[3] == "receber":
+                return self.receber_titulo(partes[2], corpo)
+        if recurso == "turnos":
+            if metodo == "GET":
+                return self.turnos(consulta)
+            if metodo == "POST" and len(partes) == 2:
+                return self.abrir_turno(corpo)
+            if metodo == "POST" and len(partes) == 4 and partes[3] == "fechar":
+                return self.fechar_turno(partes[2], corpo)
+        if recurso == "entradas" and metodo == "POST":
+            return self.lancar_entrada(corpo)
         if recurso == "vendas":
             if metodo == "GET" and len(partes) == 2:
                 return self.vendas(consulta)
+            if metodo == "POST" and len(partes) == 2:
+                return self.finalizar_venda(corpo)
             if metodo == "GET" and len(partes) == 3:
                 return self.venda(partes[2])
             if metodo == "POST" and len(partes) == 4 and partes[3] == "cancelar":
@@ -295,6 +344,161 @@ class ServicoWeb:
             "avisos": list(resultado.avisos),
         }
 
+    # -- escrita (rede multi-caixa, v0.14.0) --------------------------------
+    def finalizar_venda(self, corpo: dict) -> dict:
+        """Registra a venda pelo mesmo serviço da tela — nada recalculado aqui."""
+        operador = self._autenticar(corpo.get("operador"), Acao.PDV_VENDER)
+        autorizador = None
+        if corpo.get("autorizador"):
+            autorizador = self._autenticar(corpo["autorizador"], Acao.PDV_VENDER)
+        caixa_id = str(corpo.get("caixa_id") or "")
+        if not caixa_id:
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "Informe caixa_id (o caixa do terminal).")
+        carrinho = Carrinho()
+        for item in corpo.get("itens") or []:
+            codigo = str(item.get("codigo") or item.get("produto_id") or "")
+            produto = self.contexto.produtos.buscar_leitura(codigo)
+            desconto = item.get("desconto_centavos")
+            carrinho.adicionar(
+                produto,
+                str(item.get("quantidade") or "1"),
+                desconto=None
+                if desconto in (None, "")
+                else _dinheiro(desconto, "desconto_centavos"),
+            )
+        pagamentos = _plano_de_pagamentos(corpo.get("pagamentos"))
+        resultado = ServicoPDV(self.contexto).finalizar_venda(
+            SolicitacaoVenda(
+                operador=operador,
+                caixa_id=caixa_id,
+                carrinho=carrinho,
+                plano=pagamentos,
+                cliente_id=corpo.get("cliente_id") or None,
+                desconto_cupom=Dinheiro(int(corpo.get("desconto_cupom_centavos") or 0)),
+                acrescimo=Dinheiro(int(corpo.get("acrescimo_centavos") or 0)),
+                autorizador=autorizador,
+                parcelas_crediario=int(corpo.get("parcelas_crediario") or 1),
+                chave_idempotencia=str(corpo.get("chave_idempotencia") or uuid4()),
+            )
+        )
+        return {
+            "ok": True,
+            "venda_id": resultado.venda.id,
+            "rotulo": resultado.venda.rotulo,
+            "total_centavos": resultado.venda.total.centavos,
+            "terminal": self.terminal,
+            "titulos": list(resultado.titulos),
+            "ja_existia": resultado.ja_existia,
+            "avisos": list(resultado.avisos),
+        }
+
+    def abrir_turno(self, corpo: dict) -> dict:
+        operador = self._autenticar(corpo.get("operador"), Acao.CAIXA_ABRIR)
+        fundo = _dinheiro(corpo.get("fundo_centavos"), "fundo_centavos")
+        turno = ServicoCaixa(self.contexto).abrir_turno(
+            caixa=str(corpo.get("caixa") or self.terminal),
+            operador=operador,
+            fundo=fundo,
+        )
+        return {
+            "ok": True,
+            "turno_id": turno.id,
+            "caixa_id": turno.caixa_id,
+            "terminal": turno.terminal_id or self.terminal,
+            "fundo_centavos": fundo.centavos,
+            "esperado_centavos": self.contexto.caixas.carregar_turno(turno.id).esperado.centavos,
+        }
+
+    def turnos(self, consulta: dict[str, list[str]]) -> dict:
+        abertos = self.contexto.caixas.turnos_abertos()
+        return {
+            "total": len(abertos),
+            "itens": [
+                {
+                    "turno_id": turno.id,
+                    "caixa_id": turno.caixa_id,
+                    "terminal": turno.terminal_id,
+                    "operador_id": turno.operador_id,
+                    "aberto_em": turno.aberto_em,
+                    "fundo_centavos": turno.fundo.centavos,
+                }
+                for turno in abertos
+            ],
+        }
+
+    def fechar_turno(self, turno_id: str, corpo: dict) -> dict:
+        conferente = self._autenticar(corpo.get("operador"), Acao.CAIXA_FECHAR)
+        contagens = [
+            ContagemDenominacao(
+                denominacao=int(item["denominacao"]), quantidade=int(item["quantidade"])
+            )
+            for item in corpo.get("contagens") or []
+        ]
+        resultado = ServicoCaixa(self.contexto).fechar_turno(
+            turno_id=turno_id,
+            conferente=conferente,
+            contagens=contagens,
+            motivo_diferenca=str(corpo.get("motivo_diferenca") or ""),
+        )
+        return {
+            "ok": True,
+            "turno_id": resultado.turno.id,
+            "conferencia": resultado.conferencia,
+            "avisos": list(resultado.avisos),
+        }
+
+    def receber_titulo(self, titulo_id: str, corpo: dict) -> dict:
+        operador = self._autenticar(corpo.get("operador"), Acao.TITULO_RECEBER)
+        autorizador = None
+        if corpo.get("autorizador"):
+            autorizador = self._autenticar(corpo["autorizador"], Acao.TITULO_RECEBER)
+        resultado = ServicoCrediario(self.contexto).receber(
+            titulo_id=titulo_id,
+            valor=_dinheiro(corpo.get("valor_centavos"), "valor_centavos"),
+            forma=_forma(corpo.get("forma")),
+            operador=operador,
+            caixa_id=str(corpo.get("caixa_id") or ""),
+            referencia=str(corpo.get("referencia") or ""),
+            cobrar_encargos=bool(corpo.get("cobrar_encargos", True)),
+            motivo_dispensa=str(corpo.get("motivo_dispensa") or ""),
+            autorizador=autorizador,
+        )
+        return {
+            "ok": True,
+            "recebimento_id": resultado.recebimento_id,
+            "saldo_restante_centavos": resultado.saldo_restante.centavos,
+            "encargo_centavos": resultado.encargo.centavos,
+            "multa_centavos": resultado.multa.centavos,
+            "juros_centavos": resultado.juros.centavos,
+            "dias_atraso": resultado.dias_atraso,
+            "encargos_dispensados": resultado.encargos_dispensados,
+        }
+
+    def lancar_entrada(self, corpo: dict) -> dict:
+        operador = self._autenticar(corpo.get("operador"), Acao.ESTOQUE_ENTRADA)
+        itens: list[ItemEntrada] = []
+        for item in corpo.get("itens") or []:
+            produto = self.contexto.produtos.buscar_leitura(
+                str(item.get("codigo") or item.get("produto_id") or "")
+            )
+            itens.append(
+                ItemEntrada(
+                    produto_id=produto.id,
+                    codigo=produto.codigo,
+                    quantidade=Quantidade.de_unidades(str(item.get("quantidade") or "0")),
+                    custo_unitario=Dinheiro(int(item.get("custo_unitario_centavos") or 0)),
+                )
+            )
+        entrada = EntradaMercadoria(
+            fornecedor=str(corpo.get("fornecedor") or ""),
+            documento=str(corpo.get("documento") or ""),
+            itens=tuple(itens),
+            frete=Dinheiro(int(corpo.get("frete_centavos") or 0)),
+        )
+        return {"ok": True, **ServicoEstoque(self.contexto).registrar_entrada(
+            operador=operador, entrada=entrada
+        )}
+
     def _autenticar(self, credenciais: Any, acao: Acao) -> Any:
         if not isinstance(credenciais, dict) or not credenciais.get("login"):
             raise ErroAPI(
@@ -307,6 +511,70 @@ class ServicoWeb:
             )
         except ErroBussola as exc:
             raise ErroAPI(HTTPStatus.UNAUTHORIZED, str(exc)) from exc
+
+
+def _dinheiro(valor: Any, campo: str) -> Dinheiro:
+    """Centavos como inteiro. Texto com vírgula também é aceito (bilhete do operador)."""
+    if valor is None or valor == "":
+        raise ErroAPI(HTTPStatus.BAD_REQUEST, f"Informe {campo} em centavos.")
+    if isinstance(valor, str) and "," in valor:
+        inteiro, _, centavos = valor.replace("R$", "").strip().partition(",")
+        return Dinheiro(int(inteiro.replace(".", "") or 0) * 100 + int(centavos.ljust(2, "0")[:2]))
+    try:
+        return Dinheiro(int(valor))
+    except (TypeError, ValueError) as exc:
+        raise ErroAPI(HTTPStatus.BAD_REQUEST, f"{campo} precisa ser inteiro (centavos).") from exc
+
+
+def _forma(valor: Any) -> FormaPagamento:
+    try:
+        return FormaPagamento(str(valor or "DINHEIRO").upper())
+    except ValueError as exc:
+        raise ErroAPI(
+            HTTPStatus.BAD_REQUEST,
+            "Forma de pagamento inválida.",
+            {"formas": [forma.value for forma in FormaPagamento]},
+        ) from exc
+
+
+def _plano_de_pagamentos(pagamentos: Any) -> PlanoPagamento:
+    """Aceita `[{"forma": "DINHEIRO", "valor_centavos": 1000}]` (até três formas).
+
+    `A_PRAZO` é o crediário: gera título, não entra na gaveta. As demais formas
+    eletrônicas nascem **pendentes**, exatamente como na tela — a API não inventa
+    uma confirmação que a adquirente não mandou.
+    """
+    if not isinstance(pagamentos, list) or not pagamentos:
+        raise ErroAPI(
+            HTTPStatus.BAD_REQUEST,
+            "Informe pagamentos:[{forma, valor_centavos}] (use A_PRAZO para crediário).",
+        )
+    linhas: list[Pagamento] = []
+    for item in pagamentos:
+        if not isinstance(item, dict):
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "Cada pagamento precisa ser um objeto.")
+        forma = _forma(item.get("forma"))
+        valor = _dinheiro(item.get("valor_centavos"), "valor_centavos")
+        if forma is FormaPagamento.A_PRAZO:
+            linhas.append(pagamento_a_prazo(valor))
+        elif forma is FormaPagamento.DINHEIRO:
+            entregue = item.get("valor_entregue_centavos")
+            linhas.append(
+                pagamento_dinheiro(
+                    valor,
+                    None if entregue is None else _dinheiro(entregue, "valor_entregue_centavos"),
+                )
+            )
+        else:
+            linhas.append(
+                pagamento_eletronico(
+                    forma,
+                    valor,
+                    confirmado=bool(item.get("confirmado", False)),
+                    referencia=str(item.get("referencia") or ""),
+                )
+            )
+    return PlanoPagamento.de_pagamentos(*linhas)
 
 
 def _fabrica(contexto: Contexto | Callable[[], Contexto]) -> Callable[[], Contexto]:
@@ -357,11 +625,17 @@ class _Manipulador(BaseHTTPRequestHandler):
         return dados
 
     def _despachar(self, metodo: str) -> None:
+        inicio = time.monotonic()
+        status_final = HTTPStatus.OK
+        pedido_por = ""
+        # O terminal se identifica por cabeçalho; sem ele vale o padrão do servidor.
+        self.servico.terminal = self.headers.get("X-Bussola-Terminal", "")
         if not self._token_ok():
             self._responder(
                 HTTPStatus.UNAUTHORIZED,
                 {"erro": "Token ausente ou inválido (Authorization: Bearer ...)."},
             )
+            self._registrar_acesso(metodo, HTTPStatus.UNAUTHORIZED, inicio, pedido_por)
             return
         caminho = self.path
         consulta = parse_qs(urlparse(caminho).query)
@@ -369,24 +643,59 @@ class _Manipulador(BaseHTTPRequestHandler):
             corpo = self._corpo() if metodo in {"POST", "PUT", "PATCH"} else {}
             resposta = self.servico.tratar(metodo, caminho, consulta, corpo)
         except ErroAPI as exc:
+            status_final = exc.status
             self._responder(exc.status, {"erro": exc.mensagem, "detalhe": exc.detalhe})
             return
         except ErroNaoEncontrado as exc:
+            status_final = HTTPStatus.NOT_FOUND
             self._responder(HTTPStatus.NOT_FOUND, {"erro": str(exc)})
             return
         except ErroValidacao as exc:
+            status_final = HTTPStatus.UNPROCESSABLE_ENTITY
             self._responder(HTTPStatus.UNPROCESSABLE_ENTITY, {"erro": str(exc)})
             return
         except ErroBussola as exc:
+            status_final = HTTPStatus.CONFLICT
             self._responder(HTTPStatus.CONFLICT, {"erro": str(exc)})
             return
         except Exception as exc:  # nunca vazar stack trace para o cliente
+            status_final = HTTPStatus.INTERNAL_SERVER_ERROR
             self._responder(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"erro": "Erro interno na API.", "tipo": type(exc).__name__},
             )
             return
+        finally:
+            self._registrar_acesso(metodo, status_final, inicio, pedido_por)
         self._responder(HTTPStatus.OK, resposta)
+
+    def _registrar_acesso(
+        self, metodo: str, status: int, inicio: float, pedido_por: str
+    ) -> None:
+        """Uma linha JSONL por requisição — quem chamou, de onde, o que respondeu.
+
+        Serve para o dia em que dois caixas disputarem uma venda: o log mostra o
+        terminal, o instante e o código. Silencioso se não houver arquivo configurado.
+        """
+        destino = self.servico.configuracao.log_acesso
+        if not destino:
+            return
+        linha = {
+            "quando": datetime.now(UTC).isoformat(timespec="seconds"),
+            "terminal": self.servico.terminal,
+            "ip": self.client_address[0] if self.client_address else "",
+            "metodo": metodo,
+            "rota": urlparse(self.path).path,
+            "status": int(status),
+            "ms": round((time.monotonic() - inicio) * 1000, 1),
+        }
+        if pedido_por:
+            linha["operador"] = pedido_por
+        try:
+            with open(destino, "a", encoding="utf-8") as arquivo:
+                arquivo.write(json.dumps(linha, ensure_ascii=False) + "\n")
+        except OSError:  # log não pode derrubar a venda
+            return
 
     def do_GET(self) -> None:
         self._despachar("GET")
@@ -407,6 +716,7 @@ class ServidorAPI:
             raise ErroAPI(
                 HTTPStatus.BAD_REQUEST, "O token precisa de pelo menos 16 caracteres."
             )
+        self.configuracao = configuracao
         self.servico = ServicoWeb(fabrica=_fabrica(contexto), configuracao=configuracao)
         manipulador = type(
             "ManipuladorBussola",
@@ -415,6 +725,11 @@ class ServidorAPI:
         )
         self._http = ThreadingHTTPServer((configuracao.host, configuracao.porta), manipulador)
         self._http.daemon_threads = True
+        if configuracao.tls is not None:
+            # O socket é embrulhado ANTES de servir: daí em diante tudo é TLS.
+            self._http.socket = configuracao.tls.contexto_tls().wrap_socket(
+                self._http.socket, server_side=True
+            )
         self._thread: threading.Thread | None = None
 
     # -- ciclo de vida ------------------------------------------------------
@@ -426,7 +741,15 @@ class ServidorAPI:
     def endereco(self) -> str:
         host = str(self._http.server_address[0])
         porta = int(self._http.server_address[1])
-        return f"http://{host}:{porta}/{VERSAO_API}"
+        esquema = "https" if self.configuracao.tls is not None else "http"
+        return f"{esquema}://{host}:{porta}/{VERSAO_API}"
+
+    @property
+    def digital_do_certificado(self) -> str:
+        """Impressão digital para o operador conferir no terminal (ou vazio)."""
+        if self.configuracao.tls is None:
+            return ""
+        return str(getattr(self.configuracao.tls, "digital", ""))
 
     def iniciar(self) -> ServidorAPI:
         self._thread = threading.Thread(target=self._http.serve_forever, daemon=True)

@@ -76,25 +76,36 @@ sem que a cadeia quebre e o programa avise.</li>
 <li><strong>Não emite documento fiscal.</strong> O uso é interno (bazar de ONG, controle no lugar da
 caderneta): nota fiscal, homologação com contador e integração com fornecedor fiscal estão fora
 desta fase. O cupom e os relatórios avisam, no rodapé, que não são documento fiscal.</li>
-<li>Não vende em <strong>vários caixas na mesma base</strong> pela rede. O projeto é de um caixa
-por base; multi-caixa é outro projeto (pendência P2).</li>
-<li>Não calcula <strong>juros nem encargos</strong> de crediário atrasado (P3).</li>
-<li>Não acessa a internet: não tem login em nuvem, não sincroniza, não tem telemetria.</li>
+<li>Não tem <strong>tela</strong> para vários caixas na mesma base. O servidor para isso existe e está
+testado (capítulo <a href="#cli">Linha de comando</a> e <em>docs/REDE.md</em>); o que falta é a tela do
+segundo caixa conversar com ele.</li>
+<li>Não cobra <strong>juros nem multa</strong> de crediário por conta própria: o cálculo está pronto e a
+cobrança existe, mas <strong>nasce desligada</strong> — só cobra depois que a loja liga em Parâmetros
+(capítulo Crediário).</li>
+<li>Não tem login em nuvem, não sincroniza e não manda telemetria. Só fala com a internet quando
+alguém manda subir um backup para AWS ou Azure, e aí só para o endereço da sua conta.</li>
 <li>Não importa planilha de produtos (P10) — o cadastro é um produto por vez, pela tela.</li>
 <li>Não cancela nem estorna uma <strong>entrada já lançada</strong>: o caminho é lançar um ajuste de
 estoque com motivo e autorização, e o motivo fica na auditoria.</li>
 </ul>
-<h3>Em construção (documentado, ainda sem tela)</h3>
+<h3>Em construção: o que já funciona e o que ainda não tem tela</h3>
+<p>Esta lista mudou na versão 0.14.0. Antes ela era "documentado, sem código"; agora quase tudo ali
+<strong>funciona</strong> — o que falta, na maior parte, é botão.</p>
 <ul>
-<li><strong>Emissão fiscal</strong> — nota fiscal e NFC-e estão fora desta fase. O que seria preciso
-(certificado, CSC, autorizador, homologação, prazo e custo) está escrito no roteiro
+<li><strong>Juros e multa de crediário atrasado</strong> — <span class="pilula pilula-dica">funciona</span>
+calcula e cobra, como recebimento separado, e entra no fechamento como "encargos". Nasce
+<strong>desligado</strong>: ligar é decisão da loja, em <em>Parâmetros</em>. Passo a passo no capítulo
+<a href="#crediario">Crediário</a>.</li>
+<li><strong>Cópia de segurança na nuvem</strong> (AWS ou Azure) — <span class="pilula pilula-dica">funciona</span>
+pelo comando <code>bussola backup --nuvem aws</code> (ou <code>azure</code>). Não precisa instalar
+nada além do programa; a conta e a chave são de quem paga. Falta o botão na tela.</li>
+<li><strong>Vários caixas na mesma base</strong> — <span class="pilula pilula-dica">servidor
+funciona</span>: um computador abre a base como servidor, com HTTPS de verdade (o programa gera o
+próprio certificado), cada caixa se identifica, tudo fica no log e dois caixas não vendem o mesmo
+último item. Falta a tela do caixa falar com o servidor — hoje é comando e programa externo.</li>
+<li><strong>Emissão fiscal</strong> — <strong>fora desta fase</strong> por decisão de escopo. O que seria
+preciso (certificado, CSC, autorizador, homologação, prazo e custo) está escrito no roteiro
 <em>docs/FISCAL.md</em> do projeto.</li>
-<li><strong>Vários caixas na mesma base</strong> — a arquitetura está decidida (um servidor central e
-os caixas como terminais) e a API do programa já existe; falta o modo terminal.</li>
-<li><strong>Cópia de segurança na nuvem</strong> (AWS ou Azure) — o contrato está pronto; falta a conta
-e a chave, que são decisão de quem paga.</li>
-<li><strong>Juros e multa de crediário atrasado</strong> — a calculadora está pronta e conferida, mas
-<strong>nada é cobrado</strong> até a loja decidir a regra.</li>
 </ul>
 <p>A lista do que tem botão e do que não tem, item por item, está em
 <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
@@ -144,19 +155,17 @@ turno de caixa aberto, porque o dinheiro entra na gaveta do dia.</td></tr>
 <tr><th scope="row">Importar planilha de produtos</th>
 <td>É a pendência P10, fora desta fase.</td>
 <td>Cadastro pela tela, um produto por vez.</td></tr>
-<tr><th scope="row">Juros e encargos de atraso no crediário</th>
-<td>Pendência P3: o projeto não calcula multa nem juros.</td>
-<td>Cobrar o valor da parcela e registrar o combinado fora do sistema.</td></tr>
+<tr><th scope="row">Cobrar juros e multa de atraso</th>
+<td>Funciona, mas <strong>nasce desligado</strong>: só cobra depois de ligado em Parâmetros (P3, regra
+da loja).</td>
+<td>Ligar em <em>Parâmetros → Encargos</em> e conferir os percentuais com o contador.</td></tr>
 <tr><th scope="row">Vários caixas na mesma base, pela rede</th>
-<td>Pendência P2: o projeto é de um caixa por base.</td>
-<td>Um computador no balcão; o segundo, se houver, com base própria.</td></tr>
+<td>O <strong>servidor</strong> está pronto e testado; falta a tela do caixa conversar com ele (P2).</td>
+<td>Um computador no balcão; o segundo, se houver, com base própria até a tela existir.</td></tr>
 <tr><th scope="row">Emitir nota fiscal</th>
 <td>Fora de escopo por decisão do projeto (uso interno, no lugar da caderneta); roteiro de
 homologação escrito em <em>docs/FISCAL.md</em>.</td>
 <td>O cupom e os relatórios avisam, no rodapé, que não são documento fiscal.</td></tr>
-<tr><th scope="row">Cobrar juros e multa de atraso</th>
-<td>Calculadora pronta e conferida, <strong>não aplicada</strong>: falta a regra da loja.</td>
-<td>Cobrar o valor da parcela e registrar o combinado fora do sistema.</td></tr>
 </tbody></table></div>
 <div class="aviso aviso-atencao"><p class="aviso-titulo">O que isso significa na prática</p>
 <p>Hoje dá para <strong>colocar o bazar inteiro dentro do programa sem chamar ninguém</strong>:
@@ -831,6 +840,42 @@ bate com a gaveta.</p></div>
                 ),
             },
             {
+                "id": "encargos-crediario",
+                "titulo": "Juros e multa de atraso",
+                "corpo": """
+<p>Título vencido pode ser cobrado com <strong>multa</strong> (uma vez, sobre o valor da parcela) e
+<strong>juros</strong> (proporcionais aos dias de atraso). O programa calcula e cobra — mas só depois
+que a loja liga a cobrança.</p>
+<h4>Ligar a cobrança (uma vez)</h4>
+<ol class="passos">
+<li>Abra <em>Parâmetros</em> e procure o grupo <strong>Encargos</strong>.</li>
+<li>Marque <strong>Cobrar encargos de atraso</strong>. Ajuste, se quiser: multa em % (padrão 2%),
+juros ao mês em % (padrão 1%) e carência em dias (padrão 0).</li>
+<li>Salve. A mudança fica na auditoria com quem alterou e os valores antigos.</li>
+</ol>
+<h4>Cobrar de um cliente</h4>
+<ol class="passos">
+<li>Crediário → escolha o título atrasado → <strong>Receber parcela</strong>.</li>
+<li>A tela mostra o valor da parcela, a multa, os juros, os dias de atraso e o
+<strong>total a receber</strong>. É esse total que vai para a gaveta.</li>
+<li>Confirme. O título continua com o valor original (a dívida que o cliente assinou não é
+reescrita); o encargo vira um <strong>recebimento separado</strong>.</li>
+</ol>
+<div class="aviso aviso-info"><p class="aviso-titulo">Por que separado</p>
+<p>No fechamento do turno aparecem duas linhas: <em>recebimentos</em> e <em>encargos</em>. É assim que
+dá para mostrar ao contador quanto entrou de mercadoria e quanto entrou de encargo — e é o que
+permite conferir a gaveta sem refazer conta.</p></div>
+<h4>Perdoar o encargo</h4>
+<p>Se a loja decidir não cobrar daquele cliente, marque <strong>dispensar encargos</strong> e escreva o
+motivo. Isso exige a senha de um <strong>gerente ou administrador</strong> (permissão
+<em>perdoar encargo</em>). Fica registrado quanto foi perdoado, quem autorizou e por quê.</p>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">O limite da lei</p>
+<p>Multa de mora acima de 2% e juros acima da taxa legal são problema jurídico, não de programa: o
+CDC (art. 52) e o Decreto 22.626/33 limitam isso. Os valores de fábrica são conservadores; quem
+decide o número final é o contador da loja.</p></div>
+""",
+            },
+            {
                 "id": "regras-crediario",
                 "titulo": "As regras que o programa aplica",
                 "corpo": """
@@ -839,8 +884,8 @@ bate com a gaveta.</p></div>
 <tbody>
 <tr><th scope="row">Parcelas máximas por título</th><td>12</td><td>Parâmetros</td></tr>
 <tr><th scope="row">Bloqueio de nova venda a prazo</th><td>com 30 dias de atraso</td><td>Parâmetros</td></tr>
-<tr><th scope="row">Juros e encargos</th><td><strong>não existem</strong> (pendência P3 — veja
-<a href="#nao-da-pela-tela">o que ainda não tem botão</a>)</td><td>—</td></tr>
+<tr><th scope="row">Multa e juros de atraso</th><td><strong>2% de multa + 1% ao mês</strong>, mas
+<strong>desligados</strong></td><td>Parâmetros → Encargos</td></tr>
 </tbody></table></div>
 <div class="aviso aviso-atencao"><p class="aviso-titulo">O limite é do cliente, e é conferido</p>
 <p>Se o cliente já deve e o limite está estourado, o programa recusa a nova venda a prazo sem
@@ -1125,6 +1170,38 @@ em lugar com acesso restrito — ela contém os dados da loja.</p>
 """,
             },
             {
+                "id": "backup-nuvem",
+                "titulo": "Guardar a cópia fora da loja (nuvem)",
+                "corpo": """
+<p>Cópia na mesma máquina não protege de incêndio, furto nem do pen drive que ninguém levou. A partir
+da versão 0.14.0 o programa sabe copiar para <strong>AWS (S3)</strong> ou <strong>Azure (Blob)</strong>
+usando só a biblioteca padrão do Python — não precisa instalar SDK nenhum.</p>
+<h4>O que a loja precisa ter</h4>
+<ul>
+<li>uma conta na AWS ou no Azure (paga; a conta é decisão de quem paga, não do programa);</li>
+<li>um "recipiente" (pasta) criado nessa conta — por exemplo <code>backup-bazar</code>;</li>
+<li>a chave de acesso guardada <strong>em variável de ambiente</strong>, não dentro do programa.</li>
+</ul>
+<h4>Como rodar</h4>
+<ol class="passos">
+<li>Abra o Prompt de Comando e informe a chave (uma vez por sessão). Na AWS:
+<code>set BUSSOLA_AWS_ACCESS_KEY_ID=...</code> e <code>set BUSSOLA_AWS_SECRET_ACCESS_KEY=...</code>.
+No Azure: <code>set BUSSOLA_AZURE_CONTA=...</code> e <code>set BUSSOLA_AZURE_CHAVE=...</code>
+(a chave do Azure vai em base64, exatamente como o portal mostra).</li>
+<li>Rode <code>bussola backup --banco "C:\\...\\pdv.db" --destino D:\\copias --nuvem aws</code>
+(troque <code>aws</code> por <code>azure</code> se for o caso).</li>
+<li>O programa faz a cópia local, <strong>confere o <code>sha256</code></strong> e só então envia.
+Se a nuvem falhar, a cópia local continua lá e o comando avisa — nada é perdido.</li>
+</ol>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">Falhou? A cópia local vale</p>
+<p>Nuvem fora do ar, chave errada, internet caída: o código de saída é 2 e a mensagem diz qual
+variável falta ou qual endereço recusou. O backup do dia <strong>já está no disco</strong> — a nuvem é
+a segunda camada, não a única.</p></div>
+<p>Detalhes de configuração, nomes de variável e o que ainda não existe (envio em partes e nova
+tentativa automática) estão em <em>docs/NUVEM.md</em>.</p>
+""",
+            },
+            {
                 "id": "reinstalar",
                 "titulo": "Trocar de computador ou reinstalar",
                 "corpo": """
@@ -1313,6 +1390,21 @@ nem para isso, use o backup externo (capítulo 17) — ele não depende do progr
 instalação feita "do código", falta o pacote <code>tzdata</code>:
 <code>python -m pip install tzdata</code>.</li>
 </ol>
+<h4>Se você usa o servidor de rede</h4>
+<ol class="passos">
+<li><strong>O terminal avisa que o certificado não é confiável.</strong> É esperado: o certificado é
+gerado pelo próprio programa, não por uma autoridade de internet. Confira a impressão digital
+SHA-256 que o servidor mostra na subida com a que o terminal mostra — se bater, é o servidor certo.</li>
+<li><strong>O servidor recusa subir em <code>0.0.0.0</code>.</strong> Falta <code>--tls</code>: sem
+HTTPS o programa não expõe a base na rede, de propósito.</li>
+<li><strong>Quero saber quem fez cada venda.</strong> Cada caixa manda seu nome no cabeçalho
+<code>X-Bussola-Terminal</code>; o nome aparece na venda, no turno e no log
+<code>logs/api-AAAA-MM-DD.jsonl</code>.</li>
+</ol>
+<h4>Se você manda backup para a nuvem</h4>
+<p>A mensagem diz qual variável de ambiente falta ou qual endereço recusou. Chave com espaço sobrando,
+recipiente inexistente e relógio do computador errado (a assinatura usa a data) são as três causas
+mais comuns.</p>
 <div class="aviso aviso-dica"><p class="aviso-titulo">Dica</p>
 <p>Ao relatar um problema, mande a mensagem exata e a versão que aparece no rodapé. "Não funciona" não
 dá o que investigar; "ao finalizar, apareceu 'Nenhum turno aberto'" dá.</p></div>
@@ -1371,6 +1463,8 @@ bussola init        --banco dados/pdv.db --admin-login master   # cria a base
 bussola demo        --banco dados/demo.db                       # base com dados fictícios
 bussola info        --banco dados/pdv.db                        # versão, integridade, auditoria
 bussola backup      --banco dados/pdv.db --destino D:\\copias --automatico
+bussola backup      --banco dados/pdv.db --destino D:\\copias --nuvem aws   # S3 ou azure
+bussola api         --banco dados/pdv.db --token ... --host 0.0.0.0 --tls --terminal CAIXA-01
 bussola fechamento  --banco dados/pdv.db --data 2026-11-11
 bussola exportar    --banco dados/pdv.db --tipo vendas --formato pdf --login gerente</code></pre>
 """,
@@ -1404,7 +1498,9 @@ Qt</strong>.</p>
 permissões. Nada de interface.</li>
 <li><code>aplicacao/</code> — os casos de uso (vender, abrir caixa, fechar turno, exportar, backup) e a
 autorização por permissão.</li>
-<li><code>infra/</code> — SQLite, migrações versionadas, repositórios.</li>
+<li><code>infra/</code> — SQLite, migrações versionadas, repositórios, além de
+<code>api/</code> (servidor HTTP com TLS), <code>rede/</code> (certificado gerado pelo programa) e
+<code>nuvem/</code> (assinatura AWS/Azure em biblioteca padrão).</li>
 <li><code>ui/</code> — PySide6: janelas, telas, tema, impressão, exportação, ajuda.</li>
 <li><code>tests/</code> — a suíte completa; binário e instalador nascem no CI.</li>
 </ul>

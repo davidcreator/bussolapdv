@@ -131,6 +131,7 @@ class Acao(StrEnum):
 
     # Financeiro / relatórios
     TITULO_RECEBER = "TITULO_RECEBER"
+    TITULO_ENCARGO_DISPENSAR = "TITULO_ENCARGO_DISPENSAR"
     RELATORIO_VER = "RELATORIO_VER"
     RELATORIO_CONTABIL = "RELATORIO_CONTABIL"
     FECHAMENTO_GERAR = "FECHAMENTO_GERAR"
@@ -169,6 +170,7 @@ class Acao(StrEnum):
             Acao.ESTOQUE_AJUSTAR: CategoriaAcao.ESTOQUE,
             Acao.ESTOQUE_ENTRADA: CategoriaAcao.ESTOQUE,
             Acao.TITULO_RECEBER: CategoriaAcao.FINANCEIRO,
+            Acao.TITULO_ENCARGO_DISPENSAR: CategoriaAcao.FINANCEIRO,
             Acao.RELATORIO_VER: CategoriaAcao.FINANCEIRO,
             Acao.RELATORIO_CONTABIL: CategoriaAcao.FINANCEIRO,
             Acao.FECHAMENTO_GERAR: CategoriaAcao.FINANCEIRO,
@@ -206,6 +208,7 @@ class Acao(StrEnum):
             Acao.ESTOQUE_AJUSTAR: "Ajustar estoque",
             Acao.ESTOQUE_ENTRADA: "Registrar entrada de mercadoria",
             Acao.TITULO_RECEBER: "Receber título do crediário",
+            Acao.TITULO_ENCARGO_DISPENSAR: "Perdoar multa e juros de atraso",
             Acao.RELATORIO_VER: "Ver relatórios",
             Acao.RELATORIO_CONTABIL: "Ver relatórios contábeis e fechamentos",
             Acao.FECHAMENTO_GERAR: "Gerar fechamento do dia",
@@ -261,6 +264,7 @@ PERMISSOES_PADRAO: dict[Perfil, frozenset[Acao]] = {
             Acao.ESTOQUE_AJUSTAR,
             Acao.ESTOQUE_ENTRADA,
             Acao.TITULO_RECEBER,
+            Acao.TITULO_ENCARGO_DISPENSAR,
             Acao.RELATORIO_VER,
             Acao.RELATORIO_CONTABIL,
             Acao.FECHAMENTO_GERAR,

@@ -33,6 +33,8 @@ class TurnoRegistrado:
     diferenca: Dinheiro | None = None
     conferente_id: str | None = None
     motivo_diferenca: str | None = None
+    #: Terminal que abriu o turno ('' em bases anteriores à v0.14.0).
+    terminal_id: str = ""
 
 
 class CaixaRepositorio(RepositorioBase):
@@ -72,6 +74,7 @@ class CaixaRepositorio(RepositorioBase):
             ),
             conferente_id=linha["conferente_id"],
             motivo_diferenca=linha["motivo_diferenca"],
+            terminal_id=linha["terminal_id"] or "",
         )
 
     def abrir_turno(
@@ -82,15 +85,24 @@ class CaixaRepositorio(RepositorioBase):
         fundo: Dinheiro,
         aberto_em: datetime,
         data_negocio: str,
+        terminal_id: str = "",
     ) -> TurnoRegistrado:
         """Abre turno. A unicidade é garantida pelo índice parcial do banco."""
         turno_id = str(uuid.uuid4())
         try:
             self.conexao.execute(
                 """INSERT INTO turnos (id, caixa_id, operador_id, data_negocio, fundo_centavos,
-                                       aberto_em, status)
-                   VALUES (?, ?, ?, ?, ?, ?, 'ABERTO')""",
-                (turno_id, caixa_id, operador_id, data_negocio, fundo.centavos, self.iso(aberto_em)),
+                                       aberto_em, status, terminal_id)
+                   VALUES (?, ?, ?, ?, ?, ?, 'ABERTO', ?)""",
+                (
+                    turno_id,
+                    caixa_id,
+                    operador_id,
+                    data_negocio,
+                    fundo.centavos,
+                    self.iso(aberto_em),
+                    terminal_id,
+                ),
             )
         except sqlite3.IntegrityError as exc:
             raise TurnoJaAberto("Já existe um turno aberto para este caixa.") from exc
