@@ -165,6 +165,37 @@ si mesmo, em dois níveis.
 
 ![Guia completo](docs/capturas/32_ajuda_guia.png)
 
+## Manual do usuário (web)
+
+O guia dentro do programa resolve a dúvida do momento; o **manual** é o documento inteiro, para
+quem está aprendendo do zero e para quem quer entender o que o programa faz por baixo.
+
+**[`manual/index.html`](manual/index.html)** — um arquivo só, 22 capítulos, sem internet, sem
+instalação: abra no navegador (duplo clique) ou leia no celular. Vem versionado no repositório, então
+funciona também quando o programa ainda não está instalado.
+
+- **Duas trilhas no mesmo texto** — cada capítulo começa com o que a pessoa vê na tela, sem jargão;
+  o que é técnico (linha de comando, banco, variáveis de ambiente) fica num bloco recolhido
+  **"Para usuário avançado"**.
+- **Feito do próprio programa** — o passo a passo, os campos e os atalhos de cada tela são lidos do
+  guia que vive no código (`aplicacao/ajuda.py`); se uma tela muda, o manual é regerado a partir dela.
+- **Imagens de verdade** — 25 capturas das telas reais (`docs/capturas/`), embutidas no HTML: clique
+  para ampliar.
+- **Demonstrações que respondem** — calculadora de troco (até três formas de pagamento), o caminho de
+  uma venda em cinco passos, a **matriz de permissões real** dos cinco perfis (32 ações, filtrável) e
+  a tabela de atalhos com busca.
+- **Leitura confortável** — sumário lateral com o capítulo atual marcado, busca no texto inteiro com
+  destaque, tema claro/escuro, funciona em tela pequena e imprime/exporta em PDF pelo próprio
+  navegador.
+
+Regenerar depois de mudar telas ou o guia:
+
+```bash
+make manual      # escreve manual/index.html
+python3 ferramentas/gerar_manual.py --sem-imagens   # versão leve, sem as capturas
+```
+
+
 ## Exportação (Excel e PDF)
 
 Todo relatório tem o botão **Exportar** no cabeçalho do cartão, com dois formatos:
@@ -378,8 +409,11 @@ src/bussola_pdv/
   cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             678 testes: unidade, integração com SQLite real, falhas, UI offscreen,
-                   exportação, impressão (documento, PDF, ESC/POS, CLI) e empacotamento
+tests/             857 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+                   exportação, impressão (documento, PDF, ESC/POS, CLI), empacotamento e manual
+ferramentas/       capturas das telas, verificação de responsividade, backup externo, QR Pix e o
+                   gerador do manual (gerar_manual.py + o texto em manual_conteudo.py)
+manual/index.html  manual do usuário em um arquivo só, gerado por `make manual`
 empacotamento/     PyInstaller (.spec, ícone, metadados), Inno Setup (.iss), build_windows.ps1
 docs/              análise do repositório de origem, decisões (ADRs), interface, exportação,
                    impressão, instalação no Windows, plano e capturas

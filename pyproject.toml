@@ -92,6 +92,10 @@ ignore = [
 "tests/**" = ["S105", "S106", "S608", "PT011"]
 "src/bussola_pdv/infra/sqlite/**" = ["S608"]  # SQL montado a partir de constantes internas
 "src/bussola_pdv/infra/massa_demo.py" = ["C408"]  # dict(campo=...) é mais legível para a massa fictícia
+# O texto do manual é HTML dentro de string Python: linha de tabela é longa por natureza.
+"ferramentas/manual_conteudo.py" = ["E501"]
+# Idem no gerador: CSS e JavaScript ficam em strings e têm linha longa de propósito.
+"ferramentas/gerar_manual.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

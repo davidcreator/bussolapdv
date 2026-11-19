@@ -4,6 +4,48 @@ Formato inspirado em Keep a Changelog; versionamento semântico a partir de rele
 
 ## [Não lançado]
 
+### Adicionado — manual do usuário em HTML, CSS e JS (`manual/index.html`)
+
+O guia dentro do programa (F1) responde à dúvida do momento; faltava o documento inteiro para quem
+está aprendendo do zero. Agora existe, e é gerado **do próprio programa**, não escrito à parte.
+
+- **22 capítulos, 52 seções**: o que é o programa (e o que ele não é), instalação no Windows/Linux/
+  macOS, primeiro uso, login e os cinco perfis, anatomia da tela, o dia de trabalho, a venda no PDV,
+  caixa, produtos, clientes, crediário, estoque, vendas e relatórios, fechamento, auditoria, backup,
+  área administrativa, ajuda, problemas comuns, atalhos e o capítulo técnico.
+- **Duas trilhas no mesmo texto**: o corpo é escrito para quem nunca operou um PDV; o que é técnico
+  (linha de comando, arquivos, variáveis de ambiente, arquitetura do código) vai em bloco recolhido
+  "Para usuário avançado" — 6 deles — ou no capítulo técnico do fim do manual.
+- **Conteúdo amarrado ao código**: o passo a passo, os campos e os atalhos de cada tela são lidos do
+  guia de `aplicacao/ajuda.py` (14 temas); a matriz de permissões e os números citados vêm de
+  `dominio/usuario.py` (32 ações; 8/24/5/30/32 permissões por perfil) e dos parâmetros de fábrica.
+- **25 capturas embutidas** em `data:` URI (WebP, Pillow), com largura e altura declaradas — sem
+  arquivo vizinho e sem `loading="lazy"`, que faria o salto de capítulo cair no lugar errado.
+- **Cinco demonstrações que respondem**: calculadora de troco com até três formas de pagamento
+  (formato brasileiro, avisa quando falta dinheiro), o caminho de uma venda em cinco passos, a matriz
+  real de permissões com filtro por perfil e por ação, e a tabela de atalhos com busca.
+- **Leitura**: sumário lateral com o capítulo atual marcado, busca no texto inteiro (sem acento, com
+  destaque e sumário acompanhando o filtro), tema claro/escuro, imagem ampliada, barra de progresso,
+  layout de 390 px a 2560 px e folha de estilo de impressão (imprimir/PDF pelo navegador).
+- **`ferramentas/gerar_manual.py`** + **`ferramentas/manual_conteudo.py`** e `make manual`. O gerador
+  recusa terminar se houver âncora sem destino, `id` repetido, recurso externo, captura ausente ou
+  simulador citado e não implementado.
+- O arquivo gerado é **versionado** (`manual/index.html`, 1,45 MB): abre por duplo clique, sem
+  internet e sem o programa instalado.
+
+### Verificação — manual
+
+- `tests/test_manual.py` (20 testes): capítulos e seções não vazios, ids únicos, toda chave `guia`
+  existente no programa e com conteúdo, toda captura citada presente em `docs/capturas/`, todo
+  simulador implementado, HTML com as tags fechadas (parser), todo `href="#…"` com destino, nenhum
+  recurso externo (`src` http, `<link>`, `@import`), capturas embutidas e com medida, `{VERSAO}`
+  substituído, toda classe usada definida no CSS, e o arquivo versionado contendo os capítulos de
+  hoje (pega "esqueci de rodar `make manual`").
+- Página conferida em navegador de verdade (Chromium headless): 1440×900 e 390×844, tema claro e
+  escuro, busca por "sangria" (8 seções, com destaque), salto de capítulo pelo sumário, calculadora
+  de troco (R$ 37,40 com R$ 50,00 → R$ 12,60), imagem ampliada e fechamento com `Esc` — nenhum erro
+  de console.
+
 ### Adicionado — pacotes de instalação para Windows, Linux e macOS
 
 Até aqui só existia a receita do Windows (`build_windows.ps1` + Inno Setup). Agora há **um comando
