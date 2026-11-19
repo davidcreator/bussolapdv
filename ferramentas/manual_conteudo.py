@@ -60,8 +60,8 @@ e calcula o troco.</li>
 <li>Controla <strong>turno de caixa</strong>: abertura com fundo de troco, sangria, suprimento,
 conferência de cédulas e fechamento com justificativa de diferença.</li>
 <li>Guarda o catálogo de produtos e clientes e o estoque por movimentos (venda, entrada, ajuste),
-com ponto de pedido. <strong>O cadastro em si ainda não tem botão na tela</strong> — veja
-<a href="#nao-da-pela-tela">o que ainda não dá para fazer só pela tela</a>.</li>
+com ponto de pedido. <strong>Tudo isso se cadastra pela própria tela</strong>: produto, cliente,
+entrada de fornecedor, ajuste de contagem e baixa de parcela do crediário.</li>
 <li>Controla o <strong>crediário</strong>: títulos, parcelas, atraso e recebimento parcial.</li>
 <li>Exporta qualquer relatório em <strong>Excel (.xlsx)</strong> e <strong>PDF</strong>.</li>
 <li>Imprime em impressora comum (folha A4) e em impressora térmica de bobina 58 mm e 80 mm.</li>
@@ -80,8 +80,12 @@ desta fase. O cupom e os relatórios avisam, no rodapé, que não são documento
 por base; multi-caixa é outro projeto (pendência P2).</li>
 <li>Não calcula <strong>juros nem encargos</strong> de crediário atrasado (P3).</li>
 <li>Não acessa a internet: não tem login em nuvem, não sincroniza, não tem telemetria.</li>
-<li>Não importa planilha de produtos (P10) — o cadastro é pela tela.</li>
+<li>Não importa planilha de produtos (P10) — o cadastro é um produto por vez, pela tela.</li>
+<li>Não cancela nem estorna uma <strong>entrada já lançada</strong>: o caminho é lançar um ajuste de
+estoque com motivo e autorização, e o motivo fica na auditoria.</li>
 </ul>
+<p>A lista do que tem botão e do que não tem, item por item, está em
+<a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 </div>
 </div>
 """,
@@ -90,8 +94,8 @@ por base; multi-caixa é outro projeto (pendência P2).</li>
                 "id": "nao-da-pela-tela",
                 "titulo": "O que já tem botão e o que ainda não tem",
                 "corpo": """
-<p>Antes de o bazar começar a usar, é justo você saber o que já funciona pela tela e o que ainda
-depende de alguém com acesso técnico. A lista abaixo foi tirada do próprio programa desta versão.</p>
+<p>Esta tabela responde à pergunta que sempre aparece na primeira semana: “isso eu faço sozinho, ou
+preciso chamar quem cuida do computador?”. Ela foi tirada do próprio programa desta versão.</p>
 <div class="tabela-rolagem"><table class="tabela">
 <caption>O que a tela faz nesta versão</caption>
 <thead><tr><th>O que você quer fazer</th><th>Como está hoje</th></tr></thead>
@@ -100,26 +104,49 @@ depende de alguém com acesso técnico. A lista abaixo foi tirada do próprio pr
 <td><span class="pilula pilula-dica">pela tela</span> módulos PDV, Caixa e Vendas.</td></tr>
 <tr><th scope="row">Consultar, exportar (Excel/PDF) e imprimir</th>
 <td><span class="pilula pilula-dica">pela tela</span> Produtos, Vendas, Fechamento, Auditoria,
-Clientes, Crediário e Estoque.</td></tr>
+Clientes, Crediário, Estoque e Entradas.</td></tr>
 <tr><th scope="row">Usuários, permissões, parâmetros, marca da loja, backup</th>
 <td><span class="pilula pilula-dica">pela tela</span> área Administração.</td></tr>
 <tr><th scope="row">Criar ou alterar produto (preço, custo, mínimo)</th>
-<td><span class="pilula pilula-atencao">ainda não</span> a tela Produtos consulta, exporta e imprime;
-o cadastro entra pelo serviço técnico do programa.</td></tr>
+<td><span class="pilula pilula-dica">pela tela</span> Produtos → <em>Novo produto</em> /
+<em>Alterar produto</em>. Quem não tem a permissão de cadastro não vê o botão.</td></tr>
 <tr><th scope="row">Criar cliente, com documento e limite</th>
-<td><span class="pilula pilula-atencao">ainda não</span> a tela Clientes consulta, exporta e imprime.</td></tr>
+<td><span class="pilula pilula-dica">pela tela</span> Clientes → <em>Novo cliente</em> /
+<em>Alterar cliente</em>.</td></tr>
 <tr><th scope="row">Lançar estoque inicial, entrada de mercadoria ou ajuste</th>
-<td><span class="pilula pilula-atencao">ainda não</span> a tela Estoque mostra movimentos e saldos.
-O módulo <em>Entradas</em> aparece no menu, mas a página ainda não existe nesta versão.</td></tr>
+<td><span class="pilula pilula-dica">pela tela</span> Entradas → <em>Nova entrada</em> (nota de
+fornecedor) e Estoque → <em>Ajustar saldo</em> (contagem, avaria, saldo inicial). O ajuste exige
+motivo e a senha de <strong>outro</strong> usuário.</td></tr>
 <tr><th scope="row">Receber parcela do crediário (dar baixa)</th>
-<td><span class="pilula pilula-atencao">ainda não</span> a tela Crediário mostra títulos, atraso e
-saldo, e exporta — mas a baixa de recebimento ainda não tem botão.</td></tr>
+<td><span class="pilula pilula-dica">pela tela</span> Crediário → <em>Receber parcela</em>; exige
+turno de caixa aberto, porque o dinheiro entra na gaveta do dia.</td></tr>
+</tbody></table></div>
+<p>O que ainda <strong>não</strong> tem botão — e é bom saber antes de prometer à equipe:</p>
+<div class="tabela-rolagem"><table class="tabela">
+<caption>O que continua sem botão</caption>
+<thead><tr><th>O que falta</th><th>Por quê</th><th>Saída hoje</th></tr></thead>
+<tbody>
+<tr><th scope="row">Cancelar uma entrada já lançada</th>
+<td>Não existe estorno de nota de fornecedor.</td>
+<td>Lançar <em>Ajustar saldo</em> com o motivo (“erro na nota 123”) — fica na auditoria.</td></tr>
+<tr><th scope="row">Importar planilha de produtos</th>
+<td>É a pendência P10, fora desta fase.</td>
+<td>Cadastro pela tela, um produto por vez.</td></tr>
+<tr><th scope="row">Juros e encargos de atraso no crediário</th>
+<td>Pendência P3: o projeto não calcula multa nem juros.</td>
+<td>Cobrar o valor da parcela e registrar o combinado fora do sistema.</td></tr>
+<tr><th scope="row">Vários caixas na mesma base, pela rede</th>
+<td>Pendência P2: o projeto é de um caixa por base.</td>
+<td>Um computador no balcão; o segundo, se houver, com base própria.</td></tr>
+<tr><th scope="row">Emitir nota fiscal</th>
+<td>Fora de escopo por decisão do projeto (uso interno, no lugar da caderneta).</td>
+<td>O cupom e os relatórios avisam, no rodapé, que não são documento fiscal.</td></tr>
 </tbody></table></div>
 <div class="aviso aviso-atencao"><p class="aviso-titulo">O que isso significa na prática</p>
-<p>Para <strong>operar o dia</strong> — vender, receber, conferir a gaveta, fechar o caixa e exportar o
-relatório — o programa está pronto. Para <strong>colocar o catálogo do bazar dentro dele</strong>
-(produtos, clientes, saldo inicial) ainda é preciso alguém com acesso ao serviço do programa.
-Combine isso com quem cuida do computador da ONG <em>antes</em> do primeiro dia.</p>
+<p>Hoje dá para <strong>colocar o bazar inteiro dentro do programa sem chamar ninguém</strong>:
+cadastrar produto, cadastrar cliente, lançar o estoque da contagem, dar entrada de mercadoria e
+receber parcela do crediário. O que sobra de fora são as cinco linhas da segunda tabela — e nenhuma
+delas trava o dia a dia.</p>
 <p>Para treinar a equipe sem encostar nos dados reais, peça uma <strong>base de demonstração</strong>
 (loja fictícia, usuários de teste, senha <code>Bussola#2026</code>): o comando está no capítulo
 <a href="#cli">Linha de comando</a>.</p></div>
@@ -162,9 +189,11 @@ e é isso que resolve o problema de somar tudo à mão no fim do dia.</p>
 <h4>Como fazer a virada sem susto</h4>
 <ol class="passos">
 <li><strong>Escolha um dia calmo</strong> para começar e faça a contagem inicial do que está na
-prateleira — <em>no papel</em>, para não perder o número. Lançar esse saldo no programa ainda não tem
-botão: é feito pelo serviço técnico, junto com o cadastro dos produtos (veja
-<a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>).</li>
+prateleira — <em>no papel</em>, para não perder o número. Depois cadastre cada produto pela tela
+<em>Produtos</em> e lance a contagem com <em>Estoque → Ajustar saldo</em>, que pede o motivo
+(“contagem inicial”) e a senha de um segundo usuário. O saldo inicial fica registrado como ajuste,
+não como número mágico (passo a passo no capítulo
+<a href="#estoque">Estoque e entradas</a>).</li>
 <li><strong>Cadastre primeiro o que sai toda semana</strong> — o resto entra conforme aparece. Produto
 sem cadastro não é vendido, então é isso que trava o balcão no começo.</li>
 <li><strong>Rode os dois em paralelo por alguns dias</strong>, se preferir: use o programa para vender
@@ -666,7 +695,29 @@ compara com o que ele registrou de vendas, sangrias e suprimentos.</p></div>
                 "corpo": """
 <p>O catálogo é a base de tudo: sem produto cadastrado não há venda, não há estoque e não há
 relatório de reposição.</p>
-<p class="dica">Esta tela <strong>consulta, exporta e imprime</strong>; criar ou alterar produto ainda depende de alguém com acesso técnico. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
+<p class="dica">Esta tela <strong>consulta, exporta, imprime e cadastra</strong>. Os botões
+<em>Novo produto</em> e <em>Alterar produto</em> ficam no alto do cartão e só aparecem para quem tem a
+permissão de cadastro.</p>
+<h4>Cadastrar um produto</h4>
+<ol class="passos">
+<li>Clique em <strong>Novo produto</strong>. O código é curto de propósito (ex.: <code>A001</code>):
+é o que se digita no PDV quando o produto não tem código de barras.</li>
+<li>Preencha <strong>descrição</strong>, <strong>unidade</strong> (UN, KG, LT, CX, MT, DZ),
+<strong>custo</strong> e <strong>preço de venda</strong>. Custo é o que a ONG pagou; preço é o que
+aparece no balcão.</li>
+<li>Se quiser controle de reposição, informe <strong>estoque mínimo</strong> e <strong>ponto de
+pedido</strong> — em unidades do produto, e em quilo vale a fração (0,5 = meio quilo).</li>
+<li>Clique em <strong>Cadastrar</strong>. O produto aparece na lista na hora.</li>
+</ol>
+<h4>Alterar preço, custo ou mínimo</h4>
+<ol class="passos">
+<li>Clique na linha do produto e depois em <strong>Alterar produto</strong> (ou dê dois cliques).</li>
+<li>Mude o que precisa e clique em <strong>Salvar</strong>. A alteração entra na auditoria com o valor
+de antes e o de depois: preço, custo, mínimo, ponto de pedido e ativo/inativo.</li>
+</ol>
+<div class="aviso aviso-info"><p class="aviso-titulo">Por que a auditoria guarda o preço antigo</p>
+<p>É o que responde, meses depois, “por que este item saiu mais barato naquele dia?”. O produto
+desativado não some da lista nem do histórico: ele só deixa de aparecer no PDV.</p></div>
 """,
                 "guia": "produtos",
                 "imagem": (
@@ -702,7 +753,19 @@ agora do que no meio da venda.</p>
                 "corpo": """
 <p>Cliente é opcional na venda à vista e <strong>obrigatório</strong> na venda a prazo. O cadastro
 guarda nome, documento, telefone e o limite de crediário.</p>
-<p class="dica">Esta tela <strong>consulta, exporta e imprime</strong>; criar ou alterar cliente ainda depende de alguém com acesso técnico. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
+<p class="dica">Esta tela <strong>consulta, exporta, imprime e cadastra</strong> — botões
+<em>Novo cliente</em> e <em>Alterar cliente</em>.</p>
+<ol class="passos">
+<li><strong>Novo cliente</strong>: nome é obrigatório; documento (CPF/CNPJ) é opcional, mas é o que
+evita cadastro repetido — o programa confere os dígitos e recusa documento de outro cliente já
+cadastrado.</li>
+<li>Informe o <strong>limite de crediário</strong> em reais. Zero significa “só à vista ou com
+autorização”.</li>
+<li>Para corrigir nome, documento, limite ou afastar um cliente, clique na linha e use
+<strong>Alterar cliente</strong>. Toda mudança fica na auditoria com o valor anterior.</li>
+</ol>
+<p>O documento aparece <strong>mascarado</strong> nas telas e nos relatórios (só os últimos quatro
+caracteres), por causa da LGPD.</p>
 """,
                 "guia": "clientes",
                 "imagem": (
@@ -726,7 +789,23 @@ guarda nome, documento, telefone e o limite de crediário.</p>
                 "corpo": """
 <p>Venda a prazo gera um <strong>título</strong> com parcelas. O programa mostra o que está a vencer,
 o que está atrasado e há quanto tempo — é o que permite cobrar sem planilha paralela.</p>
-<p class="dica">A baixa de recebimento (dar a parcela como paga) ainda não tem botão nesta tela; o que ela faz é mostrar o que está em aberto e exportar. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
+<p class="dica">Para dar baixa, selecione o título e clique em <strong>Receber parcela</strong>.</p>
+<h4>Receber uma parcela</h4>
+<ol class="passos">
+<li><strong>Abra o caixa antes</strong>. Recebimento em dinheiro entra na gaveta do turno; sem turno
+aberto o programa avisa e não grava nada.</li>
+<li>Na tela Crediário, escolha o título e clique em <strong>Receber parcela</strong>. O valor do saldo
+já vem preenchido — pode receber <strong>menos</strong> (pagamento parcial) e o saldo continua em
+aberto para a próxima vez.</li>
+<li>Escolha a <strong>forma</strong>: dinheiro, PIX, débito ou crédito. “A prazo” não aparece como
+forma de recebimento — renovar dívida não é receber.</li>
+<li>Se quiser, escreva uma <strong>referência</strong> (número do comprovante, PIX). Clique em
+<strong>Receber</strong>: a tela mostra quanto ainda falta do título.</li>
+</ol>
+<div class="aviso aviso-info"><p class="aviso-titulo">O que fica registrado</p>
+<p>Cada recebimento gera um lançamento no crediário, um movimento no turno de caixa (quando é
+dinheiro) e um evento na auditoria com operador, valor e forma. É por isso que o fechamento do dia
+bate com a gaveta.</p></div>
 """,
                 "guia": "crediario",
                 "imagem": (
@@ -744,7 +823,8 @@ o que está atrasado e há quanto tempo — é o que permite cobrar sem planilha
 <tbody>
 <tr><th scope="row">Parcelas máximas por título</th><td>12</td><td>Parâmetros</td></tr>
 <tr><th scope="row">Bloqueio de nova venda a prazo</th><td>com 30 dias de atraso</td><td>Parâmetros</td></tr>
-<tr><th scope="row">Juros e encargos</th><td><strong>não existem</strong> (pendência P3)</td><td>—</td></tr>
+<tr><th scope="row">Juros e encargos</th><td><strong>não existem</strong> (pendência P3 — veja
+<a href="#nao-da-pela-tela">o que ainda não tem botão</a>)</td><td>—</td></tr>
 </tbody></table></div>
 <div class="aviso aviso-atencao"><p class="aviso-titulo">O limite é do cliente, e é conferido</p>
 <p>Se o cliente já deve e o limite está estourado, o programa recusa a nova venda a prazo sem
@@ -767,7 +847,22 @@ autorização. Quem autoriza fica registrado na auditoria.</p></div>
 <p>O estoque não é digitado: ele é a soma dos movimentos. Venda baixa, entrada de fornecedor sobe,
 ajuste justifica a diferença. Por isso a tela mostra sempre os dois lados — o saldo e o que o
 explicou.</p>
-<p class="dica">Lançar entrada ou ajuste ainda não tem botão nesta tela: ela mostra o saldo e os movimentos que o explicam. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
+<p class="dica">Os botões <strong>Entrada de mercadoria</strong> e <strong>Ajustar saldo</strong>
+ficam no alto do cartão.</p>
+<h4>Ajustar o saldo (contagem, avaria, saldo inicial)</h4>
+<ol class="passos">
+<li>Clique em <strong>Ajustar saldo</strong>, informe o código do produto e a
+<strong>quantidade</strong>: positiva para acrescentar, negativa para baixar (ex.: <code>-2</code>
+tira duas unidades).</li>
+<li>Escreva o <strong>motivo</strong> — “contagem mensal”, “garrafa quebrada”, “saldo inicial”. Motivo
+vazio é recusado.</li>
+<li>Peça a <strong>senha de outro usuário</strong> com permissão de ajuste. Quem conta não valida a
+própria contagem: é essa separação que dá sentido ao número.</li>
+<li>Clique em <strong>Ajustar</strong>. O saldo novo aparece na hora e o ajuste fica na auditoria com
+o antes e o depois.</li>
+</ol>
+<p>É assim que se lança o <strong>estoque inicial</strong> do bazar: um ajuste por produto, com motivo
+“contagem inicial”. Fica registrado como ajuste — não como número digitado sem história.</p>
 """,
                 "guia": "estoque",
                 "imagem": (
@@ -779,17 +874,40 @@ explicou.</p>
                 "id": "entradas",
                 "titulo": "Entrada de fornecedor",
                 "corpo": """
-<div class="aviso aviso-atencao"><p class="aviso-titulo">O módulo Entradas ainda não existe</p>
-<p>Esta seção descreve o desenho previsto, <strong>não o que está disponível</strong>: o item
-<em>Entradas</em> aparece no menu, mas a página não foi implementada nesta versão — e a tela Estoque
-não lança movimento. Na prática, hoje, dar entrada de mercadoria depende do serviço técnico.</p></div>
-<p><strong>Como está desenhado:</strong> escolher o fornecedor, informar produtos e quantidades e
-confirmar; o estoque sobe na hora e o custo do produto é atualizado — é isso que faz o relatório de
-margem ter sentido.</p>
-<div class="aviso aviso-info"><p class="aviso-titulo">Estoque negativo</p>
+<p>A página <strong>Entradas</strong> existe no menu e mostra o histórico do que já entrou: data,
+fornecedor, documento, número de itens, quantidade somada e frete. No alto, três números —
+entradas registradas, itens recebidos e frete lançado — e os botões de exportar em Excel/PDF e
+imprimir.</p>
+<h4>Lançar uma entrada</h4>
+<ol class="passos">
+<li>Clique em <strong>Nova entrada</strong> (na página Entradas ou na tela Estoque — é o mesmo
+diálogo).</li>
+<li>Informe <strong>fornecedor</strong> e <strong>documento</strong> (nota, recibo, cupom do atacado).
+Essa dupla não pode se repetir: é ela que impede lançar a mesma nota duas vezes e inflar o
+estoque.</li>
+<li>Adicione os itens um a um: <strong>código do produto</strong>, <strong>quantidade</strong> e
+<strong>custo unitário</strong>. Cada item entra na tabela do diálogo; dá para remover antes de
+salvar.</li>
+<li>Se a nota teve <strong>frete</strong>, informe o valor: ele é rateado entre os itens, então o
+custo de cada produto fica com a sua parte do frete — e o relatório de margem não mente.</li>
+<li>Clique em <strong>Registrar</strong>. O estoque sobe na hora, o custo do produto é atualizado e a
+entrada aparece no histórico.</li>
+</ol>
+<div class="aviso aviso-info"><p class="aviso-titulo">Entrada errada? Ajuste, não apague</p>
+<p>Não existe botão de cancelar entrada (a lista do que falta está em
+<a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>). Se a nota foi lançada com
+quantidade errada, lance
+<strong>Ajustar saldo</strong> com o motivo (“correção da nota 123”) e a senha de outro usuário: o
+erro e a correção ficam os dois visíveis, que é melhor do que um número reescrito em silêncio.</p></div>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">Estoque negativo</p>
 <p>Vender sem saldo é permitido, mas exige autorização (pendência P5: confirmar se a loja aceita). O
 movimento fica marcado, e o saldo fica negativo até a entrada regularizar.</p></div>
 """,
+                "imagem": (
+                    "34_entradas.png",
+                    "Entradas: total de notas, itens recebidos e frete lançado no alto; o histórico "
+                    "de cada nota e o botão Nova entrada no cartão.",
+                ),
             },
         ],
     },

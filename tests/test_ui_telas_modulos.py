@@ -22,6 +22,7 @@ from bussola_pdv.ui.janela import JanelaPrincipal
 from bussola_pdv.ui.tela_caixa import TelaCaixa
 from bussola_pdv.ui.telas_clientes import TelaClientes
 from bussola_pdv.ui.telas_crediario import TelaCrediario
+from bussola_pdv.ui.telas_entradas import TelaEntradas
 from bussola_pdv.ui.telas_estoque import TelaEstoque
 
 pytestmark = pytest.mark.ui
@@ -181,11 +182,12 @@ class TestJanela:
             ("Clientes", TelaClientes),
             ("Crediário", TelaCrediario),
             ("Estoque", TelaEstoque),
+            ("Entradas", TelaEntradas),
         ):
             janela._selecionar(modulo)
             atual = janela.pilha.currentWidget()
             assert isinstance(atual, classe), f"{modulo} ainda é placeholder"
-        # Entradas e Parâmetros continuam honestamente marcados como não implementados
+        # Parâmetros continua honestamente marcado como não implementado
         janela._selecionar("Parâmetros")
         avisos = [w.text() for w in janela.pilha.currentWidget().findChildren(QLabel)]
         assert any("não foi" in texto for texto in avisos)

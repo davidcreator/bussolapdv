@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from typing import Any
+
 from ..dominio.auditoria import AcaoAuditoria, EventoAuditoria
 from ..dominio.dinheiro import Quantidade
 from ..dominio.erros import ErroValidacao
 from ..dominio.estoque import EntradaMercadoria, TipoMovimentoEstoque
-from ..dominio.produto import Produto
+from ..dominio.produto import Produto, Unidade
 from ..dominio.usuario import Acao, Usuario
 from .contexto import Contexto
 
@@ -32,8 +35,6 @@ class ServicoEstoque:
         fornecedor: str = "",
     ) -> Produto:
         operador.exigir(Acao.CADASTRO_PRODUTO)
-        from ..dominio.produto import Unidade
-
         produto = Produto(
             codigo=codigo,
             descricao=descricao,
@@ -62,6 +63,81 @@ class ServicoEstoque:
                 )
             )
         return criado
+
+    def alterar_produto(
+        self,
+        *,
+        operador: Usuario,
+        produto_id: str,
+        **campos: object,
+    ) -> Produto:
+        """Altera preço, custo, descrição, mínimo e o resto do cadastro do produto.
+
+        A alteração é auditada com o **antes e o depois**: mudar preço de gôndola
+        sem rastro é o tipo de coisa que a trilha existe para pegar.
+        """
+        operador.exigir(Acao.CADASTRO_PRODUTO)
+        atual = self.ctx.produtos.por_id(produto_id)
+        permitidos = {
+            "codigo",
+            "descricao",
+            "preco",
+            "custo",
+            "categoria",
+            "unidade",
+            "codigo_barras",
+            "estoque_minimo_milesimos",
+            "ponto_pedido_milesimos",
+            "fornecedor",
+            "ncm",
+            "ativo",
+        }
+        invalidos = sorted(set(campos) - permitidos)
+        if invalidos:
+            raise ErroValidacao(f"Campo de produto não alterável: {', '.join(invalidos)}")
+        if "unidade" in campos and not isinstance(campos["unidade"], Unidade):
+            raise ErroValidacao("Unidade inválida para o produto.")
+        alteracoes: dict[str, Any] = {
+            chave: valor for chave, valor in campos.items() if valor is not None
+        }
+        if not alteracoes:
+            return atual
+        novo = replace(atual, **alteracoes)
+        if novo == atual:
+            return atual
+        agora = self.ctx.agora()
+        with self.ctx.em_transacao():
+            salvo = self.ctx.produtos.atualizar(novo, atualizado_em=agora.isoformat())
+            self.ctx.auditoria.registrar(
+                EventoAuditoria(
+                    acao=AcaoAuditoria.PRODUTO_ALTERADO,
+                    criado_em_utc=agora,
+                    data_negocio=self.ctx.relogio.data_negocio(),
+                    ator_id=operador.id,
+                    entidade="produto",
+                    entidade_id=salvo.id,
+                    antes={
+                        "codigo": atual.codigo,
+                        "descricao": atual.descricao,
+                        "preco_centavos": atual.preco,
+                        "custo_centavos": atual.custo,
+                        "minimo_milesimos": atual.estoque_minimo_milesimos,
+                        "ponto_pedido_milesimos": atual.ponto_pedido_milesimos,
+                        "ativo": atual.ativo,
+                    },
+                    depois={
+                        "codigo": salvo.codigo,
+                        "descricao": salvo.descricao,
+                        "preco_centavos": salvo.preco,
+                        "custo_centavos": salvo.custo,
+                        "minimo_milesimos": salvo.estoque_minimo_milesimos,
+                        "ponto_pedido_milesimos": salvo.ponto_pedido_milesimos,
+                        "ativo": salvo.ativo,
+                    },
+                    motivo="Alteração de cadastro de produto",
+                )
+            )
+        return salvo
 
     # -- entrada de fornecedor ---------------------------------------------
     def registrar_entrada(self, *, operador: Usuario, entrada: EntradaMercadoria) -> dict:
@@ -127,16 +203,24 @@ class ServicoEstoque:
         if not motivo.strip():
             raise ErroValidacao("Ajuste de estoque exige motivo.")
         produto = self.ctx.produtos.por_id(produto_id)
-        qtd = Quantidade.de_unidades(f"{quantidade}".replace(",", "."), escala=produto.unidade.escala)
+        # `Quantidade.de_unidades` recusa negativo — e é bom que recuse. O sinal do
+        # ajuste é do movimento, não da grandeza: "-2" é baixa de duas unidades, e
+        # sem isso a contagem que encontrou falta não tinha como ser registrada.
+        texto = f"{quantidade}".replace(",", ".").strip()
+        negativo = texto.startswith("-")
+        qtd = Quantidade.de_unidades(
+            texto.lstrip("+-") or "0", escala=produto.unidade.escala
+        )
         if qtd.milesimos == 0:
             raise ErroValidacao("Ajuste com quantidade zero não é registrado.")
+        assinada = -qtd.milesimos if negativo else qtd.milesimos
 
         agora = self.ctx.agora()
         with self.ctx.em_transacao():
             self.ctx.estoque.inserir_movimento(
                 produto_id=produto_id,
                 tipo=tipo,
-                quantidade_milesimos_assinada=qtd.milesimos,
+                quantidade_milesimos_assinada=assinada,
                 criado_em=agora,
                 origem_tipo="AJUSTE",
                 origem_id=autorizador.id,
@@ -152,7 +236,7 @@ class ServicoEstoque:
                     entidade="produto",
                     entidade_id=produto_id,
                     depois={
-                        "quantidade_milesimos": qtd.milesimos,
+                        "quantidade_milesimos": assinada,
                         "saldo_milesimos": novo_saldo,
                         "tipo": tipo.value,
                     },

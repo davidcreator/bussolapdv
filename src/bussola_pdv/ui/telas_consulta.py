@@ -73,6 +73,15 @@ class TelaProdutos(QWidget):
         cartao.adicionar_ferramenta(self.botao_imprimir)
         self.rotulo_resumo = QLabel()
         cartao.adicionar_ferramenta(self.rotulo_resumo)
+        if usuario.pode(Acao.CADASTRO_PRODUTO):
+            self.botao_novo = QPushButton("Novo produto")
+            self.botao_novo.setObjectName("primario")
+            self.botao_novo.clicked.connect(self._novo_produto)
+            cartao.adicionar_ferramenta(self.botao_novo)
+            self.botao_editar = QPushButton("Alterar produto")
+            self.botao_editar.setObjectName("secundario")
+            self.botao_editar.clicked.connect(self._alterar_produto)
+            cartao.adicionar_ferramenta(self.botao_editar)
 
         linha = QHBoxLayout()
         self.campo_busca = QLineEdit()
@@ -136,6 +145,41 @@ class TelaProdutos(QWidget):
         baixo = contagem[StatusEstoque.BAIXO]
         self.kpi_ruptura.definir(str(ruptura), "saldo zerado", "erro" if ruptura else "claro")
         self.kpi_baixo.definir(str(baixo), "repor agora", "alerta" if baixo else "claro")
+
+
+    # -- cadastro -----------------------------------------------------------
+    def _produto_selecionado(self) -> Produto | None:
+        linha = self.tabela.currentRow()
+        if linha < 0:
+            return None
+        item = self.tabela.item(linha, 0)
+        if item is None:
+            return None
+        try:
+            return self.ctx.produtos.por_codigo(item.text())
+        except Exception:
+            return None
+
+    def _novo_produto(self) -> None:
+        from .cadastros import DialogoProduto
+
+        dialogo = DialogoProduto(self.ctx, self.usuario, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.produto is not None:
+            self.atualizar()
+            self.campo_busca.setText(dialogo.produto.codigo)
+
+    def _alterar_produto(self) -> None:
+        from .cadastros import DialogoProduto
+
+        produto = self._produto_selecionado()
+        if produto is None:
+            self.rotulo_resumo.setText(
+                "Selecione um produto na lista para alterar preço, custo ou mínimo."
+            )
+            return
+        dialogo = DialogoProduto(self.ctx, self.usuario, produto=produto, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted:
+            self.atualizar()
 
 
 def _status(produto: Produto, saldo: int) -> StatusEstoque:

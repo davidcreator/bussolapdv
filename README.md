@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.11.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.12.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -57,8 +57,15 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
 - **Área administrativa** com diagnóstico real de dependências, cadastros, parâmetros, cópias de
   segurança verificadas e restauração.
 - **Consultas de operação**: telas de **Clientes** (limite, em aberto, disponível, vencido),
-  **Crediário** (parcelas, atraso em dias, saldo por título) e **Estoque** (saldo, mínimo, ponto de
-  pedido, situação, valor a custo), cada uma com busca e exportação em Excel/PDF.
+  **Crediário** (parcelas, atraso em dias, saldo por título), **Estoque** (saldo, mínimo, ponto de
+  pedido, situação, valor a custo) e **Entradas** (notas de fornecedor, itens e frete), cada uma com
+  busca, exportação em Excel/PDF e impressão.
+- **Cadastro pela tela**, sem depender de acesso técnico: **novo/alterar produto** (preço, custo,
+  mínimo, ponto de pedido, categoria, unidade), **novo/alterar cliente** (documento conferido, limite
+  de crediário), **entrada de mercadoria** (itens com frete rateado no custo), **ajuste de estoque**
+  (contagem, avaria, saldo inicial — com motivo e senha de outro usuário) e **baixa de parcela do
+  crediário** (total ou parcial, exigindo turno de caixa aberto). Toda escrita passa pelo serviço de
+  aplicação, exige a permissão da ação e deixa antes/depois na auditoria.
 - **Leitura garantida por contraste**: a paleta do Qt é fixada pela marca (tema escuro do Windows não
   deixa faixa preta atrás dos cartões), a tinta de cada etiqueta colorida vem da razão de contraste
   WCAG e o texto secundário é corrigido até 4,5:1 — mesmo quando a loja escolhe um cinza fraco.
@@ -138,9 +145,10 @@ repinta a interface inteira — sidebar, cartões, tabelas e indicadores.
 | Clientes | clientes ativos, limite concedido, em aberto e vencido |
 | Crediário | títulos em aberto, saldo a receber, atraso e saldo vencido |
 | Estoque | em ruptura, abaixo do mínimo, valor a custo |
+| Entradas | notas lançadas, itens recebidos, frete lançado |
 
-**Entradas** e **Parâmetros** ainda são páginas marcadas como não implementadas — nada ali é
-simulado.
+**Parâmetros** é a única página ainda marcada como não implementada — nada ali é simulado; os
+parâmetros de operação ficam na área administrativa.
 
 Detalhes de tokens, componentes e regras em [docs/INTERFACE.md](docs/INTERFACE.md).
 
@@ -431,9 +439,10 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
 - A trilha de auditoria detecta adulteração, mas **não** impede um administrador do sistema de
   reescrever o banco inteiro.
 - Pagamentos eletrônicos são registro manual; nenhuma integração bancária está homologada.
-- **Telas de Produtos, Clientes, Crediário e Estoque são de consulta**: elas consultam, exportam e
-  imprimem; criar produto, criar cliente, receber título e lançar entrada de estoque ainda dependem do
-  serviço de aplicação (o módulo *Entradas* aparece no menu, mas a página não existe nesta versão).
+- **O que continua sem botão** (a lista completa está no manual, seção *o que já tem botão e o que
+  ainda não tem*): cancelar/estornar uma **entrada já lançada** (o caminho é um ajuste com motivo),
+  **importar planilha** de produtos, **juros e encargos** de crediário atrasado e **vários caixas** na
+  mesma base. Nenhum deles trava o dia a dia do bazar.
 - Encargos de crediário, devolução parcial, importação da planilha e **geração do `.exe` neste
   ambiente Linux** continuam pendentes (ver plano); o PDF de fechamento existe desde a v0.5.0.
 - **Impressão foi validada por teste automatizado e em modo PDF/arquivo, não em hardware**: este

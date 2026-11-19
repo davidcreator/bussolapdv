@@ -1,8 +1,9 @@
-"""Tela do crediário: títulos por vencimento, saldo e atraso.
+"""Tela do crediário: títulos por vencimento, saldo, atraso e baixa de recebimento.
 
-Leitura apenas nesta entrega — receber título continua no serviço de aplicação
-(`ServicoCrediario.receber`, já testado) e ainda não tem botão aqui. O que a tela
-faz é mostrar e exportar; nada é simulado: se não há título, aparece vazio.
+A tela mostra, exporta e **recebe**: o botão *Receber parcela* abre o diálogo que
+chama `ServicoCrediario.receber` (total ou parcial). Receber em dinheiro exige
+turno aberto — o dinheiro entra na gaveta e a tela avisa quando não há turno, em
+vez de gravar um recebimento que ninguém conseguiria conferir no fechamento.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -21,7 +23,7 @@ from PySide6.QtWidgets import (
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
 from ..aplicacao.impressao import ServicoImpressao
-from ..dominio.usuario import Usuario
+from ..dominio.usuario import Acao, Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
 from .impressao import botao_para_relatorio
@@ -75,6 +77,11 @@ class TelaCrediario(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_imprimir)
+        if usuario.pode(Acao.TITULO_RECEBER):
+            self.botao_receber = QPushButton("Receber parcela")
+            self.botao_receber.setObjectName("primario")
+            self.botao_receber.clicked.connect(self._receber)
+            cartao.adicionar_ferramenta(self.botao_receber)
 
         linha = QHBoxLayout()
         self.incluir_pagos = QCheckBox("incluir títulos já recebidos")
@@ -145,6 +152,19 @@ class TelaCrediario(QWidget):
             f"{len(tabela.linhas)} título(s) · {valores_kpi.get('Saldo aberto', 'R$ 0,00')} "
             f"em aberto · {valores_kpi.get('Saldo vencido', 'R$ 0,00')} vencido"
         )
+
+
+    # -- baixa --------------------------------------------------------------
+    def _receber(self) -> None:
+        from .cadastros import DialogoRecebimento
+
+        dialogo = DialogoRecebimento(self.ctx, self.usuario, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.resultado is not None:
+            self.atualizar()
+            self.rotulo_resumo.setText(
+                "Recebimento registrado · saldo restante do título "
+                f"{dialogo.resultado.saldo_restante.formatado()}"
+            )
 
 
 __all__ = ["TelaCrediario"]

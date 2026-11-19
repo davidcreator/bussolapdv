@@ -149,8 +149,9 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 
 1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
    ~~Escolher a pasta de dados~~ — feito na v0.6.1. ~~Responsividade~~ — feito na v0.7.0.
-2. **Operação nas telas novas**: cadastrar/editar cliente, receber título e lançar entrada de estoque
-   com formulário (hoje só pela API), incluindo a tela de **Entradas** que continua placeholder.
+2. ~~**Operação nas telas novas**: cadastrar/editar produto e cliente, receber título e lançar
+   entrada/ajuste de estoque com formulário~~ — feito na v0.12.0, junto com a página **Entradas**,
+   que deixou de ser placeholder (só **Parâmetros** continua marcado).
 3. Devolução parcial de venda com recomposição de pagamento.
 4. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
 5. Assinatura digital dos binários Windows e hashes publicados na Release.

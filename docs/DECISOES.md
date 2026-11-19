@@ -596,6 +596,46 @@ só o que depende de decisão de alguém para **este** uso — o que a torna cur
 
 ---
 
+## ADR-030 — Escrever pela tela sem duplicar regra: permissão, autorização e auditoria
+
+**Contexto.** Até a v0.11.0 a interface era de leitura: cadastrar produto, cadastrar cliente, lançar
+entrada de estoque, ajustar saldo e receber parcela do crediário só aconteciam chamando o serviço de
+aplicação — o que, na prática, exigia alguém com acesso técnico e colocava o projeto em contradição
+com o próprio escopo (ADR-029: o bazar deve operar sozinho, sem caderneta e sem ajuda externa). A
+tentação, ao abrir a escrita na UI, é fazer a tela calcular: somar quantidade, conferir limite,
+ratear frete, decidir se pode ou não pode.
+
+**Decisão.**
+
+1. **A tela não calcula nem valida regra de negócio.** Todo diálogo de escrita
+   (`ui/cadastros.py`) coleta texto, converte o mínimo (vírgula → centavos) e chama o serviço de
+   aplicação já testado: `ServicoEstoque.criar_produto/alterar_produto/registrar_entrada/ajustar`,
+   `ServicoClientes.criar_cliente/alterar_cliente`, `ServicoCrediario.receber`. Regra duplicada na UI
+   é regra que diverge do domínio e do relatório.
+2. **Permissão por ação, botão que não aparece sem ela.** Cada operação exige a ação correspondente —
+   `CADASTRO_PRODUTO`, `CADASTRO_CLIENTE`, `ESTOQUE_ENTRADA`, `ESTOQUE_AJUSTAR`,
+   `TITULO_RECEBER` — e o botão só é criado para quem a tem. A checagem real continua no serviço;
+   esconder o botão é cortesia, não segurança.
+3. **O ajuste de estoque continua exigindo um segundo usuário.** A tela pede login e senha de um
+   autorizador com `ESTOQUE_AJUSTAR` **diferente do operador**, e a recusa vem do domínio. Quem conta
+   não valida a própria contagem — inclusive no saldo inicial do bazar.
+4. **Antes e depois na auditoria.** Alterar produto e alterar cliente gravam
+   `PRODUTO_ALTERADO` / `CLIENTE_ALTERADO` com os valores anteriores e posteriores. Entrada de
+   mercadoria mantém a chave **fornecedor + documento** única: nota repetida é recusada, não somada.
+5. **Onde a tela pode errar, ela explica em vez de sumir.** Erro de validação aparece como mensagem
+   dentro do diálogo; o diálogo não fecha, o campo continua preenchido e nada é gravado. Receber
+   parcela sem turno de caixa aberto é recusado com o motivo (o dinheiro entraria numa gaveta que não
+   existe).
+
+**Consequências.** O manual do usuário deixa de ter a seção "o que ainda não tem botão" como lista de
+quatro buracos e passa a ter dois lados: o que já se faz sozinho (e como) e o que sobrou de fora
+(cancelar entrada lançada, importar planilha, juros de atraso, multi-caixa, nota fiscal). Ganha-se
+uma responsabilidade nova: cada método de escrita da aplicação passa a ser exercitado **pelo caminho
+da tela** em teste offscreen (`tests/test_cadastros_ui.py`), porque o serviço testado sozinho não
+prova que o diálogo grava o que o usuário digitou.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |

@@ -2,6 +2,73 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.12.0] — 2026-11-11 — pré-alfa: cadastro, entrada de mercadoria, ajuste e baixa de parcela pela tela
+
+A v0.11.0 fechou o manual apontando quatro buracos: criar produto, criar cliente, lançar estoque
+inicial/entrada/ajuste e dar baixa em parcela do crediário “dependiam do serviço técnico”. Esta versão
+fecha os quatro. O bazar passa a colocar o catálogo, o cliente e o estoque dentro do programa sem
+chamar ninguém — que é o que o escopo do ADR-029 exige.
+
+### Adicionado — escrita pela tela (ADR-030)
+
+- **Novo/alterar produto** (Produtos): código, código de barras, descrição, categoria, unidade, custo,
+  preço, estoque mínimo, ponto de pedido, fornecedor e ativo/inativo. Alteração grava
+  `PRODUTO_ALTERADO` com antes e depois (preço, custo, mínimo, ponto de pedido, ativo).
+- **Novo/alterar cliente** (Clientes): nome, documento, limite de crediário, observações e ativo.
+  Documento com dígito conferido e recusa de documento já usado por outro cliente; alteração grava
+  `CLIENTE_ALTERADO`.
+- **Entrada de mercadoria** (Entradas e Estoque): itens em tabela, custo unitário, frete **rateado**
+  por valor ou quantidade, atualização de custo e saldo na mesma transação. A chave
+  fornecedor + documento não se repete.
+- **Ajuste de saldo** (Estoque): quantidade positiva (acrescenta) ou **negativa** (baixa), motivo
+  obrigatório e senha de um **segundo** usuário com permissão de ajuste. É o caminho do estoque
+  inicial e da correção de contagem.
+- **Receber parcela** (Crediário): total ou parcial, com forma de pagamento e referência; exige turno
+  de caixa aberto (o dinheiro entra no turno) e recusa “a prazo” como forma de recebimento.
+- **Página Entradas** deixou de ser placeholder: histórico de notas (data, fornecedor, documento,
+  itens, quantidade, frete), três indicadores, botão **Nova entrada** e exportação em **Excel/PDF** mais
+  impressão. Novo relatório `relatorio_entradas` na camada de exportação.
+- **Serviços novos**: `ServicoClientes` (`criar_cliente`, `alterar_cliente`) e
+  `ServicoEstoque.alterar_produto`.
+
+### Corrigido
+
+- **Ajuste de estoque não aceitava quantidade negativa**: `Quantidade.de_unidades` recusa negativo, e
+  a validação acontecia antes de o sinal ser tratado — dar baixa por contagem era impossível. O sinal
+  agora é lido do texto (`-2`, `+2`) antes da conversão, e o movimento guarda a quantidade assinada.
+- **Fixture de teste inconsistente**: o produto de exemplo passava `estoque_minimo=2` (milésimos) onde
+  se queria “2 unidades”; com o cadastro pela tela isso aparecia como `0,002` e impedia salvar o
+  produto. Virou `2000`.
+- **Módulo Entradas**: estava listado no menu sem página; agora tem página na posição certa da pilha.
+
+### Mudado
+
+- **Manual do usuário**: a seção *o que já tem botão e o que ainda não tem* passou a ter dois lados —
+  sete operações “pela tela” (com passo a passo de cadastro, ajuste, entrada e recebimento) e cinco que
+  continuam sem botão (cancelar entrada lançada, importar planilha, juros de atraso, multi-caixa, nota
+  fiscal). O capítulo *Da caderneta para o sistema* agora ensina a lançar o **estoque inicial** pela
+  tela em vez de mandar chamar o serviço técnico. Captura nova da página Entradas (26 imagens).
+- **README**: telas de operação incluem Entradas; a lista de limites troca “telas são de consulta” pelo
+  que de fato continua sem botão.
+- **DECISOES**: ADR-030 (a tela não duplica regra; permissão por ação; segundo usuário no ajuste;
+  antes/depois na auditoria).
+- **PLANO_IMPLEMENTACAO**: item “operação nas telas novas” marcado como feito.
+
+### Verificação
+
+- `tests/test_cadastros_ui.py` (novo, 23 testes): serviço de clientes (permissão, documento repetido,
+  auditoria do limite), `alterar_produto` (preço, campo inválido), entrada (saldo sobe, documento
+  repetido recusado), ajuste negativo, ajuste sem motivo e sem segundo autorizador; e, pela tela,
+  cadastro de produto, erro que não fecha o diálogo, alteração de preço, cadastro de cliente, documento
+  inválido, entrada com item, entrada sem item, ajuste com e sem senha correta, recebimento com turno
+  aberto e recusa sem turno, botões que existem só com permissão, e a tela Entradas com histórico.
+- Testes de placeholder ajustados: `Entradas` saiu da lista; quem continua marcado é **Parâmetros**
+  (`test_ui_smoke`, `test_ui_adminlte`, `test_ui_telas_modulos`).
+- `tests/test_manual.py`: o teste da seção passou a exigir os dois lados (as quatro operações “pela
+  tela”, as cinco pendências reais) e falha se o manual voltar a dizer que o módulo Entradas não existe.
+- Suíte **883 testes / 0 falhas / 0 skipped**; ruff e mypy limpos (98 arquivos); `make responsivo`
+  verde; capturas e manual regerados.
+
 ## [Não lançado]
 
 ### Mudado — manual do usuário conta a história do bazar e o que a tela ainda não faz

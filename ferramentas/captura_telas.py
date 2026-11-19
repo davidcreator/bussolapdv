@@ -87,9 +87,14 @@ def main() -> int:
     janela_gerente.grab().save(str(SAIDA / "05_fechamento.png"))
     print("captura:", SAIDA / "05_fechamento.png")
 
-    # Módulos que saíram do placeholder na v0.6.0 (a mesma sessão de gerente,
-    # porque é ela que enxerga o botão Exportar em cada tela).
-    for indice, nome in ((6, "16_clientes"), (7, "17_crediario"), (8, "18_estoque")):
+    # Módulos que saíram do placeholder (v0.6.0) e a página Entradas (v0.12.0), na
+    # mesma sessão de gerente, porque é ela que enxerga o botão Exportar em cada tela.
+    for indice, nome in (
+        (6, "16_clientes"),
+        (7, "17_crediario"),
+        (8, "18_estoque"),
+        (9, "34_entradas"),
+    ):
         janela_gerente.navegacao.setCurrentRow(indice)
         app.processEvents()
         app.processEvents()

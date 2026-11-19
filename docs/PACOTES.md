@@ -73,12 +73,12 @@ python empacotamento\gerar_icone.py
 python -m PyInstaller --noconfirm --clean empacotamento\bussola.spec
 
 # 4. pacote portátil (zip)
-Compress-Archive -Path "dist\BussolaPDV\*" -DestinationPath "dist\BussolaPDV-0.11.0-win64.zip"
+Compress-Archive -Path "dist\BussolaPDV\*" -DestinationPath "dist\BussolaPDV-0.12.0-win64.zip"
 
 # 5. instalador .exe (precisa do Inno Setup 6)
 winget install -e --id JRSoftware.InnoSetup
-& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=0.11.0 empacotamento\instalador.iss
-# saída: dist\instalador\BussolaPDV-0.11.0-setup.exe
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=0.12.0 empacotamento\instalador.iss
+# saída: dist\instalador\BussolaPDV-0.12.0-setup.exe
 ```
 
 Há um atalho que faz 1→5 (e roda testes e lint): `build_windows.ps1`.
@@ -113,7 +113,7 @@ python empacotamento/gerar_pacote.py
 Saída: `dist/BussolaPDV-<v>-linux-<arch>.tar.gz`. Dentro dele:
 
 ```
-BussolaPDV-0.11.0-linux-x86_64/
+BussolaPDV-0.12.0-linux-x86_64/
 ├── BussolaPDV/            programa (PyInstaller onedir)
 ├── Instalar.sh            copia para ~/.local/opt/bussolapdv e cria o atalho
 ├── Iniciar.sh             roda sem instalar nada
@@ -157,8 +157,8 @@ Manual, sem o script:
 
 ```bash
 cd dist
-ditto -c -k --sequesterRsrc --keepParent BussolaPDV.app BussolaPDV-0.11.0-macos.zip
-hdiutil create -volname "Bússola PDV 0.11.0" -srcfolder BussolaPDV.app -ov BussolaPDV-0.11.0-macos.dmg
+ditto -c -k --sequesterRsrc --keepParent BussolaPDV.app BussolaPDV-0.12.0-macos.zip
+hdiutil create -volname "Bússola PDV 0.12.0" -srcfolder BussolaPDV.app -ov BussolaPDV-0.12.0-macos.dmg
 ```
 
 **Gatekeeper.** Sem assinatura (Apple Developer, US$ 99/ano) e sem notarização, o
@@ -188,7 +188,7 @@ Verificado nesta máquina (Linux x86_64, 2026-11-14):
 - `python empacotamento/gerar_pacote.py` completo — suíte de testes, PyInstaller e
   `.tar.gz` — em **~58 s**;
 - o binário empacotado responde `BussolaPDV-console --version`
-  (`Bússola Sistema PDV Open Source 0.11.0`);
+  (`Bússola Sistema PDV Open Source 0.12.0`);
 - as migrações `.sql`, o `tzdata` e os dois logos estão dentro do pacote
   (`_internal/bussola_pdv/recursos/…`);
 - `Instalar.sh` num `HOME` vazio: copiou o programa, criou o ícone e o atalho com

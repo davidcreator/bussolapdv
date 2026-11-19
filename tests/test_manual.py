@@ -302,18 +302,25 @@ def test_escopo_fechado_esta_na_documentacao_do_repositorio() -> None:
         assert "ADR-029" in texto, f"{arquivo} precisa apontar para a decisão de escopo"
 
 
-def test_manual_diz_o_que_a_tela_ainda_nao_faz(pagina: str) -> None:
-    """O voluntário precisa saber, antes do primeiro dia, o que não tem botão.
+def test_manual_separa_o_que_tem_botao_do_que_nao_tem(pagina: str) -> None:
+    """A seção nasceu de uma correção e continua sendo o contrato com o voluntário.
 
-    Esta seção já nasceu de uma correção: o texto mandava lançar o estoque inicial
-    no módulo Estoque, que só mostra saldo. Se alguém apagar a seção — ou voltar a
-    prometer cadastro pela tela — o manual fica bonito e inútil no balcão.
+    Na v0.11.0 ela listava quatro operações sem botão. Na v0.12.0 as quatro ganharam
+    tela, então a seção passou a ter dois lados: o que já se faz sozinho e o que
+    ainda depende de outro caminho. O teste guarda os dois — se alguém voltar a
+    prometer o que não existe, ou esconder o que falta, ele quebra.
     """
     assert 'id="nao-da-pela-tela"' in pagina
-    # as quatro telas de consulta apontam para a seção
-    assert pagina.count('href="#nao-da-pela-tela"') >= 5
-    for promessa in ("criar ou alterar produto", "criar cliente", "receber parcela"):
-        assert promessa in pagina.lower()
-    assert "ainda não" in pagina
-    # e o módulo Entradas não pode ser descrito como disponível
-    assert "módulo entradas ainda não existe" in pagina.lower()
+    assert pagina.count('href="#nao-da-pela-tela"') >= 3
+    inicio = pagina.index('id="nao-da-pela-tela"')
+    trecho = pagina[inicio : inicio + 9000].lower()
+    # as quatro operações que ganharam tela na v0.12.0
+    for operacao in ("novo produto", "novo cliente", "nova entrada", "receber parcela"):
+        assert operacao in trecho, f"o manual não conta que existe botão para {operacao}"
+    assert trecho.count("pela tela") >= 7
+    # e o que continua sem botão não pode ter sumido da lista
+    for pendencia in ("cancelar uma entrada", "importar planilha", "juros", "vários caixas", "nota fiscal"):
+        assert pendencia in trecho, f"o manual escondeu a pendência: {pendencia}"
+    # o módulo Entradas existe de verdade: o manual não pode dizer o contrário
+    assert "módulo entradas ainda não existe" not in pagina.lower()
+    assert "entradas aparece no menu, mas a página" not in pagina.lower()

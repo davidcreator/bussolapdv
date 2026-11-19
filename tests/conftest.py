@@ -84,7 +84,7 @@ def cenario(ctx: Contexto, hash_senha: str) -> Cenario:
         preco=1590,
         custo=1000,
         categoria="Mercearia",
-        estoque_minimo=2,
+        estoque_minimo=2000,  # milésimos: 2 unidades
         codigo_barras="7891234567895",
     )
     produto_b = servico_estoque.criar_produto(

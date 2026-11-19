@@ -614,6 +614,67 @@ class ServicoExportacao:
             escopo="Posição corrente; não reage a filtro de data.",
         )
 
+    # -- entradas de fornecedor ---------------------------------------------
+    def relatorio_entradas(self, limite: int = 500) -> Relatorio:
+        """O que entrou de fornecedor: documento, itens, frete — a origem do saldo."""
+        entradas = self.ctx.entradas.listar(limite=limite)
+        linhas = []
+        total_itens = 0
+        total_frete = 0
+        for entrada in entradas:
+            itens = int(entrada["itens"])
+            frete = int(entrada["frete_centavos"])
+            total_itens += itens
+            total_frete += frete
+            linhas.append(
+                (
+                    str(entrada["data_negocio"]),
+                    str(entrada["fornecedor"]),
+                    str(entrada["documento"]) or "(sem documento)",
+                    itens,
+                    _quantidade_solta(int(entrada["quantidade"])),
+                    frete,
+                )
+            )
+        return Relatorio(
+            titulo="Entradas de mercadoria",
+            subtitulo="Notas de fornecedor lançadas: origem de cada saldo de estoque",
+            loja=self._loja(),
+            identificacao=self._identificacao(),
+            filtros=(
+                ("Entradas", str(len(entradas))),
+                ("Limite do relatório", str(limite)),
+            ),
+            indicadores=(
+                ("Entradas", str(len(entradas))),
+                ("Itens recebidos", str(total_itens)),
+                ("Frete lançado", _moeda(total_frete)),
+            ),
+            tabelas=(
+                criar_tabela(
+                    "Entradas",
+                    [
+                        ("Data", TipoColuna.TEXTO, 12),
+                        ("Fornecedor", TipoColuna.TEXTO, 28),
+                        ("Documento", TipoColuna.TEXTO, 16),
+                        ("Itens", TipoColuna.INTEIRO, 8),
+                        ("Quantidade", TipoColuna.TEXTO, 12),
+                        ("Frete", TipoColuna.MOEDA, 12),
+                    ],
+                    linhas,
+                    nota=(
+                        "Quantidade soma unidades e frações de unidades diferentes; "
+                        "sirva como ordem de grandeza, não como total contábil."
+                    ),
+                ),
+            ),
+            avisos=(
+                AVISO_FISCAL,
+                "Entrada de mercadoria não substitui a nota do fornecedor.",
+            ),
+            escopo="Histórico de lançamentos; não reage a filtro de data.",
+        )
+
     # -- turno de caixa -----------------------------------------------------
     def relatorio_turno(self, turno_id: str | None = None) -> Relatorio:
         """Fechamento do turno: dinheiro esperado, movimentos e contagem.
@@ -851,6 +912,12 @@ def _moeda(centavos: object) -> str:
     from ..infra.exportacao.formato import moeda
 
     return moeda(centavos)
+
+
+def _quantidade_solta(milesimos: int) -> str:
+    """Quantidade somada de itens com unidades diferentes: mostra até 3 casas."""
+    texto = f"{milesimos / 1000:.3f}".rstrip("0").rstrip(".")
+    return (texto or "0").replace(".", ",")
 
 
 def _quantidade(milesimos: int, escala: int) -> str:

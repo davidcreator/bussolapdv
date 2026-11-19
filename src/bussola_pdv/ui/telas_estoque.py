@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -20,7 +21,8 @@ from PySide6.QtWidgets import (
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
 from ..aplicacao.impressao import ServicoImpressao
-from ..dominio.usuario import Usuario
+from ..dominio.dinheiro import Dinheiro, Quantidade
+from ..dominio.usuario import Acao, Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
 from .impressao import botao_para_relatorio
@@ -65,6 +67,16 @@ class TelaEstoque(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_imprimir)
+        if usuario.pode(Acao.ESTOQUE_ENTRADA):
+            self.botao_entrada = QPushButton("Entrada de mercadoria")
+            self.botao_entrada.setObjectName("primario")
+            self.botao_entrada.clicked.connect(self._lancar_entrada)
+            cartao.adicionar_ferramenta(self.botao_entrada)
+        if usuario.pode(Acao.ESTOQUE_AJUSTAR):
+            self.botao_ajuste = QPushButton("Ajustar saldo")
+            self.botao_ajuste.setObjectName("secundario")
+            self.botao_ajuste.clicked.connect(self._ajustar_saldo)
+            cartao.adicionar_ferramenta(self.botao_ajuste)
 
         linha = QHBoxLayout()
         self.campo_busca = QLineEdit()
@@ -117,6 +129,30 @@ class TelaEstoque(QWidget):
             f"{len(produtos.linhas)} produto(s) · {ruptura} em ruptura · {baixo} abaixo do mínimo · "
             f"{valores_kpi.get('Valor a custo', 'R$ 0,00')} a custo"
         )
+
+
+    # -- escrita no estoque -------------------------------------------------
+    def _lancar_entrada(self) -> None:
+        from .cadastros import DialogoEntrada
+
+        dialogo = DialogoEntrada(self.ctx, self.usuario, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.resultado:
+            self.atualizar()
+            self.rotulo_resumo.setText(
+                f"Entrada registrada: {len(dialogo.resultado['itens'])} item(ns) · "
+                f"total {Dinheiro(int(dialogo.resultado['total_centavos'])).formatado()}"
+            )
+
+    def _ajustar_saldo(self) -> None:
+        from .cadastros import DialogoAjusteEstoque
+
+        dialogo = DialogoAjusteEstoque(self.ctx, self.usuario, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.novo_saldo is not None:
+            self.atualizar()
+            self.rotulo_resumo.setText(
+                "Ajuste registrado na auditoria · novo saldo "
+                f"{Quantidade(dialogo.novo_saldo).formatada()}"
+            )
 
 
 __all__ = ["TelaEstoque"]

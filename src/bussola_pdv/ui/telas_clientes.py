@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -22,7 +23,8 @@ from PySide6.QtWidgets import (
 from ..aplicacao.contexto import Contexto
 from ..aplicacao.exportacao import ServicoExportacao
 from ..aplicacao.impressao import ServicoImpressao
-from ..dominio.usuario import Usuario
+from ..dominio.cliente import Cliente
+from ..dominio.usuario import Acao, Usuario
 from ..infra.exportacao.formato import celula
 from .exportacao import BotaoExportar
 from .impressao import botao_para_relatorio
@@ -70,6 +72,15 @@ class TelaClientes(QWidget):
             parent=self,
         )
         cartao.adicionar_ferramenta(self.botao_imprimir)
+        if usuario.pode(Acao.CADASTRO_CLIENTE):
+            self.botao_novo = QPushButton("Novo cliente")
+            self.botao_novo.setObjectName("primario")
+            self.botao_novo.clicked.connect(self._novo_cliente)
+            cartao.adicionar_ferramenta(self.botao_novo)
+            self.botao_editar = QPushButton("Alterar cliente")
+            self.botao_editar.setObjectName("secundario")
+            self.botao_editar.clicked.connect(self._alterar_cliente)
+            cartao.adicionar_ferramenta(self.botao_editar)
 
         linha = QHBoxLayout()
         self.campo_busca = QLineEdit()
@@ -94,6 +105,9 @@ class TelaClientes(QWidget):
     def atualizar(self) -> None:
         busca = self.campo_busca.text() if hasattr(self, "campo_busca") else ""
         relatorio = self.exportacao.relatorio_clientes(busca)
+        # Mesma consulta e mesma ordem do relatório: a linha selecionada vira o
+        # cliente a alterar sem procurar por nome (nome repetido não é chave).
+        self._clientes = self.ctx.clientes.listar(busca=busca, limite=5000)
         tabela = relatorio.tabelas[0]
 
         self.tabela.setColumnCount(len(tabela.colunas))
@@ -130,6 +144,33 @@ class TelaClientes(QWidget):
             f"{valores_kpi.get('Em aberto', 'R$ 0,00')} em aberto · "
             f"{valores_kpi.get('Vencido', 'R$ 0,00')} vencido"
         )
+
+    # -- cadastro -----------------------------------------------------------
+    def _cliente_selecionado(self) -> Cliente | None:
+        linha = self.tabela.currentRow()
+        carteira: list[Cliente] = getattr(self, "_clientes", [])
+        if 0 <= linha < len(carteira):
+            return carteira[linha]
+        return None
+
+    def _novo_cliente(self) -> None:
+        from .cadastros import DialogoCliente
+
+        dialogo = DialogoCliente(self.ctx, self.usuario, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.cliente is not None:
+            self.campo_busca.setText(dialogo.cliente.nome)
+            self.atualizar()
+
+    def _alterar_cliente(self) -> None:
+        from .cadastros import DialogoCliente
+
+        cliente = self._cliente_selecionado()
+        if cliente is None:
+            self.rotulo_resumo.setText("Selecione um cliente na lista para alterar limite ou dados.")
+            return
+        dialogo = DialogoCliente(self.ctx, self.usuario, cliente=cliente, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted:
+            self.atualizar()
 
 
 __all__ = ["TelaClientes"]

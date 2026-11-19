@@ -33,6 +33,7 @@ from .tela_pdv import TelaPDV
 from .telas_clientes import TelaClientes
 from .telas_consulta import TelaAuditoria, TelaFechamento, TelaProdutos, TelaVendas
 from .telas_crediario import TelaCrediario
+from .telas_entradas import TelaEntradas
 from .telas_estoque import TelaEstoque
 from .tema import folha_estilo_da_marca
 from .widgets import (
@@ -116,6 +117,7 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             TelaClientes(contexto, usuario),
             TelaCrediario(contexto, usuario),
             TelaEstoque(contexto, usuario),
+            TelaEntradas(contexto, usuario),
         ):
             self.pilha.addWidget(tela)
         # Módulos ainda não implementados ganham a página vazia já no índice certo.
