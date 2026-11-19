@@ -545,11 +545,97 @@ def cmd_api(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_terminal(args: argparse.Namespace) -> int:
+    """Configuração do caixa remoto (ADR-036) por linha de comando.
+
+    A tela é o caminho normal do operador; este comando existe para quem instala
+    cinco caixas iguais num sábado e para o suporte conferir, da estação, qual
+    servidor ela usa e qual certificado está fixado.
+    """
+    from .aplicacao.fila_offline import NOME_DO_ARQUIVO, FilaDeVendas
+    from .caminhos import diretorio_de_dados
+    from .infra.api.cliente import ErroDeComunicacao, inspecionar_certificado
+    from .infra.rede.configuracao_terminal import carregar, remover
+
+    pasta = diretorio_de_dados()
+    configuracao = carregar(pasta)
+
+    if args.acao == "local":
+        if configuracao is None:
+            print("Este computador já está em modo local.")
+            return 0
+        remover(pasta)
+        print("Configuração de rede removida: este computador volta a usar a base própria.")
+        return 0
+
+    if args.acao == "configurar":
+        from .ui.app import criar_aplicacao
+        from .ui.remoto import DialogoConfiguracaoDoCaixa
+
+        criar_aplicacao()
+        dialogo = DialogoConfiguracaoDoCaixa(pasta)
+        if dialogo.exec() != dialogo.DialogCode.Accepted:
+            print("Configuração cancelada.")
+            return 1
+        assert dialogo.configuracao is not None
+        print(f"Caixa configurado: {dialogo.configuracao.terminal} → {dialogo.configuracao.endereco}")
+        print(f"Digital fixada: {dialogo.configuracao.digital}")
+        return 0
+
+    if configuracao is None:
+        print("Este computador está em modo local (sem servidor configurado).")
+        print("Para ligar a um servidor: bussola terminal configurar")
+        return 0
+
+    print(f"{__app_name__} {__version__}")
+    print(f"Modo: terminal de {configuracao.endereco}")
+    print(f"Caixa: {configuracao.terminal}")
+    print(f"Pasta de dados: {pasta}")
+    print(f"Digital fixada: {configuracao.digital or '(não fixada — inseguro)'}")
+
+    caminho_da_fila = pasta / NOME_DO_ARQUIVO
+    if caminho_da_fila.is_file():
+        fila = FilaDeVendas(caminho_da_fila)
+        try:
+            pendentes = fila.pendentes()
+        finally:
+            fila.fechar()
+        print(f"Vendas pendentes: {len(pendentes)}")
+        for registro in pendentes[:10]:
+            situacao = "recusada" if registro.precisa_de_atencao else "aguardando"
+            print(
+                f"  {registro.criada_em[:16]} {registro.operador_login} "
+                f"{situacao} {registro.chave[:8]} {registro.motivo}".rstrip()
+            )
+    else:
+        print("Vendas pendentes: nenhuma")
+
+    if args.acao == "testar":
+        try:
+            inspecao = inspecionar_certificado(configuracao.endereco)
+        except ErroDeComunicacao as exc:
+            print(f"Servidor não respondeu: {exc}")
+            return 2
+        if inspecao.digital != configuracao.digital:
+            print(f"ATENÇÃO: a digital do servidor é {inspecao.digital},")
+            print("diferente da fixada neste caixa. O programa vai recusar esta conexão.")
+            return 3
+        print("Servidor respondeu e a digital confere com a fixada.")
+    return 0
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
-    _exigir_banco(args.banco)
+    from .caminhos import diretorio_de_dados
+    from .infra.rede.configuracao_terminal import carregar
     from .ui.app import executar
 
-    return executar(Path(args.banco))
+    pasta = diretorio_de_dados()
+    # Em modo terminal não existe base nesta máquina: exigir o arquivo aqui
+    # impediria o caixa de abrir justamente onde ele deve abrir sem base.
+    if not getattr(args, "local", False) and carregar(pasta) is not None:
+        return executar(Path(args.banco), pasta_do_caixa=pasta)
+    _exigir_banco(args.banco)
+    return executar(Path(args.banco), pasta_do_caixa=pasta, forcar_local=bool(args.local))
 
 
 def cmd_simular_dia(args: argparse.Namespace) -> int:
@@ -726,7 +812,26 @@ def construir_parser() -> argparse.ArgumentParser:
 
     p_ui = sub.add_parser("ui", help="abre a interface desktop")
     p_ui.add_argument("--banco", default="dados/bussola.db")
+    p_ui.add_argument(
+        "--local",
+        action="store_true",
+        help="ignora a configuração de caixa remoto desta máquina e abre a base local",
+    )
     p_ui.set_defaults(func=cmd_ui)
+
+    p_terminal = sub.add_parser(
+        "terminal",
+        help="este computador é caixa de um servidor? configura, testa e mostra a fila",
+    )
+    p_terminal.add_argument(
+        "acao",
+        nargs="?",
+        default="status",
+        choices=("status", "configurar", "testar", "local", "pendencias"),
+        help="status (padrão), configurar (tela), testar (digital do servidor), "
+        "local (volta a usar base própria) ou pendencias (quantas vendas esperam)",
+    )
+    p_terminal.set_defaults(func=cmd_terminal, banco=None)
 
     p_api = sub.add_parser(
         "api",

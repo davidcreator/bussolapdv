@@ -63,6 +63,8 @@ MODULOS = [
 MODULO_ADMIN = "Administração"
 #: Entrada de menu que **não** é página: abre a janela de Ajuda (F1).
 MODULO_AJUDA = "Ajuda"
+#: No caixa remoto: vendas que ficaram na fila esperando o servidor.
+MODULO_PENDENTES = "Vendas pendentes"
 
 #: Ícone e descrição de cada módulo (a descrição aparece no cabeçalho da página).
 DETALHES_MODULO: dict[str, tuple[str, str]] = {
@@ -79,6 +81,7 @@ DETALHES_MODULO: dict[str, tuple[str, str]] = {
     "Parâmetros": ("parametros", "Configuração da operação"),
     MODULO_ADMIN: ("administracao", "Dependências, marca, usuários, permissões e manutenção"),
     MODULO_AJUDA: ("ajuda", "Guia completo de uso, campo por campo, e o modo guiado"),
+    MODULO_PENDENTES: ("vendas", "Vendas guardadas neste caixa quando o servidor não respondeu"),
 }
 
 
@@ -95,6 +98,11 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             self.modulos.append(MODULO_ADMIN)
         # Ajuda fecha o menu e nunca vira página: `_selecionar` abre a janela do guia.
         self.modulos.append(MODULO_AJUDA)
+        # O modo terminal (ADR-036) acrescenta a entrada das vendas pendentes: é a
+        # única coisa que vive **só** no caixa, e precisa estar a um clique.
+        self.remoto = bool(getattr(contexto, "remoto", False))
+        if self.remoto:
+            self.modulos.append(MODULO_PENDENTES)
         self.ajuda = ServicoAjuda(contexto)
         self._janela_ajuda: JanelaAjuda | None = None
 
@@ -125,13 +133,14 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         # do `QStackedWidget`: o clique parecia não fazer nada e a página anterior
         # continuava na tela (o placeholder era inalcançável).
         for modulo in self.modulos[self.pilha.count() :]:
-            if modulo == MODULO_AJUDA:
+            if modulo in (MODULO_AJUDA, MODULO_PENDENTES):
                 continue
             self.pilha.addWidget(self._placeholder(modulo))
 
         self.tela_pdv.solicitar_caixa.connect(lambda: self._selecionar("Caixa"))
         self.tela_caixa.turno_alterado.connect(self.tela_pdv.atualizar)
         self.tela_pdv.venda_finalizada.connect(self.tela_caixa.atualizar)
+        self.tela_pdv.venda_guardada.connect(self._avisar_venda_guardada)
 
         self.setCentralWidget(self._montar_casca())
         # F1 abre o guia de qualquer lugar da janela (atalho de aplicação inteira).
@@ -258,6 +267,11 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
             self._voltar_ao_pdv()
             return
 
+        if modulo == MODULO_PENDENTES:
+            self._abrir_pendencias()
+            self._voltar_ao_pdv()
+            return
+
         if modulo == MODULO_AJUDA:
             # Não é página: devolve o menu à página que estava aberta e abre o guia.
             anterior = max(0, self.pilha.currentIndex())
@@ -321,6 +335,31 @@ class JanelaPrincipal(QMainWindow, CascaResponsiva):
         janela.exec()
 
     # -- ajuda e modo guiado ------------------------------------------------
+    def _avisar_venda_guardada(self) -> None:
+        """Avisa (sem drama) que a venda está guardada e onde encontrá-la."""
+        from PySide6.QtWidgets import QMessageBox
+
+        QMessageBox.information(
+            self,
+            "Venda guardada neste caixa",
+            "O servidor não respondeu e a venda ficou guardada aqui.\n\n"
+            f"Ela aparece em <b>{MODULO_PENDENTES}</b> e é enviada quando a rede voltar. "
+            "O cupom sai depois, pelo número da venda.",
+        )
+
+    def _abrir_pendencias(self) -> None:
+        """Abre a fila de vendas do caixa (só existe no modo terminal)."""
+        from ..aplicacao.remoto import servicos_de
+        from .remoto import DialogoPendencias
+
+        cliente = getattr(self.ctx, "cliente", None)
+        if cliente is None:
+            return
+        from ..aplicacao.pdv import SolicitacaoVenda
+
+        fila = servicos_de(self.ctx).fila
+        DialogoPendencias(fila, cliente, solicitacao_tipo=SolicitacaoVenda, parent=self).exec()
+
     def _abrir_ajuda(self, tema: str | None = None) -> None:
         """Abre (ou traz para a frente) o guia. F1, menu Ajuda e mentor caem aqui."""
         if self._janela_ajuda is None:

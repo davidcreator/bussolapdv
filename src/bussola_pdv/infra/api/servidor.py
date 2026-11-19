@@ -17,14 +17,16 @@ Postura de segurança (deliberada, e documentada em docs/API.md):
 
 from __future__ import annotations
 
+import base64
 import json
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
@@ -50,8 +52,11 @@ from ...dominio.pagamentos import (
     pagamento_dinheiro,
     pagamento_eletronico,
 )
-from ...dominio.usuario import Acao
+from ...dominio.usuario import Acao, Usuario
 from ...dominio.venda import Carrinho
+from .contrato import codificar
+from .executor import capacidades, executar, pasta_de_relatorios
+from .sessao import VALIDADE_PADRAO, ArmazemDeSessoes
 
 VERSAO_API = "v1"
 
@@ -91,8 +96,30 @@ class ServicoWeb:
 
     fabrica: Callable[[], Contexto]
     configuracao: ConfiguracaoAPI
+    #: Sessões dos terminais (v0.15.0). Em memória: reiniciar o servidor derruba
+    #: todas, e o terminal refaz o login — previsível é melhor que eterno.
+    sessoes: ArmazemDeSessoes = field(default_factory=ArmazemDeSessoes)
+    #: Credenciais de autorização (senha do gerente digitada no terminal), de uso
+    #: único e curta duração: valem para **aquele** pedido, não para a sessão.
+    credenciais: ArmazemDeSessoes = field(
+        default_factory=lambda: ArmazemDeSessoes(validade=timedelta(minutes=5))
+    )
     rotas_escrita: tuple[str, ...] = field(default=("POST", "PUT", "PATCH", "DELETE"))
     _local: threading.local = field(default_factory=threading.local, init=False, repr=False)
+
+    #: Token de sessão do terminal (cabeçalho `X-Bussola-Sessao`).
+    @property
+    def cabecalho_sessao(self) -> str:
+        return getattr(self._local, "sessao", "")
+
+    @cabecalho_sessao.setter
+    def cabecalho_sessao(self, valor: str) -> None:
+        self._local.sessao = valor or ""
+
+    #: Operador logado na sessão da requisição em andamento (vai para o log).
+    @property
+    def operador(self) -> str:
+        return getattr(self._local, "operador", "")
 
     #: Terminal da requisição em andamento (o manipulador troca antes de tratar).
     @property
@@ -121,6 +148,19 @@ class ServicoWeb:
 
         if recurso == "saude" and metodo == "GET":
             return self.saude()
+        if recurso == "capacidades" and metodo == "GET":
+            return {"versao_api": VERSAO_API, "servicos": capacidades()}
+        if recurso == "sessao":
+            if metodo == "POST":
+                return self.abrir_sessao(corpo)
+            if metodo == "DELETE":
+                return self.encerrar_sessao()
+        if recurso == "autorizacao" and metodo == "POST":
+            return self.autorizar(corpo)
+        if recurso == "executar" and metodo == "POST":
+            return self.executar(corpo)
+        if recurso == "arquivos" and metodo == "GET":
+            return self.arquivo(consulta)
         if recurso == "produtos" and metodo == "GET":
             return self.produtos(consulta)
         if recurso == "estoque" and metodo == "GET":
@@ -158,6 +198,132 @@ class ServicoWeb:
         if recurso == "relatorios" and metodo == "GET" and len(partes) == 3:
             return self.relatorio(partes[2], consulta)
         raise ErroAPI(HTTPStatus.NOT_FOUND, f"Rota não encontrada: {metodo} {caminho}")
+
+    # -- sessão do terminal (modo remoto, ADR-036) --------------------------
+    def abrir_sessao(self, corpo: dict) -> dict:
+        """Login do terminal: devolve token de sessão e a visão do usuário.
+
+        O token da API (`Authorization: Bearer`) diz "este programa pode falar
+        com o servidor"; o token de sessão diz "**esta pessoa** está no balcão".
+        Os dois são necessários — um terminal não vira um usuário.
+        """
+        login = str(corpo.get("login") or "").strip()
+        senha = str(corpo.get("senha") or "")
+        if not login or not senha:
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "Informe login e senha.")
+        try:
+            resultado = ServicoAutenticacao(self.contexto).entrar(login, senha)
+        except ErroBussola as exc:
+            raise ErroAPI(HTTPStatus.UNAUTHORIZED, str(exc)) from exc
+        sessao = self.sessoes.criar(resultado.usuario.id, self.terminal)
+        self._local.operador = resultado.usuario.login
+        return {
+            "ok": True,
+            "token_sessao": sessao.token,
+            "terminal": sessao.terminal,
+            "expira_em": sessao.expira_em.isoformat(),
+            "validade_horas": round(VALIDADE_PADRAO.total_seconds() / 3600, 1),
+            "usuario": codificar(resultado.usuario),
+            "esquema": self.contexto.versao_esquema(),
+            "data_negocio": self.contexto.data_negocio(),
+        }
+
+    def encerrar_sessao(self) -> dict:
+        token = self._token_da_sessao()
+        encerrada = self.sessoes.encerrar(token) if token else False
+        return {"ok": True, "encerrada": encerrada}
+
+    def autorizar(self, corpo: dict) -> dict:
+        """Confere a senha de quem autoriza e devolve credencial de uso único."""
+        login = str(corpo.get("login") or "").strip()
+        senha = str(corpo.get("senha") or "")
+        acao_bruta = str(corpo.get("acao") or "").strip()
+        if not login or not senha:
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "Informe login e senha do autorizador.")
+        try:
+            acao = Acao(acao_bruta) if acao_bruta else None
+        except ValueError as exc:
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, f"Ação desconhecida: {acao_bruta}.") from exc
+        try:
+            servico = ServicoAutenticacao(self.contexto)
+            autorizador = (
+                servico.autorizar(login, senha, acao)
+                if acao is not None
+                else servico.entrar(login, senha).usuario
+            )
+        except ErroBussola as exc:
+            raise ErroAPI(HTTPStatus.UNAUTHORIZED, str(exc)) from exc
+        credencial = self.credenciais.criar(autorizador.id, self.terminal)
+        return {
+            "ok": True,
+            "credencial": credencial.token,
+            "expira_em": credencial.expira_em.isoformat(),
+            "usuario": codificar(autorizador),
+        }
+
+    def executar(self, corpo: dict) -> dict:
+        """Executa um caso de uso em nome do operador da sessão.
+
+        Este é o caminho que faz a janela inteira funcionar pela rede. O pedido
+        diz **qual** caso de uso; quem é o usuário, não.
+        """
+        sessao = self._sessao_atual()
+        usuario = self._usuario_da_sessao(sessao)
+        nome_servico = str(corpo.get("servico") or "")
+        nome_metodo = str(corpo.get("metodo") or "")
+        argumentos = corpo.get("argumentos") or {}
+        if not nome_servico or not nome_metodo:
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "Informe servico e metodo.")
+        if not isinstance(argumentos, dict):
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, "argumentos precisa ser um objeto JSON.")
+        self._local.operador = usuario.login
+        resultado = executar(
+            self.contexto,
+            sessao,
+            usuario,
+            nome_servico,
+            nome_metodo,
+            argumentos,
+            credenciais=self.credenciais,
+        )
+        return {"ok": True, "resultado": resultado}
+
+    def arquivo(self, consulta: dict[str, list[str]]) -> dict:
+        """Devolve um relatório gerado no servidor, em base64, para o terminal salvar.
+
+        Só serve arquivo da pasta de relatórios do servidor — nada de caminho
+        arbitrário vindo na query.
+        """
+        nome = (consulta.get("nome") or [""])[0]
+        if not nome or Path(nome).name != nome or nome.startswith("."):
+            raise ErroAPI(HTTPStatus.BAD_REQUEST, f"Nome de arquivo inválido: {nome!r}.")
+        caminho = pasta_de_relatorios(self.contexto) / nome
+        if not caminho.is_file():
+            raise ErroAPI(HTTPStatus.NOT_FOUND, f"Arquivo não encontrado no servidor: {nome}.")
+        return {
+            "ok": True,
+            "nome": nome,
+            "bytes": base64.b64encode(caminho.read_bytes()).decode("ascii"),
+        }
+
+    def _token_da_sessao(self) -> str:
+        return self.cabecalho_sessao
+
+    def _sessao_atual(self) -> Any:
+        token = self.cabecalho_sessao
+        sessao = self.sessoes.obter(token) if token else None
+        if sessao is None:
+            raise ErroAPI(
+                HTTPStatus.UNAUTHORIZED,
+                "Sessão ausente ou vencida. Faça login de novo no terminal.",
+            )
+        return sessao
+
+    def _usuario_da_sessao(self, sessao: Any) -> Usuario:
+        usuario = self.contexto.usuarios.por_id(sessao.usuario_id)
+        if not usuario.ativo:
+            raise ErroAPI(HTTPStatus.UNAUTHORIZED, "Usuário desativado durante a sessão.")
+        return usuario
 
     # -- leitura ------------------------------------------------------------
     def saude(self) -> dict:
@@ -630,6 +796,7 @@ class _Manipulador(BaseHTTPRequestHandler):
         pedido_por = ""
         # O terminal se identifica por cabeçalho; sem ele vale o padrão do servidor.
         self.servico.terminal = self.headers.get("X-Bussola-Terminal", "")
+        self.servico.cabecalho_sessao = self.headers.get("X-Bussola-Sessao", "")
         if not self._token_ok():
             self._responder(
                 HTTPStatus.UNAUTHORIZED,
@@ -652,11 +819,17 @@ class _Manipulador(BaseHTTPRequestHandler):
             return
         except ErroValidacao as exc:
             status_final = HTTPStatus.UNPROCESSABLE_ENTITY
-            self._responder(HTTPStatus.UNPROCESSABLE_ENTITY, {"erro": str(exc)})
+            self._responder(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                {"erro": str(exc), "tipo": type(exc).__name__, "codigo": exc.codigo},
+            )
             return
         except ErroBussola as exc:
             status_final = HTTPStatus.CONFLICT
-            self._responder(HTTPStatus.CONFLICT, {"erro": str(exc)})
+            self._responder(
+                HTTPStatus.CONFLICT,
+                {"erro": str(exc), "tipo": type(exc).__name__, "codigo": exc.codigo},
+            )
             return
         except Exception as exc:  # nunca vazar stack trace para o cliente
             status_final = HTTPStatus.INTERNAL_SERVER_ERROR
@@ -666,6 +839,7 @@ class _Manipulador(BaseHTTPRequestHandler):
             )
             return
         finally:
+            pedido_por = pedido_por or self.servico.operador
             self._registrar_acesso(metodo, status_final, inicio, pedido_por)
         self._responder(HTTPStatus.OK, resposta)
 
@@ -702,6 +876,9 @@ class _Manipulador(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         self._despachar("POST")
+
+    def do_DELETE(self) -> None:
+        self._despachar("DELETE")
 
 
 class ServidorAPI:

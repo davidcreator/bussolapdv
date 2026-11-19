@@ -36,11 +36,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..aplicacao.autenticacao import ServicoAutenticacao
-from ..aplicacao.clientes import ServicoClientes
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.crediario import ResultadoRecebimento, ServicoCrediario
-from ..aplicacao.estoque import ServicoEstoque
+from ..aplicacao.crediario import ResultadoRecebimento
+from ..aplicacao.remoto import servicos_de
 from ..dominio.cliente import Cliente
 from ..dominio.dinheiro import Dinheiro, Quantidade
 from ..dominio.encargos import EncargosDevidos
@@ -176,7 +174,7 @@ class DialogoProduto(_DialogoBase):
             largura=520,
         )
         self.usuario = usuario
-        self.servico = ServicoEstoque(contexto)
+        self.servico = servicos_de(contexto).estoque
         self.produto: Produto | None = None
         self._original = produto
 
@@ -309,7 +307,7 @@ class DialogoCliente(_DialogoBase):
             largura=520,
         )
         self.usuario = usuario
-        self.servico = ServicoClientes(contexto)
+        self.servico = servicos_de(contexto).clientes
         self.cliente: Cliente | None = None
         self._original = cliente
 
@@ -370,7 +368,7 @@ class DialogoEntrada(_DialogoBase):
             largura=720,
         )
         self.usuario = usuario
-        self.servico = ServicoEstoque(contexto)
+        self.servico = servicos_de(contexto).estoque
         self.itens: list[ItemEntrada] = []
         self.resultado: dict | None = None
 
@@ -487,7 +485,7 @@ class DialogoAjusteEstoque(_DialogoBase):
             largura=560,
         )
         self.usuario = usuario
-        self.servico = ServicoEstoque(contexto)
+        self.servico = servicos_de(contexto).estoque
         self.novo_saldo: int | None = None
 
         self.campo_codigo = self._texto("Produto (código)", dica="código ou código de barras")
@@ -501,7 +499,7 @@ class DialogoAjusteEstoque(_DialogoBase):
 
     def _salvar(self) -> None:
         produto = self.ctx.produtos.buscar_leitura(self.campo_codigo.text().strip())
-        servico_auth = ServicoAutenticacao(self.ctx)
+        servico_auth = servicos_de(self.ctx).autenticacao
         autorizador = servico_auth.autorizar(
             self.campo_login.text().strip(), self.campo_senha.text(), Acao.ESTOQUE_AJUSTAR
         )
@@ -534,7 +532,7 @@ class DialogoRecebimento(_DialogoBase):
             largura=560,
         )
         self.usuario = usuario
-        self.servico = ServicoCrediario(contexto)
+        self.servico = servicos_de(contexto).crediario
         self.resultado: ResultadoRecebimento | None = None
 
         self.titulos = [
@@ -657,7 +655,7 @@ class DialogoRecebimento(_DialogoBase):
         cobrar = self.combo_cobrar.isChecked() or not self.servico.cobranca_ligada()
         autorizador = None
         if self.precisa_autorizar_perdao():
-            autorizador = ServicoAutenticacao(self.ctx).autorizar(
+            autorizador = servicos_de(self.ctx).autenticacao.autorizar(
                 self.campo_login.text().strip(),
                 self.campo_senha.text(),
                 Acao.TITULO_ENCARGO_DISPENSAR,

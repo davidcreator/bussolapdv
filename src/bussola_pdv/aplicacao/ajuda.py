@@ -498,6 +498,48 @@ GUIA: tuple[Tema, ...] = (
         ),
         relacionados=("inicio", "pdv"),
     ),
+    # ------------------------------------------------------------------ rede
+    Tema(
+        "rede",
+        "Vários caixas na mesma base",
+        "visao",
+        "Um computador guarda a base; os outros caixas trabalham nela pela rede local.",
+        quando=(
+            "Quando a loja tem mais de um caixa — ou quando o caixa precisa mostrar os mesmos "
+            "dados da retaguarda."
+        ),
+        passos=(
+            Passo("Ligue o servidor", "O computador que guarda a base sobe a API com TLS e mostra "
+                  "o endereço e a impressão digital do certificado.", None),
+            Passo("Ligue o caixa", "Na tela de login do caixa: 'Este caixa usa um servidor…'. "
+                  "Endereço, token e o nome deste caixa (CAIXA-02, por exemplo).", None),
+            Passo("Confira a digital", "A tela mostra o SHA-256 do certificado do servidor. Só "
+                  "clique em 'Confiar e usar' depois de conferir com o valor que está no "
+                  "servidor.", None),
+            Passo("Venda normalmente", "A janela é a mesma: PDV, caixa, cadastros, crediário, "
+                  "estoque, relatórios. Quem grava é o servidor.", "botao_finalizar"),
+            Passo("Rede caiu?", "A venda fica guardada no caixa e aparece em 'Vendas pendentes'. "
+                  "Reenviar é seguro: o servidor não registra a mesma venda duas vezes.", None),
+        ),
+        campos=(
+            Campo("Endereço do servidor", "O que aparece quando o servidor sobe, por exemplo "
+                  "`https://192.168.0.10:8765`.",
+                  "Tem que ser o endereço da rede local, não um nome inventado."),
+            Campo("Token da API", "A senha da máquina do servidor para os caixas.",
+                  "Fica gravada na configuração deste caixa; não é a senha de nenhum usuário."),
+            Campo("Nome deste caixa", "Como esta máquina aparece na venda e no log.",
+                  "Um nome por máquina: é assim que se descobre quem vendeu o quê."),
+            Campo("Impressão digital", "O SHA-256 do certificado do servidor.",
+                  "Se mudar sem ninguém mexer no servidor, não confie: pode ser outra máquina."),
+        ),
+        cuidados=(
+            "Não abra a base por pasta de rede: duas máquinas no mesmo arquivo corrompem os dados.",
+            "Sem o servidor ligado o caixa não vende pelo caminho normal — a fila de pendências "
+            "é emergência, não rotina.",
+            "Cópias de segurança são do servidor: no caixa não existe base para copiar.",
+        ),
+        relacionados=("inicio", "pdv", "backup"),
+    ),
 )
 
 POR_CHAVE: dict[str, Tema] = {tema.chave: tema for tema in GUIA}

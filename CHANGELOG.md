@@ -2,6 +2,88 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.15.0] — 2026-11-11 — pré-alfa: o caixa inteiro funcionando pela rede
+
+A v0.14.0 entregou o servidor e deixou uma frase explícita: *a tela do balcão ainda abre a base
+direto*. Esta rodada fecha essa frase — e fecha a janela inteira, não uma tela enxuta de PDV. O
+caixa agora é **cliente**: vende, recebe, crediário, devolução, estoque, relatórios, cadastros e
+administração rodam no servidor, com a mesma janela e as mesmas telas. A decisão está no
+**ADR-036**.
+
+### Adicionado — a janela completa em modo cliente (ADR-036)
+
+- **Um executor, não sessenta endpoints**: `POST /v1/executar {servico, metodo, argumentos}` chama
+  o **mesmo serviço de aplicação** do servidor. A lista de serviços é fechada e só expõe métodos
+  públicos — não é SQL por HTTP.
+- **A assinatura do método é o contrato**: o proxy do terminal lê a assinatura e as anotações de
+  tipo da classe de serviço, liga argumentos posicionais a nomes e recebe o resultado já
+  convertido (`Dinheiro.centavos`, `Quantidade.milesimos`, `Percentual.bp` como inteiros na
+  fronteira; `Enum` pelo nome). Sem dois vocabulários para manter em sincronia.
+- **Identidade é do servidor**: argumentos de ator enviados pelo terminal são descartados e
+  substituídos pelo usuário da sessão; vender em nome de outro é recusado. Autorização de exceção
+  exige a senha do gerente **conferida no servidor** e vira credencial de 5 minutos.
+- **Leituras de tela** ganharam serviço próprio e fechado (`Consultas`): caixas, turno, movimentos,
+  parâmetros, produtos, saldos, clientes, vendas, entradas, auditoria e usuários.
+- **`ContextoRemoto`**: as telas continuam escritas como antes (`ctx.parametros.obter_int(...)`) e
+  recebem `servicos_de(contexto)` — local ou proxy, a tela não sabe a diferença.
+- **27 arquivos de `ui/` migrados** para a fábrica de serviços, sem quebra de comportamento no modo
+  local (a suíte inteira continua verde).
+
+### Adicionado — configuração no primeiro uso, com a digital fixada
+
+- **Tela "Este caixa usa um servidor…"** na tela de login (só aparece em máquina ainda local): pede
+  endereço, token e nome do caixa, mostra a **impressão digital SHA-256** do certificado do
+  servidor e exige confirmação.
+- **Fixing por TOFU**: ao confiar, o certificado vai para `servidor-do-caixa.crt` na pasta de dados
+  e passa a ser a **única raiz aceita**; servidor com digital diferente é recusado — inclusive por
+  quem apagar o `.crt` para "resolver o problema" (ADR-036, item 5).
+- **A abertura decide pelo computador**: existe `terminal.json` na pasta de dados? A máquina é
+  terminal e abre sem base local, sem backup local e com login por sessão. Sem o arquivo, tudo
+  funciona como sempre.
+- **`bussola terminal`** (novo comando): `status`, `configurar`, `testar`, `local` e
+  `pendencias` — para instalar cinco caixas iguais e para o suporte conferir, da estação, a que
+  servidor ela está ligada.
+- **`bussola ui --local`**: ignora a configuração de rede e abre a base local (útil para quem
+  precisa olhar a base antiga da máquina).
+
+### Adicionado — a rede caiu no meio da venda: fila offline
+
+- **A venda não se perde**: `ServicoPDVRemoto.finalizar_venda` guarda a solicitação em
+  `vendas-pendentes.db` (SQLite na pasta do caixa) e devolve `VENDA_NA_FILA`.
+- **A tela limpa o carrinho** ao guardar — sem isso o operador tentaria de novo e venderia duas
+  vezes — e avisa onde a venda está; a janela ganha a entrada **Vendas pendentes**.
+- **Tela de pendências**: lista o que espera envio, o que foi recusado e por quê; reenviar exige
+  que seja **o operador que fez a venda**; descartar pede confirmação e nunca acontece sozinho.
+- **Reenvio idempotente**: usa a mesma `chave_idempotencia`, então reenviar duas vezes não duplica
+  a venda (`ResultadoVenda.ja_existia`).
+- **Recusa de negócio não apaga a venda**: estoque, limite ou turno fechado viram pendência com o
+  motivo na tela, para a loja decidir.
+- **Sessão vencida não é recusa**: servidor reiniciado derruba tokens; a venda continua pendente
+  até alguém logar e reenviar, em vez de ser marcada como recusada por um detalhe técnico.
+
+### Corrigido
+
+- **`DELETE /v1/sessao` respondia 501**: `BaseHTTPRequestHandler` devolve "não implementado" para
+  método sem `do_*`; agora existe `do_DELETE` e o terminal consegue encerrar a sessão.
+- **Terminal mandava `self` ao servidor** (422 `precisa de: self.`): `inspect.signature` de método
+  de classe inclui `self`; contrato ganhou `assinatura_remota`, usada pelo executor e pelo proxy.
+- **Data de negócio e esquema** agora vêm do servidor na sessão — o relógio do balcão não decide a
+  data comercial de um evento gravado no servidor.
+- **Auditoria remota chegava como `dict`** e a tela quebrava ao ler `evento.sequencia`: as
+  consultas passaram a declarar o tipo de retorno real.
+- **`ErroDeComunicacao` é `ErroBussola`**: rede caída aparece na tela como mensagem, não como
+  traceback.
+
+### Testes
+
+- **`tests/test_modo_remoto.py` (30)** — venda pelo terminal, identidade, erro de negócio
+  atravessando a rede, sessão, certificado de outro servidor recusado.
+- **`tests/test_fila_offline.py` (5)** — enfileirar, reenviar, recusa de negócio e descarte.
+- **`tests/test_ui_modo_terminal.py` (10)** — primeiro uso fixando a digital, janela remota com
+  todos os módulos, tela de pendências reenviando de verdade e login que só oferece rede quando é
+  local.
+- Suíte: **1053 testes verdes** (baseline anterior: 1010), `ruff` e `mypy` limpos em 119 arquivos.
+
 ## [0.14.0] — 2026-11-11 — pré-alfa: encargos cobrados, nuvem de verdade e servidor multi-caixa
 
 A v0.13.0 deixou três frentes "documentadas e preparadas". Esta rodada fecha as três — em código,

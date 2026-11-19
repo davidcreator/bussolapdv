@@ -22,8 +22,8 @@ from PySide6.QtWidgets import (
 )
 
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.impressao import ServicoImpressao
-from ..aplicacao.pdv import ResultadoVenda, ServicoPDV, SolicitacaoVenda
+from ..aplicacao.pdv import ResultadoVenda, SolicitacaoVenda
+from ..aplicacao.remoto import VendaGuardadaParaEnvio, servicos_de
 from ..dominio.dinheiro import Dinheiro, Quantidade
 from ..dominio.erros import (
     AutorizacaoNegada,
@@ -67,13 +67,15 @@ COLUNAS_PAGAMENTO = [
 class TelaPDV(QWidget):
     solicitar_caixa = Signal()
     venda_finalizada = Signal()
+    #: A venda não chegou ao servidor e ficou guardada na fila do caixa.
+    venda_guardada = Signal()
 
     def __init__(self, contexto: Contexto, usuario: Usuario, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoPDV(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.servico = servicos_de(contexto).pdv
+        self.impressao = servicos_de(contexto).impressao
         self.carrinho = Carrinho()
         #: Última venda finalizada nesta estação — permite reimprimir sem procurar.
         self.ultima_venda: VendaRegistrada | None = None
@@ -514,6 +516,15 @@ class TelaPDV(QWidget):
             except TurnoNaoAberto as exc:
                 self._mensagem(str(exc), "erro")
                 self.solicitar_caixa.emit()
+                return
+            except VendaGuardadaParaEnvio as exc:
+                # A venda está guardada no caixa: limpar o carrinho é essencial,
+                # senão o operador tentaria de novo e venderia duas vezes.
+                self._mensagem(str(exc), "alerta")
+                self._limpar()
+                self._atualizar_totais()
+                self.atualizar()
+                self.venda_guardada.emit()
                 return
             except EstoqueInsuficiente as exc:
                 self._mensagem(str(exc), "erro")

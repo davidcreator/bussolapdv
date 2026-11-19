@@ -27,9 +27,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..aplicacao.autenticacao import ServicoAutenticacao
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.devolucao import ItemSolicitado, ResultadoDevolucao, ServicoDevolucao
+from ..aplicacao.devolucao import ItemSolicitado, ResultadoDevolucao
+from ..aplicacao.remoto import servicos_de
 from ..dominio.devolucao import DestinoDevolucao, TipoDevolucao
 from ..dominio.dinheiro import Quantidade
 from ..dominio.usuario import Acao, Usuario
@@ -61,7 +61,7 @@ class DialogoDevolucao(_DialogoBase):
         )
         self.usuario = usuario
         self.venda = venda
-        self.servico = ServicoDevolucao(contexto)
+        self.servico = servicos_de(contexto).devolucao
         self.resultado: ResultadoDevolucao | None = None
 
         self.combo_tipo = QComboBox()
@@ -159,7 +159,7 @@ class DialogoDevolucao(_DialogoBase):
         destino = DestinoDevolucao(str(self.combo_destino.currentData()))
         autorizador = None
         if self.campo_login.text().strip():
-            autorizador = ServicoAutenticacao(self.ctx).autorizar(
+            autorizador = servicos_de(self.ctx).autenticacao.autorizar(
                 self.campo_login.text().strip(),
                 self.campo_senha.text(),
                 Acao.VENDA_DEVOLVER,

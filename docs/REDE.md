@@ -1,11 +1,13 @@
 # Vários caixas na mesma base (rede)
 
-> **Status na v0.14.0:** o **modo servidor está pronto e testado** — API com todas
-> as rotas de operação, TLS com certificado gerado pelo programa, identidade de
-> terminal, log de acesso e teste de dois caixas vendendo ao mesmo tempo.
-> O que **ainda não existe** é a tela do balcão conversando com o servidor: hoje o
-> programa abre a base direto (um caixa por máquina). A ordem do que falta está na
-> seção 4.
+> **Status na v0.15.0:** funcionam **os dois lados**. O servidor (ADR-035) tem API,
+> TLS gerado pelo programa, identidade de terminal, log de acesso e teste de dois
+> caixas vendendo ao mesmo tempo; e o **caixa agora é cliente de verdade**
+> (ADR-036): a janela inteira — PDV, caixa, cadastros, consultas, crediário,
+> devolução, estoque, relatórios e administração — roda contra o servidor, com
+> configuração no primeiro uso, digital do certificado fixada e **fila offline**
+> para a venda quando a rede cai. O que falta é operação em loja real e os itens
+> de robustez da seção 4.
 
 ## 1. Por que não "SQLite numa pasta de rede"
 
@@ -38,8 +40,10 @@ propriedade do modelo de arquivo.
   executada;
 - o servidor pode ser a máquina do escritório da ONG, uma VM na AWS/Azure
   (`docs/NUVEM.md`) ou um mini-PC na loja;
-- se a rede cair, o terminal **avisa e não vende** (melhor do que vender em base
-  paralela e descobrir a divergência no fechamento).
+- se a rede cair no meio de uma venda, a venda **fica guardada no caixa** e é
+  reenviada quando o servidor voltar (ADR-036). Não existe base paralela: o que a
+  fila guarda é a *solicitação de venda*, com a mesma `chave_idempotencia`, e o
+  servidor não registra duas vezes.
 
 ## 3. O que já existe (v0.14.0)
 
@@ -54,6 +58,42 @@ propriedade do modelo de arquivo.
 | **Log de acesso** JSONL (quando, terminal, IP, rota, status, ms) | ✅ |
 | Contexto por thread (conexão SQLite nunca atravessa thread) | ✅ |
 | **Teste de concorrência**: dois terminais disputando o último item | ✅ |
+
+### O caixa como cliente (v0.15.0)
+
+O modo é decidido **pelo computador**: existe `terminal.json` na pasta de dados?
+Então esta máquina é terminal e abre sem base local. Não existe a escolha pelo
+operador — quem instala não pode errar no meio do expediente.
+
+```powershell
+# do lado do caixa, uma vez: pede endereço, token, nome do caixa e mostra a digital
+python -m bussola_pdv terminal configurar
+python -m bussola_pdv terminal status      # a que servidor está ligado, fila pendente
+python -m bussola_pdv terminal testar      # servidor respondeu? digital confere?
+python -m bussola_pdv terminal local       # desliga o modo terminal nesta máquina
+```
+
+Na tela, o mesmo caminho é o botão **"Este caixa usa um servidor…"** da tela de
+login (que só aparece quando a máquina ainda é local).
+
+| Peça | Como funciona |
+|---|---|
+| Chamada de serviço | `POST /v1/executar {servico, metodo, argumentos}` — **um** executor, lista fechada de serviços |
+| Contrato | a assinatura do método do serviço é o contrato; tipos de fronteira viajam como inteiros |
+| Identidade | o servidor **descarta** o ator enviado e usa o usuário da sessão |
+| Login | senha conferida no servidor → `token_sessao`; a senha não fica no caixa |
+| Autorizador (desconto, sangria) | senha do gerente no servidor → credencial de 5 min, uso único |
+| Certificado | SHA-256 mostrado no primeiro uso, confirmado pelo operador e **fixado** em `servidor-do-caixa.crt` |
+| Queda de rede | venda vai para `vendas-pendentes.db`, tela limpa o carrinho, menu **Vendas pendentes** reenvia |
+| Impressão | documento montado no servidor, papel no caixa |
+| Relatórios | gerados no servidor, baixados para a pasta do operador |
+| Manutenção | cópia/restauração/pasta de dados são do **servidor** — a tela do terminal diz isso |
+| Cargas pendentes | `terminal.json`, `servidor-do-caixa.crt` e `vendas-pendentes.db` na pasta de dados do caixa |
+
+O que a fila **não** faz: não guarda venda de retirada sem estoque, não decide
+preço pelo servidor no reenvio (a venda guardada mantém o preço que o cliente
+pagou) e não reenvia sozinha no meio do expediente — reenviar é ato do operador
+que fez a venda, na tela de pendências.
 
 ### Como subir o servidor hoje
 
@@ -72,18 +112,13 @@ reaproveitado nas subidas seguintes.
 
 ## 4. O que falta, em ordem
 
-1. **Tela cliente (modo terminal)** — a maior parte do trabalho. O `JanelaPrincipal`
-   abre o banco direto; precisa de um "contexto remoto" que implemente os mesmos
-   repositórios da tela falando HTTP. Alternativa mais barata: um `bussola terminal`
-   que abre **só o PDV** contra o servidor (vender, receber, fechar turno) e deixa o
-   resto local.
-2. **Fila offline do terminal** — se a rede cair no meio de uma venda, o terminal
-   precisa dizer "não vendi" (padrão atual) ou enfileirar com `chave_idempotencia`
-   para reenviar. Enfileirar exige decidir o conflito de estoque: recomendação é
-   **não** enfileirar venda, apenas bloquear com mensagem clara.
-3. **Confiança do certificado no Windows** — instalar o `servidor.crt` no repositório
-   "Autoridades de confiança" da máquina do terminal (script `.bat` no instalador),
-   para o navegador/curl não reclamarem.
+1. ~~**Tela cliente (modo terminal)**~~ — feito na v0.15.0 (ADR-036), janela
+   completa, não só PDV.
+2. ~~**Fila offline do terminal**~~ — feito na v0.15.0: a venda é guardada com
+   `chave_idempotencia` e reenviada; recusa de negócio vira pendência com motivo.
+3. ~~**Confiança do certificado no Windows**~~ — resolvido sem instalar `.crt`:
+   o terminal fixa a digital no primeiro uso e recusa outra. Instalar o
+   certificado como autoridade deixou de ser requisito.
 4. **Token por terminal** — hoje um token serve todos; com vários caixas, um token
    por máquina permite revogar um terminal perdido sem derrubar os outros.
 5. **Fechamento por terminal** — `turnos.terminal_id` já grava; falta o relatório
@@ -91,6 +126,9 @@ reaproveitado nas subidas seguintes.
 6. **Teste de carga** — 10 terminais simultâneos, medindo latência de venda. O
    SQLite em WAL aguenta bem o volume de um bazar, mas isso precisa de número, não
    de opinião.
+7. **Reenvio automático da fila** — hoje é botão na tela de pendências. Automático
+   (a cada N minutos, ou quando a conexão volta) é melhoria, não requisito: quem
+   reenvia precisa estar logado, e a venda é do operador que a fez.
 
 ## 5. Alternativa descartada por ora: réplica por caixa
 

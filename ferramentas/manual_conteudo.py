@@ -99,10 +99,12 @@ calcula e cobra, como recebimento separado, e entra no fechamento como "encargos
 <li><strong>Cópia de segurança na nuvem</strong> (AWS ou Azure) — <span class="pilula pilula-dica">funciona</span>
 pelo comando <code>bussola backup --nuvem aws</code> (ou <code>azure</code>). Não precisa instalar
 nada além do programa; a conta e a chave são de quem paga. Falta o botão na tela.</li>
-<li><strong>Vários caixas na mesma base</strong> — <span class="pilula pilula-dica">servidor
-funciona</span>: um computador abre a base como servidor, com HTTPS de verdade (o programa gera o
-próprio certificado), cada caixa se identifica, tudo fica no log e dois caixas não vendem o mesmo
-último item. Falta a tela do caixa falar com o servidor — hoje é comando e programa externo.</li>
+<li><strong>Vários caixas na mesma base</strong> — <span class="pilula pilula-dica">funciona</span>:
+um computador abre a base como servidor, com HTTPS de verdade (o programa gera o próprio
+certificado), e cada caixa trabalha como <strong>terminal</strong> — a janela inteira, com
+cadastros, crediário, estoque, relatórios e administração, rodando contra o servidor. Se a rede
+cair no meio da venda, a venda fica guardada no caixa e é reenviada depois. Passo a passo no
+capítulo <a href="#rede">Vários caixas na mesma base</a>.</li>
 <li><strong>Emissão fiscal</strong> — <strong>fora desta fase</strong> por decisão de escopo. O que seria
 preciso (certificado, CSC, autorizador, homologação, prazo e custo) está escrito no roteiro
 <em>docs/FISCAL.md</em> do projeto.</li>
@@ -160,8 +162,10 @@ turno de caixa aberto, porque o dinheiro entra na gaveta do dia.</td></tr>
 da loja).</td>
 <td>Ligar em <em>Parâmetros → Encargos</em> e conferir os percentuais com o contador.</td></tr>
 <tr><th scope="row">Vários caixas na mesma base, pela rede</th>
-<td>O <strong>servidor</strong> está pronto e testado; falta a tela do caixa conversar com ele (P2).</td>
-<td>Um computador no balcão; o segundo, se houver, com base própria até a tela existir.</td></tr>
+<td>Funciona: um computador é servidor, os outros são terminais com a janela inteira. Se a rede
+cair no meio da venda, a venda fica guardada no caixa e é reenviada depois (P2, ADR-036).</td>
+<td>Ligue o caixa ao servidor na tela de login (“Este caixa usa um servidor…”), confira a
+impressão digital e pronto. Passo a passo em <a href="#rede">Vários caixas</a>.</td></tr>
 <tr><th scope="row">Emitir nota fiscal</th>
 <td>Fora de escopo por decisão do projeto (uso interno, no lugar da caderneta); roteiro de
 homologação escrito em <em>docs/FISCAL.md</em>.</td>
@@ -1137,6 +1141,115 @@ balcão, imprima alguns em modo texto na sua impressora e confira largura, corte
     },
     # ------------------------------------------------------------------ 17
     {
+        "id": "rede",
+        "titulo": "Vários caixas na mesma base",
+        "resumo": "Um computador guarda a base; os outros trabalham nela — inclusive quando a rede cai.",
+        "icone": "🖧",
+        "secoes": [
+            {
+                "id": "rede-como-funciona",
+                "titulo": "Como funciona (e por que não é pasta compartilhada)",
+                "corpo": """
+<p>O caminho que parece natural — colocar o arquivo da base numa pasta de rede e abrir de dois
+computadores — <strong>corrompe os dados</strong>. O bloqueio de escrita do banco depende do sistema
+de arquivos, e pasta de rede não garante trava: duas máquinas gravando a mesma venda e o mesmo
+número de cupom só aparecem na auditoria depois do estrago.</p>
+<p>O Bússola faz o certo: <strong>um computador é o servidor</strong> (a base fica nele e só nele) e
+os outros são <strong>terminais</strong>, que conversam com ele por HTTPS. A tela do terminal é a
+mesma janela de sempre: PDV, caixa, produtos, vendas, crediário, clientes, estoque, relatórios e
+administração.</p>
+<ul>
+<li>o servidor precisa ficar ligado no horário da loja (é ele que grava);</li>
+<li>cada caixa tem <strong>nome próprio</strong> (CAIXA-01, CAIXA-02…), e o nome aparece na venda —
+é como se descobre depois quem vendeu o quê;</li>
+<li>a rede precisa ser local e estável: este modo é para a rede da loja, não para internet;</li>
+<li>o programa gera o <strong>próprio certificado</strong> — não há taxa nem autoridade externa.</li>
+</ul>
+""",
+                "avancado": """
+<pre><code># no computador que guarda a base (o servidor)
+set BUSSOLA_API_TOKEN=um-token-longo-e-aleatorio
+python -m bussola_pdv.cli api --banco D:\\pdv\\bussola.db --host 0.0.0.0 --porta 8765 --tls --terminal SERVIDOR</code></pre>
+<p>A subida mostra o endereço <code>https://…</code> e a <strong>impressão digital SHA-256</strong>
+do certificado. É esse valor que o caixa vai pedir.</p>
+""",
+            },
+            {
+                "id": "rede-primeiro-uso",
+                "titulo": "Ligar um caixa ao servidor (primeiro uso)",
+                "corpo": """
+<p>No computador do caixa, abra o programa e, na tela de login, clique em <strong>“Este caixa usa um
+servidor…”</strong>. Preencha:</p>
+<ol>
+<li><strong>Endereço do servidor</strong> — o que apareceu quando o servidor subiu, por exemplo
+<code>https://192.168.0.10:8765</code>;</li>
+<li><strong>Token da API</strong> — o mesmo token configurado no servidor;</li>
+<li><strong>Nome deste caixa</strong> — CAIXA-02, por exemplo. É o nome que vai na venda.</li>
+</ol>
+<p>Clique em <strong>Verificar servidor</strong>: o programa mostra a <strong>impressão digital</strong>
+do certificado. Confira com o valor que está na tela (ou no papel) do servidor e só então clique em
+<strong>Confiar e usar</strong>.</p>
+<p>Daí em diante este computador abre <strong>direto em modo terminal</strong>, sem base local. Se
+alguém trocar o servidor por outro computador na rede, a digital não confere e o programa recusa —
+é essa conferência que substitui a autoridade certificadora numa rede de loja.</p>
+<p>Para desfazer: <code>bussola terminal local</code>. Para conferir o que está configurado:
+<code>bussola terminal status</code>.</p>
+""",
+                "guia": "rede",
+            },
+            {
+                "id": "rede-queda",
+                "titulo": "A rede caiu no meio da venda",
+                "corpo": """
+<p>A venda <strong>não se perde</strong>. Se o servidor não responder na hora de finalizar, o
+programa guarda a venda neste caixa, limpa o carrinho (para o operador não vender duas vezes) e
+avisa que ela está guardada.</p>
+<p>A venda aparece no menu <strong>Vendas pendentes</strong>, com data, operador e situação. Quando a
+rede voltar, entre no caixa e clique em <strong>Reenviar agora</strong>. Reenviar é seguro: o
+servidor reconhece a venda pelo número interno dela e não registra duas vezes.</p>
+<ul>
+<li><strong>reenviar</strong> só pode ser feito por quem fez a venda — é dinheiro de alguém;</li>
+<li>se o servidor recusar por regra (estoque, limite do crediário, turno fechado), a venda
+continua na lista <strong>com o motivo escrito</strong>, para a loja decidir;</li>
+<li><strong>descartar</strong> existe, pede confirmação e nunca acontece sozinho: descartar é dizer
+“esta venda não vale”.</li>
+</ul>
+<p>O comprovante do cliente sai na hora do envio, com o número da venda. Enquanto ela está
+pendente, o papel que o caixa imprime é a via provisória.</p>
+""",
+                "guia": "rede",
+            },
+            {
+                "id": "rede-limites",
+                "titulo": "O que muda no terminal (e o que é do servidor)",
+                "corpo": """
+<div class="tabela-rolagem"><table class="tabela">
+<thead><tr><th>Assunto</th><th>No caixa (terminal)</th></tr></thead>
+<tbody>
+<tr><th scope="row">Login</th><td>a senha é conferida no servidor; o caixa não guarda senha</td></tr>
+<tr><th scope="row">Autorização de gerente</th><td>a senha do gerente é conferida no servidor e vale por 5 minutos</td></tr>
+<tr><th scope="row">Impressora</th><td>no caixa — o documento é montado no servidor, o papel sai aqui</td></tr>
+<tr><th scope="row">Relatórios</th><td>gerados no servidor e baixados para a pasta deste computador</td></tr>
+<tr><th scope="row">Cópias de segurança</th><td>são do <strong>servidor</strong>; no caixa não existe base para copiar</td></tr>
+<tr><th scope="row">Pasta de dados</th><td>cópia/restauração só na máquina do servidor</td></tr>
+<tr><th scope="row">Vendas pendentes</th><td>só no caixa: é o único dado que fica guardado aqui</td></tr>
+</tbody></table></div>
+<h4>Antes de vender no primeiro dia</h4>
+<ul>
+<li>ligue o servidor primeiro e só depois os caixas;</li>
+<li>confira, em cada caixa, que <em>Parâmetros</em> e <em>Produtos</em> mostram os dados da loja —
+é a prova de que o caixa está falando com o servidor certo;</li>
+<li>faça uma venda de teste em cada caixa e confira no servidor, em <em>Vendas</em>, o nome do
+caixa em cada uma;</li>
+<li>só quem tem acesso à máquina do servidor deve poder desligá-la: sem ele, os caixas só vendem
+com a fila, e a fila não é o modo normal de operar.</li>
+</ul>
+""",
+            },
+        ],
+    },
+    # ------------------------------------------------------------------ 18
+    {
         "id": "backup",
         "titulo": "Backup e restauração",
         "resumo": "A cópia que salva a loja quando o computador não abre.",
@@ -1466,7 +1579,12 @@ bussola backup      --banco dados/pdv.db --destino D:\\copias --automatico
 bussola backup      --banco dados/pdv.db --destino D:\\copias --nuvem aws   # S3 ou azure
 bussola api         --banco dados/pdv.db --token ... --host 0.0.0.0 --tls --terminal CAIXA-01
 bussola fechamento  --banco dados/pdv.db --data 2026-11-11
-bussola exportar    --banco dados/pdv.db --tipo vendas --formato pdf --login gerente</code></pre>
+bussola exportar    --banco dados/pdv.db --tipo vendas --formato pdf --login gerente
+bussola terminal    status                        # este caixa é terminal? de qual servidor?
+bussola terminal    configurar                    # tela de primeiro uso em rede
+bussola terminal    testar                        # servidor respondeu? a digital confere?
+bussola terminal    pendencias                    # quantas vendas esperam envio
+bussola terminal    local                         # volta a usar a base deste computador</code></pre>
 """,
             },
             {
@@ -1481,6 +1599,7 @@ bussola exportar    --banco dados/pdv.db --tipo vendas --formato pdf --login ger
 <tr><th scope="row">Relatórios exportados</th><td><code>&lt;pasta de dados&gt;/relatorios/</code></td></tr>
 <tr><th scope="row">Ponteiro da pasta de dados</th><td><code>instalacao.json</code> no diretório de configuração</td></tr>
 <tr><th scope="row">Logs e diagnóstico</th><td><code>&lt;pasta de dados&gt;/logs/</code></td></tr>
+<tr><th scope="row">Modo terminal (caixa em rede)</th><td><code>terminal.json</code>, <code>servidor-do-caixa.crt</code> e <code>vendas-pendentes.db</code> na pasta de dados do caixa</td></tr>
 </tbody></table></div>
 <p>Variáveis de ambiente reconhecidas: <code>BUSSOLA_DADOS</code> (pasta de dados),
 <code>BUSSOLA_CONFIG</code> (onde fica o <code>instalacao.json</code>),

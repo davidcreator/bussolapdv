@@ -18,7 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from ...aplicacao.contexto import Contexto
-from ...aplicacao.parametros import DefinicaoParametro, ServicoParametros, TipoParametro
+from ...aplicacao.parametros import DefinicaoParametro, TipoParametro
+from ...aplicacao.remoto import servicos_de
 from ...dominio.usuario import Acao, Usuario
 from ..impressao import SeletorDeImpressoras
 from ..responsivo import FluxoDeAcoes
@@ -30,7 +31,7 @@ class SecaoParametros(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoParametros(contexto)
+        self.servico = servicos_de(contexto).parametros
         self.editavel = usuario.pode(Acao.PARAMETRO_ALTERAR)
         self.campos: dict[str, QComboBox | QSpinBox | QLineEdit] = {}
 
@@ -137,7 +138,7 @@ class SecaoParametros(QWidget):
         return campo.text()
 
     def atualizar(self) -> None:
-        self.servico = ServicoParametros(self.ctx)
+        self.servico = servicos_de(self.ctx).parametros
         for chave, campo in self.campos.items():
             definicao = next(d for d in self.servico.listar() if d[0].chave == chave)[0]
             valor = self.ctx.parametros.obter(chave)

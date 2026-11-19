@@ -19,9 +19,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...aplicacao.administracao import ServicoAdministracao
-from ...aplicacao.backup import ServicoBackup
 from ...aplicacao.contexto import Contexto
+from ...aplicacao.remoto import servicos_de
 from ...caminhos import (
     banco_em,
     definir_diretorio_de_dados,
@@ -54,9 +53,28 @@ class SecaoManutencao(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoAdministracao(contexto)
+        self.servico = servicos_de(contexto).administracao
 
         layout = QVBoxLayout(self)
+        if getattr(contexto, "remoto", False):
+            # No caixa remoto não existe base local: cópia, restauração e pasta de
+            # dados são decisões do servidor. Fingir que dá para fazer daqui seria
+            # pior do que dizer onde se faz.
+            aviso = QLabel(
+                "Este computador é um <b>terminal</b>: a base fica no servidor da loja. "
+                "Cópias de segurança, restauração e a pasta de dados são operadas "
+                "<b>na máquina do servidor</b>, pela Área administrativa aberta lá. "
+                "Aqui, o que existe de guardado é a fila de vendas pendentes "
+                "(menu Vendas pendentes)."
+            )
+            aviso.setWordWrap(True)
+            aviso.setObjectName("textoAjuda")
+            layout.addWidget(aviso)
+            layout.addStretch(1)
+            self.servico = servicos_de(contexto).administracao
+            self.remoto = True
+            return
+
         ajuda = QLabel(
             "A cópia é feita pela API do SQLite, com a base aberta: não é cópia de arquivo em uso. "
             "Restaurar substitui os dados atuais e guarda a base anterior ao lado, "
@@ -177,7 +195,7 @@ class SecaoManutencao(QWidget):
 
     # -- cópias automáticas --------------------------------------------------
     def _atualizar_automatica(self) -> None:
-        servico = ServicoBackup(self.ctx)
+        servico = servicos_de(self.ctx).backup
         ultima = servico.ultima_automatica(self.campo_destino.text())
         if ultima is None:
             self.rotulo_auto.setText(
@@ -195,7 +213,7 @@ class SecaoManutencao(QWidget):
             self.mensagem.erro("Seu perfil não pode gerar cópias de segurança.")
             return
         try:
-            copia = ServicoBackup(self.ctx).automatico(destino=self.campo_destino.text())
+            copia = servicos_de(self.ctx).backup.automatico(destino=self.campo_destino.text())
         except Exception as exc:
             self.mensagem.erro(descrever_erro(exc))
             return

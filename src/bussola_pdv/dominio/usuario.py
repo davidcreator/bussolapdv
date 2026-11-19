@@ -300,6 +300,56 @@ ACOES_SOMENTE_MASTER: frozenset[Acao] = frozenset(
 
 
 @dataclass(frozen=True, slots=True)
+class UsuarioRemoto:
+    """A visão do usuário que o **terminal** recebe do servidor (ADR-036).
+
+    O hash de senha nunca sai do servidor, e `Usuario` não pode ser construído
+    sem ele. Então o terminal trabalha com esta visão: os mesmos campos de
+    leitura (`id`, `login`, `nome`, `perfil`, `ativo`, `permissoes`) e as mesmas
+    perguntas (`pode`, `eh_master`), sem segredo nenhum dentro.
+
+    Ela serve para a tela decidir o que mostrar — esconder botão. Quem decide se
+    a operação **vale** é o servidor, que refaz a checagem com o usuário de
+    verdade. Se as duas coisas divergirem, o servidor ganha.
+    """
+
+    login: str
+    nome: str
+    perfil: Perfil
+    id: str
+    ativo: bool = True
+    permissoes_concedidas: frozenset[Acao] | None = None
+    #: Credencial de autorização de uso único, quando este usuário autorizou uma
+    #: exceção no terminal (ADR-036). Não é senha e não serve para login: o
+    #: servidor a consome ao executar a operação e ela expira em minutos.
+    credencial: str = field(default="", repr=False, compare=False)
+
+    @property
+    def eh_master(self) -> bool:
+        return self.perfil.eh_master
+
+    @property
+    def permissoes(self) -> frozenset[Acao]:
+        if self.eh_master:
+            return frozenset(Acao)
+        if self.permissoes_concedidas is not None:
+            return self.permissoes_concedidas
+        return PERMISSOES_PADRAO[self.perfil]
+
+    def pode(self, acao: Acao) -> bool:
+        return self.ativo and acao in self.permissoes
+
+    def exigir(self, acao: Acao) -> None:
+        if not self.pode(acao):
+            raise AutorizacaoNegada(
+                f"O perfil {self.perfil.rotulo} não tem permissão para {acao.value}.",
+                detalhe={"acao": acao.value, "perfil": self.perfil.value},
+            )
+
+
+
+
+@dataclass(frozen=True, slots=True)
 class Usuario:
     login: str
     nome: str

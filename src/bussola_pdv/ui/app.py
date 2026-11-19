@@ -11,8 +11,11 @@ if TYPE_CHECKING:
     from PySide6.QtWidgets import QApplication
 
 from ..aplicacao.contexto import Contexto
+from ..aplicacao.remoto import ContextoRemoto, servicos_de
 from ..diagnostico import registrar_aviso, resumo_do_erro
 from ..dominio.relogio import avisos_de_fuso
+from ..infra.api.cliente import ClienteAPI
+from ..infra.rede.configuracao_terminal import ErroDeConfiguracao, carregar
 from .admin.janela import contexto_marca
 from .janela import JanelaPrincipal
 from .login import DialogoLogin
@@ -79,10 +82,9 @@ def _backup_do_dia(contexto: Contexto) -> None:
     Falha de backup nunca impede a loja de abrir — vira aviso no log. O que não se
     aceita é o silêncio: quem não tem cópia não tem volta.
     """
-    from ..aplicacao.backup import ServicoBackup
 
     try:
-        copia = ServicoBackup(contexto).automatico()
+        copia = servicos_de(contexto).backup.automatico()
     except Exception as exc:  # disco cheio, pasta sem permissão, base em memória
         registrar_aviso(
             f"cópia automática não foi criada: {resumo_do_erro(exc)}",
@@ -97,10 +99,31 @@ def _backup_do_dia(contexto: Contexto) -> None:
 
 
 def executar(
-    banco: Path, *, login_automatico: str | None = None, modo_admin: bool = False
+    banco: Path,
+    *,
+    login_automatico: str | None = None,
+    modo_admin: bool = False,
+    pasta_do_caixa: Path | None = None,
+    forcar_local: bool = False,
 ) -> int:
-    """Abre a interface. `login_automatico` existe apenas para demonstração/captura."""
+    """Abre a interface — em modo local ou em modo terminal, conforme a máquina.
+
+    A decisão é **do computador**, não da tela: se existe `terminal.json` na pasta
+    de dados, este caixa trabalha contra o servidor da loja e a base local não é
+    aberta. Sem o arquivo, tudo funciona como sempre (base na própria máquina).
+    """
     app = criar_aplicacao()
+    pasta = Path(pasta_do_caixa) if pasta_do_caixa is not None else Path(banco).parent
+    try:
+        configuracao = None if forcar_local else carregar(pasta)
+    except ErroDeConfiguracao as exc:
+        print(f"Configuração do caixa inválida: {exc}")
+        return 2
+    if configuracao is not None:
+        return _executar_como_terminal(
+            app, pasta, configuracao, login_automatico=login_automatico, modo_admin=modo_admin
+        )
+
     contexto = Contexto.abrir(banco)
     # Se o fuso caiu para deslocamento fixo (Windows sem `tzdata`), isso precisa
     # chegar ao log: a loja continua abrindo, mas a data comercial usa UTC-3 fixo.
@@ -135,6 +158,84 @@ def executar(
     return codigo
 
 
+def _executar_como_terminal(
+    app: QApplication,
+    pasta: Path,
+    configuracao: object,
+    *,
+    login_automatico: str | None = None,
+    modo_admin: bool = False,
+) -> int:
+    """Abertura do caixa remoto: sem base local, sem backup local, com sessão.
+
+    O que muda em relação ao modo local, e por quê:
+
+    * **não abre banco** — a base é a do servidor; abrir uma local criaria uma
+      segunda loja sem ninguém perceber;
+    * **não faz backup automático** — quem faz é o servidor, que tem a base
+      (no caixa não há o que copiar além da fila de vendas);
+    * **login é sessão** — e a marca da loja vem do servidor, para que a tela do
+      balcão fique igual à do escritório.
+    """
+    cliente = ClienteAPI(pasta=pasta, configuracao=configuracao)  # type: ignore[arg-type]
+    contexto = ContextoRemoto(cliente, caminho=pasta)
+    for aviso in avisos_de_fuso():
+        registrar_aviso(aviso, contexto="inicialização: fuso horário")
+    aplicar_tema_da_loja(app, contexto)  # type: ignore[arg-type]
+
+    if login_automatico:
+        from ..infra.api.cliente import ErroDeComunicacao
+
+        try:
+            cliente.abrir_sessao(login_automatico, "")
+        except (ErroDeComunicacao, Exception) as exc:  # pragma: no cover - só demonstração
+            print(f"Login automático indisponível no modo terminal: {exc}")
+    usuario: object | None = None
+    if cliente.operador is not None:
+        usuario = cliente.operador
+    else:
+        dialogo = DialogoLogin(contexto)  # type: ignore[arg-type]
+        if dialogo.exec() != dialogo.DialogCode.Accepted or dialogo.usuario is None:
+            return 0
+        usuario = dialogo.usuario
+
+    if modo_admin:
+        from .admin.janela import JanelaAdmin
+
+        try:
+            JanelaAdmin(contexto, usuario).exec()  # type: ignore[arg-type]
+        except Exception as exc:
+            print(f"Área administrativa indisponível: {exc}")
+        return 0
+
+    _avisar_pendencias(contexto, cliente)
+    janela = JanelaPrincipal(contexto, usuario)  # type: ignore[arg-type]
+    janela.show()
+    return app.exec()
+
+
+def _avisar_pendencias(contexto: ContextoRemoto, cliente: ClienteAPI) -> None:
+    """Se há venda esperando envio, o operador precisa saber antes de vender de novo."""
+    from ..aplicacao.fila_offline import NOME_DO_ARQUIVO, FilaDeVendas
+
+    caminho = Path(cliente.pasta) / NOME_DO_ARQUIVO
+    if not caminho.is_file():
+        return
+    fila = FilaDeVendas(caminho)
+    total = fila.quantidade()
+    fila.fechar()
+    if not total:
+        return
+    from PySide6.QtWidgets import QMessageBox
+
+    QMessageBox.information(
+        None,
+        "Vendas pendentes",
+        f"Há {total} venda(s) guardada(s) neste caixa esperando o servidor. "
+        "Use o menu Vendas pendentes para reenviar.",
+    )
+
+
 def main() -> int:
     import argparse
 
@@ -144,9 +245,21 @@ def main() -> int:
     parser.add_argument(
         "--admin", action="store_true", help="abre direto a área administrativa"
     )
+    parser.add_argument(
+        "--pasta", default=None, help="pasta de dados (onde fica terminal.json)"
+    )
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="ignora a configuração de caixa remoto e abre a base local",
+    )
     argumentos = parser.parse_args()
     return executar(
-        Path(argumentos.banco), login_automatico=argumentos.login, modo_admin=argumentos.admin
+        Path(argumentos.banco),
+        login_automatico=argumentos.login,
+        modo_admin=argumentos.admin,
+        pasta_do_caixa=Path(argumentos.pasta) if argumentos.pasta else None,
+        forcar_local=argumentos.local,
     )
 
 

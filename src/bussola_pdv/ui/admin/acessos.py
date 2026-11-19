@@ -20,8 +20,8 @@ from PySide6.QtWidgets import (
 )
 
 from ...aplicacao.contexto import Contexto
-from ...aplicacao.permissoes import ServicoPermissoes
-from ...aplicacao.usuarios import ServicoUsuarios, UsuarioResumo
+from ...aplicacao.remoto import servicos_de
+from ...aplicacao.usuarios import UsuarioResumo
 from ...dominio.usuario import Acao, Perfil, Usuario, acoes_por_categoria
 from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
@@ -34,7 +34,7 @@ class SecaoUsuarios(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoUsuarios(contexto)
+        self.servico = servicos_de(contexto).usuarios
 
         layout = QVBoxLayout(self)
         ajuda = QLabel(
@@ -291,7 +291,7 @@ class SecaoPermissoes(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoPermissoes(contexto)
+        self.servico = servicos_de(contexto).permissoes
         self.editavel = usuario.pode(Acao.PERMISSAO_GERENCIAR)
 
         layout = QVBoxLayout(self)

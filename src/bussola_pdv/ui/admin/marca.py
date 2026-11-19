@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...aplicacao.contexto import Contexto
-from ...aplicacao.marca import ServicoMarca
+from ...aplicacao.remoto import servicos_de
 from ...dominio.marca import (
     PRESET_PERSONALIZADO,
     Marca,
@@ -91,7 +91,7 @@ class SecaoMarca(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoMarca(contexto)
+        self.servico = servicos_de(contexto).marca
         self.marca = self.servico.obter()
         self.pode_dados = usuario.pode(Acao.MARCA_GERENCIAR)
         self.pode_tema = usuario.pode(Acao.TEMA_GERENCIAR)

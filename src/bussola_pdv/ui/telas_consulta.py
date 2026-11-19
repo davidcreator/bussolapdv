@@ -19,9 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.exportacao import ServicoExportacao
-from ..aplicacao.impressao import ServicoImpressao
-from ..aplicacao.relatorios import ServicoRelatorios
+from ..aplicacao.remoto import servicos_de
 from ..dominio.dinheiro import Dinheiro
 from ..dominio.erros import ErroBussola
 from ..dominio.impressao import DocumentoImpresso
@@ -54,8 +52,8 @@ class TelaProdutos(QWidget):
             "Catálogo e saldo",
             "Saldo é posição corrente; o status vem da regra de estoque do domínio",
         )
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -214,8 +212,8 @@ class TelaVendas(QWidget):
         layout.addWidget(indicadores)
 
         cartao = Cartao("Vendas", "Cancelamento exige autorização e motivo registrado")
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -381,7 +379,6 @@ class TelaVendas(QWidget):
         )
         if dialogo.exec() != dialogo.DialogCode.Accepted:
             return
-        from ..aplicacao.pdv import ServicoPDV
         from ..ui.login import DialogoConfirmacao
 
         confirmacao = DialogoConfirmacao(
@@ -393,7 +390,7 @@ class TelaVendas(QWidget):
         if autorizador is None:  # diálogo aprovado sem autorizador não deve ocorrer
             return
         try:
-            resultado = ServicoPDV(self.ctx).cancelar_venda(
+            resultado = servicos_de(self.ctx).pdv.cancelar_venda(
                 venda_id=venda["id"],
                 motivo=confirmacao.motivo,
                 operador=self.usuario,
@@ -427,8 +424,8 @@ class TelaAuditoria(QWidget):
             "Trilha de auditoria",
             "Append-only: UPDATE e DELETE são bloqueados por trigger; a cadeia é verificável",
         )
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,
@@ -494,7 +491,7 @@ class TelaFechamento(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoRelatorios(contexto)
+        self.servico = servicos_de(contexto).relatorios
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -503,8 +500,8 @@ class TelaFechamento(QWidget):
             "Relatório do dia",
             "Conferência aritmética do dia; não representa confirmação bancária de PIX ou cartão",
         )
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
         self.botao_exportar = BotaoExportar(
             usuario=usuario,
             servico=self.exportacao,

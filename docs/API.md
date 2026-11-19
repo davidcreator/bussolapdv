@@ -1,6 +1,6 @@
 # API HTTP (local e da rede da loja)
 
-> **Status:** v0.14.0. Completa para operar o dia: vender, abrir/fechar turno,
+> **Status:** v0.15.0. Completa para operar o dia: vender, abrir/fechar turno,
 > receber título (com encargo), lançar entrada, devolver e cancelar.
 > **Escuta em `127.0.0.1` por padrão** e exige token em toda rota. Para atender
 > terminais na rede, `--tls` (obrigatório fora do loopback) — `docs/REDE.md`.
@@ -158,14 +158,41 @@ curl -s -X POST https://127.0.0.1:8765/v1/vendas \
 Nunca sai *stack trace* na resposta. O detalhe completo fica na auditoria e no log
 local.
 
-## Limites conhecidos (v0.14.0)
+## Modo terminal: `POST /v1/executar` (v0.15.0, ADR-036)
 
-- **a tela ainda não é cliente da API**: o programa do balcão abre a base direto.
-  As rotas existem e estão testadas; transformar a tela em terminal remoto é o
-  incremento seguinte (`docs/REDE.md`, seção "o que falta");
+A tela do caixa não usa as rotas de recurso acima uma a uma: ela manda **casos de
+uso** para um executor único e recebe o objeto de resultado.
+
+```
+POST /v1/executar          Authorization: Bearer <token>   X-Bussola-Sessao: <sessão>
+{"servico": "pdv", "metodo": "finalizar_venda", "argumentos": {...}}
+→ 200 {"ok": true, "resultado": {...}}
+```
+
+- `servico`/`metodo` vêm de uma **lista fechada** (`GET /v1/capacidades` publica
+  os serviços e métodos): método privado (`_`) não é chamável;
+- os argumentos são convertidos pelo **tipo declarado na assinatura** do método;
+  tipos de fronteira viajam como inteiros (`Dinheiro.centavos`,
+  `Quantidade.milesimos`, `Percentual.bp`) e `Enum` pelo nome;
+- argumentos de **ator** (`operador`, `usuario`, `autorizador`) são **substituídos**
+  pelo usuário da sessão — o terminal não escolhe em nome de quem opera;
+- erro de negócio volta com o tipo do domínio (`EstoqueInsuficiente`,
+  `AutorizacaoNegada`, …) e o mesmo HTTP de antes (404/409/422).
+
+Leituras de tela que não são caso de uso (listar caixas, carregar turno, ler
+parâmetro, saldos, auditoria) estão no serviço `consultas`, com métodos nomeados —
+não existe consulta arbitrária.
+
+## Limites conhecidos (v0.15.0)
+
+- **sem paginação por cursor**: `limite` corta, e o resto não vem;
 - **sem paginação por cursor**: `limite` corta, e o resto não vem;
 - **sem rate limit por terminal**: um único token ou um por máquina, decisão da loja;
-- **sem revogação de token em quente**: trocar exige reiniciar o servidor.
+- **sem revogação de token em quente**: trocar exige reiniciar o servidor (as
+  sessões de operador caem junto — o terminal precisa logar de novo; venda em
+  fila continua pendente, não é marcada como recusada);
+- **fila offline é do caixa, não do servidor**: o servidor não sabe que existe venda
+  pendente em algum terminal até o reenvio chegar.
 
 ## Como testar
 

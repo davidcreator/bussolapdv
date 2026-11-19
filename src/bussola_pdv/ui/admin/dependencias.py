@@ -13,8 +13,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...aplicacao.administracao import ServicoAdministracao, StatusDiagnostico
+from ...aplicacao.administracao import StatusDiagnostico
 from ...aplicacao.contexto import Contexto
+from ...aplicacao.remoto import servicos_de
 from ...dominio.usuario import Acao, Usuario
 from ..responsivo import FluxoDeAcoes
 from .comum import Mensagem, descrever_erro
@@ -32,7 +33,7 @@ class SecaoDependencias(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoAdministracao(contexto)
+        self.servico = servicos_de(contexto).administracao
 
         layout = QVBoxLayout(self)
         explicacao = QLabel(

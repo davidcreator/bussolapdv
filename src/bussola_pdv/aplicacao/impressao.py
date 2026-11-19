@@ -488,10 +488,7 @@ class ServicoImpressao:
         cfg = configuracao or self.configuracao()
         destino = self.impressora_efetiva(cfg)
         try:
-            if cfg.motor is MotorImpressao.ESCPOS:
-                self._enviar_espos(documento, destino, cfg)
-            else:
-                renderizador_papel.imprimir(documento, destino, copias=cfg.copias)
+            entregar(documento, cfg, destino)
         except ErroImpressao as erro:
             self._auditar(
                 AcaoAuditoria.IMPRESSAO_FALHOU,
@@ -513,19 +510,6 @@ class ServicoImpressao:
         self._auditar(AcaoAuditoria.IMPRESSAO_REALIZADA, ator, documento, cfg, destino)
         return resultado
 
-    def _enviar_espos(
-        self, documento: DocumentoImpresso, destino: str, cfg: ConfiguracaoImpressao
-    ) -> None:
-        if not documento.papel.value.startswith("BOBINA"):
-            raise ErroValidacao(
-                "O motor ESC/POS imprime bobina (58 mm ou 80 mm). Para folha A4, "
-                "use o motor SISTEMA ou salve em PDF."
-            )
-        for _ in range(cfg.copias):
-            dados = escpos.renderizar(
-                documento, abrir_gaveta=cfg.abrir_gaveta, cortar=cfg.cortar_papel
-            )
-            impressoras.enviar_bytes(destino, dados)
 
     def salvar(
         self,
@@ -535,15 +519,7 @@ class ServicoImpressao:
         formato: str = "pdf",
     ) -> Path:
         """Grava o documento na pasta escolhida — plano B quando não há impressora."""
-        pasta = Path(pasta)
-        if formato.lower() == "txt":
-            destino = pasta / f"{documento.rotulo}.txt"
-            destino.parent.mkdir(parents=True, exist_ok=True)
-            destino.write_text(renderizador_texto.renderizar(documento), encoding="utf-8")
-            return destino
-        if formato.lower() not in ("pdf", ""):
-            raise ErroValidacao(f"Formato de impressão desconhecido: {formato!r}. Use pdf ou txt.")
-        return renderizador_papel.escrever_pdf(documento, pasta / f"{documento.rotulo}.pdf")
+        return salvar_documento(documento, pasta, formato=formato)
 
     # -- auxiliares ----------------------------------------------------------
     def _auditar(
@@ -634,3 +610,47 @@ __all__ = [
     "data_br",
     "moeda",
 ]
+
+# -- entrega e gravação sem contexto -----------------------------------------
+#
+# Estas duas funções não tocam no banco: recebem o documento já montado. Foi a
+# separação que permitiu o modo terminal (ADR-036) — no caixa remoto o documento
+# vem do servidor e a impressão acontece na máquina do balcão, que é onde a
+# impressora está.
+
+
+def entregar(
+    documento: DocumentoImpresso, configuracao: ConfiguracaoImpressao, impressora: str = ""
+) -> None:
+    """Manda o documento para a impressora (ESC/POS ou motor do sistema)."""
+    destino = impressora or configuracao.impressora or impressoras.padrao()
+    if configuracao.motor is MotorImpressao.ESCPOS:
+        if not documento.papel.value.startswith("BOBINA"):
+            raise ErroValidacao(
+                "O motor ESC/POS imprime bobina (58 mm ou 80 mm). Para folha A4, "
+                "use o motor SISTEMA ou salve em PDF."
+            )
+        for _ in range(configuracao.copias):
+            dados = escpos.renderizar(
+                documento,
+                abrir_gaveta=configuracao.abrir_gaveta,
+                cortar=configuracao.cortar_papel,
+            )
+            impressoras.enviar_bytes(destino, dados)
+        return
+    renderizador_papel.imprimir(documento, destino, copias=configuracao.copias)
+
+
+def salvar_documento(
+    documento: DocumentoImpresso, pasta: Path, *, formato: str = "pdf"
+) -> Path:
+    """Grava o documento como PDF (ou texto) na pasta pedida."""
+    pasta = Path(pasta)
+    if formato.lower() == "txt":
+        destino = pasta / f"{documento.rotulo}.txt"
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_text(renderizador_texto.renderizar(documento), encoding="utf-8")
+        return destino
+    if formato.lower() not in ("pdf", ""):
+        raise ErroValidacao(f"Formato de impressão desconhecido: {formato!r}. Use pdf ou txt.")
+    return renderizador_papel.escrever_pdf(documento, pasta / f"{documento.rotulo}.pdf")

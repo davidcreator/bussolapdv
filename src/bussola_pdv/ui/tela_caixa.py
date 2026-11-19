@@ -20,10 +20,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..aplicacao.caixa import ServicoCaixa
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.exportacao import ServicoExportacao
-from ..aplicacao.impressao import ServicoImpressao
+from ..aplicacao.remoto import servicos_de
 from ..dominio.caixa import (
     DENOMINACOES_BRL,
     ROTULOS_DENOMINACAO,
@@ -158,9 +156,9 @@ class TelaCaixa(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.servico = ServicoCaixa(contexto)
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.servico = servicos_de(contexto).caixa
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
         self._montar()
         self.atualizar()
 

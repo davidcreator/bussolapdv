@@ -27,9 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..aplicacao.autenticacao import ServicoAutenticacao
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.marca import ServicoMarca
+from ..aplicacao.remoto import servicos_de
 from ..caminhos import (
     NOME_BANCO,
     banco_em,
@@ -239,7 +238,7 @@ class DialogoPrimeiroUso(QDialog):
             self.banco = banco_em(pasta)
             contexto, recomeco = self._abrir_ou_recomecar(self.banco)
             try:
-                master = ServicoAutenticacao(contexto).criar_usuario(
+                master = servicos_de(contexto).autenticacao.criar_usuario(
                     login=self.campo_login.text().strip(),
                     nome=self.campo_nome.text().strip(),
                     senha=self.campo_senha.text(),
@@ -247,7 +246,7 @@ class DialogoPrimeiroUso(QDialog):
                     criar_admin_inicial=True,
                 )
                 contexto.caixas.garantir_caixa("Caixa 1", criado_em=contexto.agora().isoformat())
-                ServicoMarca(contexto).salvar(
+                servicos_de(contexto).marca.salvar(
                     master, Marca(nome_fantasia=self.campo_loja.text().strip())
                 )
                 self.usuario = contexto.usuarios.por_id(master.id)

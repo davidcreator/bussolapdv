@@ -19,8 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.exportacao import ServicoExportacao
-from ..aplicacao.impressao import ServicoImpressao
+from ..aplicacao.remoto import servicos_de
 from ..dominio.dinheiro import Dinheiro, Quantidade
 from ..dominio.usuario import Acao, Usuario
 from .exportacao import BotaoExportar
@@ -34,8 +33,8 @@ class TelaEntradas(QWidget):
         super().__init__(parent)
         self.ctx = contexto
         self.usuario = usuario
-        self.exportacao = ServicoExportacao(contexto)
-        self.impressao = ServicoImpressao(contexto)
+        self.exportacao = servicos_de(contexto).exportacao
+        self.impressao = servicos_de(contexto).impressao
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

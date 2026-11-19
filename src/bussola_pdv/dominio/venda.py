@@ -6,7 +6,7 @@ das políticas. A gravação atômica fica em ``aplicacao.pdv``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -134,6 +134,24 @@ class Carrinho:
     @property
     def vazio(self) -> bool:
         return not self._itens
+
+    @classmethod
+    def de_itens(cls, itens: Iterable[ItemCarrinho]) -> Carrinho:
+        """Reconstrói o carrinho de itens já consolidados (contrato remoto, ADR-036).
+
+        Não consolida de novo: o carrinho que chega pelo fio foi montado pela
+        tela do terminal com a mesma classe, e reconferir aqui só criaria duas
+        verdades. O que se garante é a invariante do carrinho — um item por
+        produto, quantidade positiva —, que `ItemCarrinho` já valida.
+        """
+        carrinho = cls()
+        vistos: set[str] = set()
+        for item in itens:
+            if item.produto_id in vistos:
+                raise ErroValidacao(f"Produto repetido no carrinho: {item.produto_id}.")
+            vistos.add(item.produto_id)
+            carrinho._itens.append(item)
+        return carrinho
 
     def adicionar(self, produto: Produto, quantidade: str | int, *, desconto: Dinheiro | None = None) -> None:
         nova = ItemCarrinho.do_produto(produto, quantidade, desconto=desconto)

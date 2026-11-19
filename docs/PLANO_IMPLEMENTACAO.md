@@ -162,6 +162,29 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 - **Não verificado nesta entrega**: instalação do `.crt` como confiável nas máquinas Windows
   (P16) e a tela do caixa remoto (não existe ainda, por decisão).
 
+## Evidências da entrega do caixa remoto (v0.15.0)
+
+- **Executor e contrato**: `tests/test_modo_remoto.py` (30) sobe servidor com TLS de verdade e prova
+  que a tela do caixa vende pela rede — sessão, busca de produto, carrinho, plano e venda gravada com
+  o `terminal_id` do caixa; erro de negócio chegando ao balcão como o mesmo tipo do domínio;
+  identidade **descartada** quando o terminal tenta operar em nome de outro usuário; autorização de
+  gerente conferida no servidor; e certificado de outro servidor **recusado** mesmo com a máquina no
+  ar. O teste achou dois defeitos reais, corrigidos: o terminal mandava `self` como argumento (422) e
+  `DELETE /v1/sessao` respondia 501.
+- **Fila offline**: `tests/test_fila_offline.py` (5) prova que a venda guardada volta pela mesma
+  `chave_idempotencia` (reenviar duas vezes não duplica), que recusa de negócio vira pendência com
+  motivo (não é apagada) e que descartar é ato explícito. Sessão vencida por reinício do servidor
+  **não** marca a venda como recusada.
+- **Telas**: `tests/test_ui_modo_terminal.py` (10) abre as telas de verdade (Qt offscreen): o primeiro
+  uso só libera "Confiar e usar" depois de verificar o servidor, mostra a digital correta, grava
+  `terminal.json` + `servidor-do-caixa.crt`; a `JanelaPrincipal` em modo remoto lista os módulos
+  (com a entrada nova **Vendas pendentes**), navega em Produtos/Vendas/Auditoria pela rede **sem base
+  local**, e a tela de pendências reenvia uma venda guardada até ela aparecer na base do servidor.
+- **Retrocompatibilidade**: os 27 arquivos de `ui/` passaram a usar `servicos_de(contexto)`; a suíte
+  inteira continua verde no modo local (**1053 testes**, baseline anterior 1010).
+- **Não verificado nesta entrega**: dois caixas reais numa loja, latência em rede saturada e o
+  comportamento da fila com dezenas de vendas pendentes.
+
 ## Próximos incrementos sugeridos (ordem)
 
 1. ~~Telas de clientes, crediário e estoque~~ — feito na v0.6.0 (consulta e exportação).
@@ -178,8 +201,10 @@ repositório. **Nada é marcado como pronto sem teste executado.**
    (ADR-033, ADR-034, ADR-035): cobrança de multa/juros como receita separada e desligada de fábrica,
    clientes S3 e Azure em biblioteca padrão com `bussola backup --nuvem`, e API de escrita completa
    com HTTPS gerado pelo programa, terminal identificado, log de acesso e concorrência provada.
-5. **Tela do caixa remoto** — o servidor existe; falta o programa do balcão conversar com ele
-   (decisão: tela completa ou `bussola terminal` só de PDV, `docs/REDE.md`).
+5. ~~**Tela do caixa remoto**~~ — feito na v0.15.0 (ADR-036): janela **completa** em modo cliente,
+   configuração no primeiro uso com digital fixada e fila offline para a venda. O que resta é
+   robustez de operação (token por terminal, relatório por caixa, teste de carga — `docs/REDE.md`,
+   seção 4).
 6. **Conta de nuvem e retenção** — clientes prontos, falta contratar e decidir quem guarda a chave.
 7. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
 8. Assinatura digital dos binários Windows e hashes publicados na Release.

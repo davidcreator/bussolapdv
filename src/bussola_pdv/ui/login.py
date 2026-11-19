@@ -17,14 +17,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from .. import __version__
-from ..aplicacao.autenticacao import ServicoAutenticacao
 from ..aplicacao.contexto import Contexto
-from ..aplicacao.marca import ServicoMarca
+from ..aplicacao.remoto import servicos_de
 from ..dominio.erros import ErroBussola
 from ..dominio.marca import Marca, tinta_sobre
 from ..dominio.usuario import Acao, Usuario
@@ -52,7 +52,7 @@ def marca_do_contexto(contexto: Contexto) -> Marca | None:
     identidade, não pode impedir ninguém de fazer login.
     """
     try:
-        return ServicoMarca(contexto).obter()
+        return servicos_de(contexto).marca.obter()
     except Exception:  # pragma: no cover - base em estado estranho
         return None
 
@@ -198,6 +198,19 @@ class DialogoLogin(QDialog):
         botoes.rejected.connect(self.reject)
         corpo.addWidget(botoes)
 
+        # Este caixa trabalha contra um servidor? Quem decide é o dono da loja, e a
+        # hora de decidir é aqui: a tela de login aparece em toda máquina, antes de
+        # existir base. No modo terminal o botão não aparece (já está configurado).
+        self.botao_rede = QPushButton("Este caixa usa um servidor…")
+        self.botao_rede.setObjectName("secundario")
+        self.botao_rede.setToolTip(
+            "Liga este computador ao servidor da loja. Depois disso o programa abre "
+            "direto em modo terminal."
+        )
+        self.botao_rede.clicked.connect(self._configurar_rede)
+        self.botao_rede.setVisible(not getattr(contexto, "remoto", False))
+        corpo.addWidget(self.botao_rede)
+
         rodape = Rodape(
             "Bússola Sistema PDV Open Source · offline", f"v{__version__} · pré-alfa"
         )
@@ -214,8 +227,27 @@ class DialogoLogin(QDialog):
         self.campo_senha.returnPressed.connect(self._entrar)
         self.campo_login.setFocus()
 
+    def _configurar_rede(self) -> None:
+        """Abre a tela do primeiro uso em rede e explica o que muda depois."""
+        from PySide6.QtWidgets import QMessageBox
+
+        from ..caminhos import diretorio_de_dados
+        from .remoto import DialogoConfiguracaoDoCaixa
+
+        dialogo = DialogoConfiguracaoDoCaixa(diretorio_de_dados(), self)
+        if dialogo.exec() != dialogo.DialogCode.Accepted or dialogo.configuracao is None:
+            return
+        QMessageBox.information(
+            self,
+            "Caixa ligado ao servidor",
+            f"Este computador agora trabalha como <b>{dialogo.configuracao.terminal}</b> "
+            f"de {dialogo.configuracao.endereco}.<br><br>"
+            "Feche e reabra o programa para entrar em modo terminal. "
+            "A base local desta máquina não é usada nesse modo.",
+        )
+
     def _entrar(self) -> None:
-        servico = ServicoAutenticacao(self.ctx)
+        servico = servicos_de(self.ctx).autenticacao
         try:
             resultado = servico.entrar(self.campo_login.text().strip(), self.campo_senha.text())
         except ErroBussola as exc:
@@ -283,7 +315,7 @@ class DialogoAutorizacao(QDialog):
         self.campo_login.setFocus()
 
     def _autorizar(self) -> None:
-        servico = ServicoAutenticacao(self.ctx)
+        servico = servicos_de(self.ctx).autenticacao
         try:
             self.autorizador = servico.autorizar(
                 self.campo_login.text().strip(), self.campo_senha.text(), self.acao

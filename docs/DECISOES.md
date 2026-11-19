@@ -811,7 +811,7 @@ justamente o tipo de anúncio que o projeto evita.
 | # | Assunto | Situação atual no código | Precisa de |
 |---|---|---|---|
 | ~~P1~~ | ~~Emissão fiscal~~ | **Fora de escopo por decisão (ADR-029)** — uso interno de bazar de ONG; a UI e o cupom seguem dizendo "não é documento fiscal" | nada nesta fase; se um dia virar produto fiscal, é projeto separado |
-| P2 | Multi-caixa em rede | **Servidor pronto (ADR-035)**: API completa, TLS gerado, terminal identificado, log e concorrência testada; **falta a tela cliente** | decidir entre tela remota completa ou `bussola terminal` só de PDV (`docs/REDE.md`) |
+| ~~P2~~ | ~~Multi-caixa em rede~~ | **Entregue na v0.15.0 (ADR-036)**: servidor (ADR-035) + janela completa em modo cliente, configuração no primeiro uso com digital fixada e fila offline | nada nesta fase; falta apenas operar em loja real |
 | P3 | Encargos de crediário | **Cobrança implementada (ADR-033)**, desligada de fábrica; liga em Parâmetros | confirmar percentuais e carência com o contador (`docs/ENCARGOS.md`) |
 | P4 | Limites de desconto | 5% operador / 15% gerente (exemplos do protótipo) | confirmação da política da loja |
 | P5 | Estoque negativo | Permitido com autorização de gerente | confirmar se a loja aceita |
@@ -824,5 +824,66 @@ justamente o tipo de anúncio que o projeto evita.
 | P13 | Homologação fiscal | **Fora desta fase**; contrato do emissor pronto e desligado | decisão de negócio + contador + certificado (`docs/FISCAL.md`) |
 | P14 | Nuvem AWS/Azure | **Clientes S3 e Azure funcionando (ADR-034)**, sem SDK; falta a conta | contratar conta, definir retenção e quem guarda a chave (`docs/NUVEM.md`) |
 | P15 | Crédito a favor do cliente | Devolução só abate parcela em aberto | decisão de produto (`docs/DEVOLUCOES.md`) |
-| P16 | TLS do servidor em rede | Certificado autoassinado gerado pelo programa; terminal confere a impressão digital | decidir se instala o `.crt` como confiável nas máquinas (item 3 de `docs/REDE.md`) |
+| ~~P16~~ | ~~TLS do servidor em rede~~ | **Resolvido pela fixação da digital (ADR-036, item 5)**: o terminal guarda o SHA-256 no primeiro uso e recusa outro certificado | nada; instalar o `.crt` como confiável no Windows deixou de ser necessário |
 | P12 | Escala do Windows medida de verdade | `make responsivo` mede offscreen (tela de 800×800 do Qt); escala simulada só por cálculo | teste em máquina Windows com 100/125/150% e duas resoluções |
+
+---
+
+## ADR-036 — A janela inteira é cliente: um executor, não sessenta endpoints
+
+**Contexto.** O ADR-035 entregou o servidor e deixou explícito o que faltava: a tela
+do balcão continuava abrindo a base direto. A pergunta não era *se* fazer o caixa
+remoto, e sim **quanto** dele fazer: uma tela enxuta de PDV (vender e fechar) ou a
+mesma janela completa, com cadastros, crediário, devolução, estoque, relatórios e
+administração. O responsável escolheu **a janela completa**, com configuração por
+tela no primeiro uso, fixação da digital do certificado e fila offline para a venda
+quando a rede cai.
+
+**Decisão.**
+
+1. **Um executor único no lugar de um endpoint por tela.** O terminal manda
+   `POST /v1/executar {servico, metodo, argumentos}`; o servidor instancia o **mesmo
+   serviço de aplicação** que a tela usaria localmente e devolve o resultado no
+   formato de `infra/api/contrato.py`. A lista de serviços é **fechada** (`SERVICOS`)
+   e só métodos públicos, sem `_`. Não é SQL por HTTP: é chamada de caso de uso.
+2. **A assinatura do método é o contrato.** O proxy no terminal (`ServicoRemoto`) lê
+   a assinatura e as anotações de tipo da própria classe de serviço, liga posicionais
+   a nomes e pede o resultado já convertido (`Dinheiro.centavos`,
+   `Quantidade.milesimos`, `Percentual.bp` são inteiros na fronteira; `Enum` viaja
+   pelo nome). Um endpoint por chamada exigiria dois vocabulários — e a divergência
+   apareceria como bug no balcão.
+3. **Identidade é do servidor.** Argumentos de ator (`operador`, `usuario`,
+   `autorizador`) são descartados e substituídos pelo usuário da sessão; pedir para
+   vender em nome de outro é recusado, não obedecido. Autorização de exceção exige a
+   senha do gerente **conferida no servidor**, trocada por credencial de 5 minutos.
+4. **Leitura de tela tem lista própria e curta.** O que a interface lia direto no
+   repositório virou `Consultas` (caixas, turno, movimentos, parâmetros, produtos,
+   saldos, clientes, vendas, entradas, auditoria, usuários) — cada uma nomeada, com
+   tipo de retorno, sem consulta arbitrária.
+5. **Configuração no primeiro uso, fixada por impressão digital (TOFU).** Tela pede
+   endereço, token e nome do caixa, mostra o SHA-256 do certificado do servidor e
+   exige confirmação; o certificado é gravado em `servidor-do-caixa.crt` na pasta de
+   dados e **passa a ser a única raiz aceita**. Servidor com digital diferente é
+   recusado — inclusive se alguém apagar o `.crt` para "resolver" o problema.
+6. **Rede caiu: a venda não se perde.** `ServicoPDVRemoto.finalizar_venda` guarda a
+   solicitação em `vendas-pendentes.db` (SQLite na pasta do caixa) e devolve
+   `VENDA_NA_FILA`; a tela limpa o carrinho (senão o operador venderia de novo) e
+   avisa. O reenvio usa a **mesma `chave_idempotencia`**, então venda repetida não
+   duplica: o servidor devolve `ja_existia`. Recusa de negócio no reenvio (estoque,
+   limite, turno fechado) **não apaga** a venda: fica como pendência com o motivo, e
+   só quem fez a venda pode reenviar.
+7. **Físico fica no caixa.** Impressão sai na impressora local (documento montado no
+   servidor), relatório é baixado para a pasta do operador, e a manutenção
+   (cópia/restauração/pasta de dados) é do servidor — a tela do terminal diz isso em
+   vez de fingir que faz.
+
+**Consequências.** A janela não tem dois códigos: as telas continuam escritas como
+sempre e recebem `servicos_de(contexto)`, que devolve serviços locais ou proxies.
+Modo é decidido pelo **computador** (existência de `terminal.json`), não por opção de
+tela — quem instala não escolhe errado no meio do expediente. O custo aceito: a fila
+offline guarda a venda com o preço do momento, então um preço alterado no servidor
+entre a queda e o reenvio não muda a venda guardada (é o preço que o cliente pagou),
+e o cupom sai depois, na hora do envio — o comprovante do caixa é a via provisória.
+
+**O que este ADR não decide.** Emissão fiscal continua fora (ADR-029), e o
+certificado autoassinado não serve para internet: é rede local da loja (ADR-035).

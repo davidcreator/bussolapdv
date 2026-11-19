@@ -20,8 +20,10 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > sistema fiscal certificado: o contrato do emissor existe e está **desligado**, com o roteiro de
 > homologação em [docs/FISCAL.md](docs/FISCAL.md). Vários caixas em rede têm **servidor pronto**:
 > API de escrita completa, HTTPS com **certificado gerado pelo programa**, terminal identificado por
-> cabeçalho, log de acesso e concorrência testada — falta a tela do caixa conversar com ele
-> ([docs/REDE.md](docs/REDE.md), [docs/API.md](docs/API.md)). O backup agora sobe para **AWS S3 ou
+> cabeçalho, log de acesso e concorrência testada, e desde a v0.15.0 **a janela inteira funciona como
+> cliente**: cada caixa se liga ao servidor pelo primeiro uso (digital do certificado conferida e
+> fixada) e, se a rede cair no meio da venda, a venda fica guardada no caixa para reenvio
+> ([docs/REDE.md](docs/REDE.md), [docs/API.md](docs/API.md), ADR-036). O backup agora sobe para **AWS S3 ou
 > Azure Blob** sem SDK, só com biblioteca padrão ([docs/NUVEM.md](docs/NUVEM.md)), e o crediário
 > **cobra multa e juros de atraso como receita separada** — desligado de fábrica, ligado em Parâmetros
 > ([docs/ENCARGOS.md](docs/ENCARGOS.md)).
