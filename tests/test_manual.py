@@ -324,3 +324,23 @@ def test_manual_separa_o_que_tem_botao_do_que_nao_tem(pagina: str) -> None:
     # o módulo Entradas existe de verdade: o manual não pode dizer o contrário
     assert "módulo entradas ainda não existe" not in pagina.lower()
     assert "entradas aparece no menu, mas a página" not in pagina.lower()
+
+
+def test_manual_ensina_a_devolver_e_diz_o_que_esta_em_construcao(pagina: str) -> None:
+    """A devolução entrou na v0.13.0; o resto virou "em construção", não promessa.
+
+    Guarda as duas metades: o passo a passo de devolver (com prazo e destino do
+    valor) e a lista do que está documentado e ainda não tem tela — fiscal, rede,
+    nuvem e encargos. Se alguém apagar uma delas, o manual volta a mentir por
+    omissão.
+    """
+    assert 'id="devolucoes"' in pagina
+    trecho = pagina[pagina.index('id="devolucoes"') :][:6000].lower()
+    for termo in ("arrependimento", "defeito", "garantia", "destino do valor", "fora do prazo"):
+        assert termo in trecho, f"a seção de devolução não explica {termo!r}"
+    # e não pode confundir devolução com cancelamento
+    assert "cancelar venda selecionada" in trecho
+
+    construcao = pagina[pagina.index("Em construção") :][:2500].lower()
+    for termo in ("fiscal", "caixas", "nuvem", "juros"):
+        assert termo in construcao, f"o manual não avisa que {termo!r} está em construção"

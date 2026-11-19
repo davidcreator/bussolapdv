@@ -244,6 +244,9 @@ GUIA: tuple[Tema, ...] = (
                   "(não é uma cópia da tela).", "botao_reimprimir"),
             Passo("Cancelar", "Só venda concluída, com autorização de quem pode e motivo escrito; "
                   "o cancelamento devolve o estoque e entra na auditoria.", "botao_cancelar"),
+            Passo("Devolver", "Voltou um item só? 'Devolver / estornar itens' registra o motivo "
+                  "(arrependimento, defeito, garantia, erro), confere o prazo e escolhe o destino: "
+                  "dinheiro, crédito no crediário ou troca.", "botao_devolver"),
         ),
         campos=(
             Campo("De / Até", "Intervalo de datas do histórico.", "O padrão é os últimos 30 dias."),
@@ -255,8 +258,10 @@ GUIA: tuple[Tema, ...] = (
         cuidados=(
             "Cancelamento não apaga: ele marca a venda e registra o evento na trilha.",
             "Reimprimir não duplica venda — só o papel.",
+            "Devolução é diferente de cancelamento: devolve só o que voltou, com prazo e motivo; "
+            "a venda original continua no histórico.",
         ),
-        relacionados=("pdv", "auditoria"),
+        relacionados=("pdv", "auditoria", "problemas"),
         modulo="Vendas",
     ),
     # ---------------------------------------------------------------- Fechamento

@@ -10,7 +10,7 @@ from .base import RepositorioBase
 
 COLUNAS = """id, codigo, codigo_barras, descricao, categoria, unidade, custo_centavos,
              preco_centavos, estoque_minimo_milesimos, ponto_pedido_milesimos, fornecedor,
-             ncm, ativo"""
+             ncm, ativo, garantia_dias"""
 
 
 class ProdutoRepositorio(RepositorioBase):
@@ -19,7 +19,7 @@ class ProdutoRepositorio(RepositorioBase):
         try:
             self.conexao.execute(
                 f"""INSERT INTO produtos ({COLUNAS}, criado_em, atualizado_em)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     produto.id,
                     produto.codigo,
@@ -34,6 +34,7 @@ class ProdutoRepositorio(RepositorioBase):
                     produto.fornecedor,
                     produto.ncm,
                     int(produto.ativo),
+                    produto.garantia_dias,
                     criado_em,
                     criado_em,
                 ),
@@ -50,7 +51,7 @@ class ProdutoRepositorio(RepositorioBase):
                 """UPDATE produtos SET codigo = ?, codigo_barras = ?, descricao = ?, categoria = ?,
                        unidade = ?, custo_centavos = ?, preco_centavos = ?,
                        estoque_minimo_milesimos = ?, ponto_pedido_milesimos = ?, fornecedor = ?,
-                       ncm = ?, ativo = ?, atualizado_em = ?
+                       ncm = ?, ativo = ?, garantia_dias = ?, atualizado_em = ?
                    WHERE id = ?""",
                 (
                     produto.codigo,
@@ -65,6 +66,7 @@ class ProdutoRepositorio(RepositorioBase):
                     produto.fornecedor,
                     produto.ncm,
                     int(produto.ativo),
+                    produto.garantia_dias,
                     atualizado_em,
                     produto.id,
                 ),
@@ -93,6 +95,7 @@ class ProdutoRepositorio(RepositorioBase):
             fornecedor=linha["fornecedor"],
             ncm=linha["ncm"],
             ativo=bool(linha["ativo"]),
+            garantia_dias=int(linha["garantia_dias"]),
         )
 
     def por_id(self, produto_id: str) -> Produto:

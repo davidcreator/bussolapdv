@@ -157,6 +157,14 @@ class ParametroRepositorio(RepositorioBase):
         "venda.exigir_confirmacao_eletronica": "0",
         "crediario.dias_bloqueio_atraso": "30",
         "crediario.maximo_parcelas": "12",
+        # Devoluções (v0.13.0): mínimo legal; a garantia do produto soma por cima.
+        "devolucao.prazo_arrependimento_dias": "7",
+        "devolucao.prazo_defeito_dias": "90",
+        "devolucao.estoque_automatico": "1",
+        # Encargos (base pronta, ainda não cobrados): multa e juros de mora.
+        "encargos.multa_bp": "200",
+        "encargos.juros_mes_bp": "100",
+        "encargos.carencia_dias": "0",
         "caixa.limite_diferenca_centavos": "500",
         "seguranca.maximo_tentativas": "5",
         "seguranca.bloqueio_minutos": "5",

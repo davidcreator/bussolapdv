@@ -636,13 +636,93 @@ prova que o diálogo grava o que o usuário digitou.
 
 ---
 
+## ADR-031 — Devolução é documento próprio: tipo, prazo e destino do valor
+
+**Contexto.** O programa tinha um caminho só para desfazer venda: cancelar tudo
+(`VENDA_CANCELAR`), com autorização e estorno integral. O balcão real faz outra coisa:
+o cliente volta com **um** item, três dias depois, porque o produto veio com defeito,
+ou porque desistiu — e o dinheiro pode voltar em espécie, abater a parcela do
+crediário ou virar troca. Tratar isso como "cancelamento parcial" obrigaria a
+reescrever a venda, o que destrói o histórico que a auditoria existe para preservar.
+
+**Decisão.**
+
+1. **Devolução é um documento novo** (`devolucoes` + `devolucao_itens`) que aponta
+   para a venda. A venda **não** é alterada: continua `CONCLUIDA` com o que foi
+   cobrado. Somar devoluções é consulta, não reescrita.
+2. **Tipo obrigatório, com prazo**: arrependimento (7 dias, CDC art. 49), defeito
+   (90 dias, CDC art. 26), garantia (prazo do produto, cadastrado em
+   `produtos.garantia_dias`) e erro de operação (sem prazo). A garantia contratual
+   **só aumenta** o prazo legal.
+3. **Fora do prazo não é proibido — é autorizado**: exige segundo usuário com
+   `VENDA_DEVOLVER` e fica registrado com `fora_do_prazo` na devolução e na auditoria.
+4. **Destino explícito do valor**: dinheiro (caixa aberto **e** autorizador), crédito
+   no crediário (abate parcelas em aberto como recebimento na forma `VALE`) ou troca
+   (sem movimento financeiro). O programa não "adivinha" a forma de pagamento original
+   e não divide automaticamente um cupom com três formas — quem decide é quem atende,
+   e a escolha fica registrada.
+5. **Estoque volta como movimento**, não como edição de saldo; e o valor devolvido usa
+   o **valor unitário com desconto do item**, nunca o preço de tabela atual.
+6. **Imutabilidade**: triggers recusam `UPDATE` e `DELETE` em devoluções. Corrigir é
+   registrar outra devolução.
+7. **Recusa honesta**: se o crédito passar do saldo em aberto do cliente, o serviço
+   recusa e pede dinheiro/troca. "Crédito a favor" sem controle é dívida invisível.
+
+**Consequências.** Passam a existir dois caminhos com nomes distintos — cancelar (a
+venda inteira não valeu) e devolver (parte voltou, com motivo) — e o manual explica a
+diferença. O fechamento do dia passa a mostrar estorno de devolução separado de
+sangria, e o relatório de vendas continua falando de faturamento bruto, com o total
+devolvido no detalhe da venda. Custo aceito: uma devolução por item dá mais cliques
+que um "desfazer"; em troca, cada centavo devolvido tem motivo, prazo e responsável.
+
+---
+
+## ADR-032 — O que entra agora e o que fica como ponto de construção
+
+**Contexto.** O responsável pediu, na mesma rodada: documentar a homologação fiscal,
+abrir o caminho para vários caixas em rede, criar a calculadora de encargos, preparar
+compatibilidade com AWS/Azure e expor uma API — com prioridade para cancelamento,
+estorno e devolução tipada. Isso reabre parte do escopo congelado no ADR-029. Fazer
+tudo de uma vez significaria entregar cinco frentes pela metade; fazer só a
+prioridade significaria ignorar o pedido de "deixar os caminhos prontos".
+
+**Decisão.** Separa-se **o que funciona** de **o que está preparado**:
+
+| Frente | Nesta versão (v0.13.0) | Caminho |
+|---|---|---|
+| Cancelamento, estorno e devolução tipada | **pronto e testado**, pela tela e pela API | `docs/DEVOLUCOES.md` |
+| API HTTP | **pronta e testada**, local, com token e credenciais | `docs/API.md` |
+| Encargos de atraso | **calculadora pronta e testada**, não cobrada | `docs/ENCARGOS.md` |
+| Fiscal | **contrato + recusa explícita**, emissão desligada | `docs/FISCAL.md` |
+| Nuvem AWS/Azure | **contrato + configuração**, sem SDK instalado | `docs/NUVEM.md` |
+| Vários caixas em rede | **arquitetura decidida** (servidor central + terminais), API pronta | `docs/REDE.md` |
+
+1. **Nada é anunciado como pronto sem teste.** Fiscal e nuvem recusam com mensagem e
+   ponteiro de documentação; rede tem o documento e a API, não o modo cliente.
+2. **A prioridade do pedido vira prioridade do código**: devolução/cancelamento
+   entraram primeiro e completos.
+3. **Dependência nova só com decisão**: nenhum SDK de nuvem, nenhum framework web —
+   a API usa a biblioteca padrão (`http.server`), para não aumentar a superfície de
+   instalação no Windows.
+4. **O escopo fecha de novo**: o que está na coluna "caminho" só entra com decisão
+   específica (contador, conta de nuvem, ou server). Não vira promessa de release.
+
+**Consequências.** O ADR-029 deixa de valer como "escopo congelado" e passa a valer
+como "uso é interno, sem emissão fiscal **hoje**": a documentação mantém o aviso de
+que o cupom não é documento fiscal, e o manual ganha a seção "o que está em
+construção" em vez de "o que não existe". Ganho: quem mantém o projeto sabe exatamente
+onde cada frente começa; risco aceito: três frentes com contrato e sem implementação —
+mitigado pelo fato de cada uma **falhar alto**, nunca em silêncio.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |
 |---|---|---|---|
 | ~~P1~~ | ~~Emissão fiscal~~ | **Fora de escopo por decisão (ADR-029)** — uso interno de bazar de ONG; a UI e o cupom seguem dizendo "não é documento fiscal" | nada nesta fase; se um dia virar produto fiscal, é projeto separado |
-| P2 | Multi-caixa em rede | Fora de escopo; travas de turno único por caixa | decisão de produto e projeto separado |
-| P3 | Encargos de crediário | Não aplicados | regra comercial/jurídica |
+| P2 | Multi-caixa em rede | **Arquitetura decidida (ADR-032)**: servidor central + terminais; API local pronta; falta modo cliente | decisão de servidor e rede local (`docs/REDE.md`) |
+| P3 | Encargos de crediário | **Calculadora pronta e testada**, não aplicada nos títulos | regra comercial/jurídica (`docs/ENCARGOS.md`) |
 | P4 | Limites de desconto | 5% operador / 15% gerente (exemplos do protótipo) | confirmação da política da loja |
 | P5 | Estoque negativo | Permitido com autorização de gerente | confirmar se a loja aceita |
 | P6 | Retenção/LGPD | Dados mínimos; documento mascarado na UI | prazo de guarda e base legal |
@@ -651,4 +731,7 @@ prova que o diálogo grava o que o usuário digitou.
 | P9 | Backup criptografado | Backup com manifesto e `sha256`; **sem criptografia** (v0.9.0) | decisão de chave e proteção |
 | P11 | Recuperação do Admin Master | Sem tela de recuperação; única saída é procedimento no banco | procedimento aceito pela loja (quem guarda a senha mestra) |
 | P10 | Importação da planilha | Não implementada | mapeamento e validação aprovados |
+| P13 | Homologação fiscal | **Fora desta fase**; contrato do emissor pronto e desligado | decisão de negócio + contador + certificado (`docs/FISCAL.md`) |
+| P14 | Nuvem AWS/Azure | Contrato e configuração prontos; SDK não instalado | conta, chave e retenção definidas (`docs/NUVEM.md`) |
+| P15 | Crédito a favor do cliente | Devolução só abate parcela em aberto | decisão de produto (`docs/DEVOLUCOES.md`) |
 | P12 | Escala do Windows medida de verdade | `make responsivo` mede offscreen (tela de 800×800 do Qt); escala simulada só por cálculo | teste em máquina Windows com 100/125/150% e duas resoluções |

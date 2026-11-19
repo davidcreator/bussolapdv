@@ -152,7 +152,13 @@ repositório. **Nada é marcado como pronto sem teste executado.**
 2. ~~**Operação nas telas novas**: cadastrar/editar produto e cliente, receber título e lançar
    entrada/ajuste de estoque com formulário~~ — feito na v0.12.0, junto com a página **Entradas**,
    que deixou de ser placeholder (só **Parâmetros** continua marcado).
-3. Devolução parcial de venda com recomposição de pagamento.
-4. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
+3. ~~Devolução parcial de venda~~ — feito na v0.13.0 com tipo (arrependimento, defeito, garantia,
+   erro), prazo conferido e destino do valor (dinheiro, crédito no crediário, troca).
+   **Pontos de construção** abertos na mesma versão, com documento e contrato: fiscal
+   (`docs/FISCAL.md`), rede multi-caixa (`docs/REDE.md`), nuvem AWS/Azure (`docs/NUVEM.md`) e
+   encargos de atraso (`docs/ENCARGOS.md`).
+4. **API HTTP**: rotas de escrita que faltam (venda, turno, recebimento, entrada) e modo cliente do
+   terminal, que é o caminho para vários caixas.
+5. Importação validada da planilha protótipo (pré-visualização + relatório de erros).
 5. Assinatura digital dos binários Windows e hashes publicados na Release.
 6. Revisão de segurança/LGPD e homologação com operador real.

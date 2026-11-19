@@ -2,7 +2,7 @@
 
 PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 
-> **Estado: pré-alfa funcional (v0.12.0).** O núcleo de domínio, a persistência, os casos de uso de
+> **Estado: pré-alfa funcional (v0.13.0).** O núcleo de domínio, a persistência, os casos de uso de
 > venda/caixa/crediário/estoque/fechamento, a trilha de auditoria, a interface inicial e a área
 > administrativa com hierarquia de perfis e tema da loja existem e têm testes automatizados.
 > Há caminho de instalação no Windows — rodando do código **ou** por executável/instalador, ver
@@ -16,9 +16,11 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > **Onde ele é usado:** no bazar de uma ONG, para **controle interno** de caixa, estoque e crediário
 > no lugar das cadernetas de papel — sem emissão de documento fiscal, por **decisão de escopo**
 > ([ADR-029](docs/DECISOES.md)), não por pendência. O cupom e os relatórios dizem, no rodapé, que
-> não são documento fiscal. Não há homologação externa (fiscal ou de contador), não suporta
-> múltiplas estações em rede e não substitui sistema fiscal certificado — se um dia a loja precisar
-> de nota, é outro projeto.
+> não são documento fiscal. Não há homologação externa (fiscal ou de contador) e não substitui
+> sistema fiscal certificado: o contrato do emissor existe e está **desligado**, com o roteiro de
+> homologação em [docs/FISCAL.md](docs/FISCAL.md). Vários caixas em rede têm arquitetura decidida
+> (servidor central + terminais) e a **API HTTP local** já funciona — o modo cliente é o que falta
+> ([docs/REDE.md](docs/REDE.md), [docs/API.md](docs/API.md)).
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
 > antes de qualquer uso com dados reais.
 
@@ -60,6 +62,14 @@ e o inventário do material antigo em [prototipo/README.md](prototipo/README.md)
   **Crediário** (parcelas, atraso em dias, saldo por título), **Estoque** (saldo, mínimo, ponto de
   pedido, situação, valor a custo) e **Entradas** (notas de fornecedor, itens e frete), cada uma com
   busca, exportação em Excel/PDF e impressão.
+- **Devolução e estorno com tipo e prazo** (Vendas → *Devolver / estornar itens*): devolve item a
+  item, com motivo (arrependimento, defeito, garantia, erro de operação), prazo conferido contra a
+  data da venda (com a garantia do produto), e destino do valor — dinheiro na gaveta, crédito que
+  abate parcela do crediário ou troca. Fora do prazo exige autorização de outro usuário
+  ([docs/DEVOLUCOES.md](docs/DEVOLUCOES.md)).
+- **API HTTP local** para integrações (`bussola api`): leitura de produtos, estoque, vendas,
+  crediário, devoluções e relatórios; escrita de devolução e cancelamento, com token e login/senha
+  do operador ([docs/API.md](docs/API.md)).
 - **Cadastro pela tela**, sem depender de acesso técnico: **novo/alterar produto** (preço, custo,
   mínimo, ponto de pedido, categoria, unidade), **novo/alterar cliente** (documento conferido, limite
   de crediário), **entrada de mercadoria** (itens com frete rateado no custo), **ajuste de estoque**
@@ -413,14 +423,20 @@ src/bussola_pdv/
   aplicacao/impressao.py  monta cupom/turno e despacha pelo motor configurado, com auditoria
   infra/impressao/ desenho em grade no driver/PDF, bytes ESC/POS, envio cru e texto puro
   dominio/relatorio.py  Relatorio/Tabela/Coluna: o documento como dado, sem formato
+  dominio/devolucao.py  devolução: tipo, prazo (CDC, garantia do produto) e destino do valor
+  dominio/encargos.py   calculadora de multa e juros de mora (base, ainda não cobrada)
+  aplicacao/devolucao.py  registra devolução: estoque, caixa, crediário e auditoria
+  aplicacao/fiscal.py   contrato do emissor fiscal (desligado) e lista de pendências
   aplicacao/exportacao.py  monta fechamento/vendas/catálogo/auditoria/crediário/clientes/estoque/turno
                    e grava com auditoria
+  infra/api/       API HTTP local (127.0.0.1 + token) sobre os mesmos serviços da tela
+  infra/nuvem/     contrato de armazenamento (S3/Azure Blob) para backup futuro
   infra/exportacao/ escritores .xlsx (biblioteca padrão) e .pdf (Qt), mais formatação pt-BR
   ui/admin/        área administrativa: diagnóstico, marca, usuários, permissões, parâmetros, manutenção
-  cli.py           linha de comando (init, demo, info, backup, fechamento, ui)
+  cli.py           linha de comando (init, demo, info, backup, fechamento, exportar, ui, api)
   caminhos.py      onde ficam os dados: padrão do sistema, pasta escolhida ou BUSSOLA_DADOS
   diagnostico.py   log de erro e caixa de diálogo para exceção não tratada (app sem console)
-tests/             857 testes: unidade, integração com SQLite real, falhas, UI offscreen,
+tests/             938 testes: unidade, integração com SQLite real, falhas, UI offscreen,
                    exportação, impressão (documento, PDF, ESC/POS, CLI), empacotamento e manual
 ferramentas/       capturas das telas, verificação de responsividade, backup externo, QR Pix e o
                    gerador do manual (gerar_manual.py + o texto em manual_conteudo.py)
@@ -439,10 +455,16 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
 - A trilha de auditoria detecta adulteração, mas **não** impede um administrador do sistema de
   reescrever o banco inteiro.
 - Pagamentos eletrônicos são registro manual; nenhuma integração bancária está homologada.
-- **O que continua sem botão** (a lista completa está no manual, seção *o que já tem botão e o que
-  ainda não tem*): cancelar/estornar uma **entrada já lançada** (o caminho é um ajuste com motivo),
-  **importar planilha** de produtos, **juros e encargos** de crediário atrasado e **vários caixas** na
-  mesma base. Nenhum deles trava o dia a dia do bazar.
+- **O que continua sem botão** (lista completa no manual, seção *o que já tem botão e o que ainda
+  não tem*): cancelar/estornar uma **entrada já lançada** (o caminho é um ajuste com motivo),
+  **importar planilha** de produtos, **crédito a favor** do cliente e **estorno de PIX/cartão** na
+  adquirente.
+- **Pontos de construção** — documentados e com contrato no código, **não implementados**:
+  homologação fiscal ([docs/FISCAL.md](docs/FISCAL.md)), vários caixas em rede
+  ([docs/REDE.md](docs/REDE.md)), nuvem AWS/Azure ([docs/NUVEM.md](docs/NUVEM.md)) e cobrança de
+  encargos de atraso ([docs/ENCARGOS.md](docs/ENCARGOS.md) — a calculadora existe e é testada, não é
+  aplicada em título nenhum). Cada um **falha alto** quando chamado, em vez de fingir que funciona
+  ([ADR-032](docs/DECISOES.md)).
 - Encargos de crediário, devolução parcial, importação da planilha e **geração do `.exe` neste
   ambiente Linux** continuam pendentes (ver plano); o PDF de fechamento existe desde a v0.5.0.
 - **Impressão foi validada por teste automatizado e em modo PDF/arquivo, não em hardware**: este

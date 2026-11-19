@@ -16,6 +16,7 @@ from ..infra.sqlite.repositorio_auditoria import AuditoriaRepositorio
 from ..infra.sqlite.repositorio_caixa import CaixaRepositorio
 from ..infra.sqlite.repositorio_clientes import ClienteRepositorio
 from ..infra.sqlite.repositorio_crediario import CrediarioRepositorio
+from ..infra.sqlite.repositorio_devolucoes import DevolucaoRepositorio
 from ..infra.sqlite.repositorio_estoque import EntradaRepositorio, EstoqueRepositorio
 from ..infra.sqlite.repositorio_fechamentos import FechamentoRepositorio
 from ..infra.sqlite.repositorio_permissoes import PermissaoRepositorio
@@ -42,6 +43,7 @@ class Contexto:
     estoque: EstoqueRepositorio = field(init=False)
     entradas: EntradaRepositorio = field(init=False)
     crediario: CrediarioRepositorio = field(init=False)
+    devolucoes: DevolucaoRepositorio = field(init=False)
     auditoria: AuditoriaRepositorio = field(init=False)
     fechamentos: FechamentoRepositorio = field(init=False)
 
@@ -56,6 +58,7 @@ class Contexto:
         self.estoque = EstoqueRepositorio(self.conexao)
         self.entradas = EntradaRepositorio(self.conexao)
         self.crediario = CrediarioRepositorio(self.conexao)
+        self.devolucoes = DevolucaoRepositorio(self.conexao)
         self.auditoria = AuditoriaRepositorio(self.conexao)
         self.fechamentos = FechamentoRepositorio(self.conexao)
 

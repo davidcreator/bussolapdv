@@ -33,6 +33,7 @@ class ServicoEstoque:
         estoque_minimo: int = 0,
         ponto_pedido: int = 0,
         fornecedor: str = "",
+        garantia_dias: int = 0,
     ) -> Produto:
         operador.exigir(Acao.CADASTRO_PRODUTO)
         produto = Produto(
@@ -46,6 +47,7 @@ class ServicoEstoque:
             estoque_minimo_milesimos=estoque_minimo,
             ponto_pedido_milesimos=ponto_pedido,
             fornecedor=fornecedor,
+            garantia_dias=garantia_dias,
         )
         agora = self.ctx.agora()
         with self.ctx.em_transacao():
@@ -91,6 +93,7 @@ class ServicoEstoque:
             "fornecedor",
             "ncm",
             "ativo",
+            "garantia_dias",
         }
         invalidos = sorted(set(campos) - permitidos)
         if invalidos:

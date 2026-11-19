@@ -84,6 +84,18 @@ por base; multi-caixa é outro projeto (pendência P2).</li>
 <li>Não cancela nem estorna uma <strong>entrada já lançada</strong>: o caminho é lançar um ajuste de
 estoque com motivo e autorização, e o motivo fica na auditoria.</li>
 </ul>
+<h3>Em construção (documentado, ainda sem tela)</h3>
+<ul>
+<li><strong>Emissão fiscal</strong> — nota fiscal e NFC-e estão fora desta fase. O que seria preciso
+(certificado, CSC, autorizador, homologação, prazo e custo) está escrito no roteiro
+<em>docs/FISCAL.md</em> do projeto.</li>
+<li><strong>Vários caixas na mesma base</strong> — a arquitetura está decidida (um servidor central e
+os caixas como terminais) e a API do programa já existe; falta o modo terminal.</li>
+<li><strong>Cópia de segurança na nuvem</strong> (AWS ou Azure) — o contrato está pronto; falta a conta
+e a chave, que são decisão de quem paga.</li>
+<li><strong>Juros e multa de crediário atrasado</strong> — a calculadora está pronta e conferida, mas
+<strong>nada é cobrado</strong> até a loja decidir a regra.</li>
+</ul>
 <p>A lista do que tem botão e do que não tem, item por item, está em
 <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 </div>
@@ -139,14 +151,18 @@ turno de caixa aberto, porque o dinheiro entra na gaveta do dia.</td></tr>
 <td>Pendência P2: o projeto é de um caixa por base.</td>
 <td>Um computador no balcão; o segundo, se houver, com base própria.</td></tr>
 <tr><th scope="row">Emitir nota fiscal</th>
-<td>Fora de escopo por decisão do projeto (uso interno, no lugar da caderneta).</td>
+<td>Fora de escopo por decisão do projeto (uso interno, no lugar da caderneta); roteiro de
+homologação escrito em <em>docs/FISCAL.md</em>.</td>
 <td>O cupom e os relatórios avisam, no rodapé, que não são documento fiscal.</td></tr>
+<tr><th scope="row">Cobrar juros e multa de atraso</th>
+<td>Calculadora pronta e conferida, <strong>não aplicada</strong>: falta a regra da loja.</td>
+<td>Cobrar o valor da parcela e registrar o combinado fora do sistema.</td></tr>
 </tbody></table></div>
 <div class="aviso aviso-atencao"><p class="aviso-titulo">O que isso significa na prática</p>
 <p>Hoje dá para <strong>colocar o bazar inteiro dentro do programa sem chamar ninguém</strong>:
-cadastrar produto, cadastrar cliente, lançar o estoque da contagem, dar entrada de mercadoria e
-receber parcela do crediário. O que sobra de fora são as cinco linhas da segunda tabela — e nenhuma
-delas trava o dia a dia.</p>
+cadastrar produto, cadastrar cliente, lançar o estoque da contagem, dar entrada de mercadoria,
+receber parcela do crediário e <strong>devolver ou estornar com motivo e prazo</strong>. O que sobra
+de fora são as linhas da segunda tabela — e nenhuma delas trava o dia a dia.</p>
 <p>Para treinar a equipe sem encostar nos dados reais, peça uma <strong>base de demonstração</strong>
 (loja fictícia, usuários de teste, senha <code>Bussola#2026</code>): o comando está no capítulo
 <a href="#cli">Linha de comando</a>.</p></div>
@@ -932,6 +948,42 @@ aparecendo — riscada, mas visível.</p>
                     "Vendas do período numa janela estreita (911×512): a tabela mantém as colunas "
                     "essenciais e a rolagem horizontal aparece quando precisa.",
                 ),
+            },
+            {
+                "id": "devolucoes",
+                "titulo": "Devolver e estornar (com motivo e prazo)",
+                "corpo": """
+<p>Quando o cliente volta com alguma coisa, existem <strong>duas</strong> saídas — e elas não são a
+mesma coisa:</p>
+<div class="tabela-rolagem"><table class="tabela">
+<thead><tr><th>O que aconteceu</th><th>O que usar</th></tr></thead>
+<tbody>
+<tr><th scope="row">A venda inteira não valeu (erro de digitação, cliente desistiu na hora)</th>
+<td><strong>Cancelar venda selecionada</strong>: estorna tudo, devolve o dinheiro e exige autorização.</td></tr>
+<tr><th scope="row">Voltou <em>um</em> item, ou voltou depois, por defeito, ou o cliente quer troca</th>
+<td><strong>Devolver / estornar itens</strong>: devolve só o que voltou, com motivo e prazo.</td></tr>
+</tbody></table></div>
+<h4>Como devolver</h4>
+<ol class="passos">
+<li>Clique na venda no histórico e depois em <strong>Devolver / estornar itens</strong>.</li>
+<li>Escolha o <strong>motivo</strong>: arrependimento (7 dias), defeito (90 dias), garantia (o prazo
+do produto) ou erro de operação (sem prazo). Ao lado aparece quantos dias faltam.</li>
+<li>Preencha a coluna <strong>A devolver</strong> só dos itens que voltaram. A tela mostra o que já foi
+devolvido antes, para não devolver duas vezes.</li>
+<li>Escolha o <strong>destino do valor</strong>: dinheiro na gaveta (exige caixa aberto e senha de
+outro usuário), abater as parcelas do crediário, ou troca.</li>
+<li>Escreva o que aconteceu e confirme. O programa avisa o valor, o que saiu do caixa, o que abateu
+do crediário e se os itens voltaram ao estoque.</li>
+</ol>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">Fora do prazo não é "não pode"</p>
+<p>Passou dos 7 ou 90 dias? A devolução continua possível, mas passa a exigir a senha de um
+segundo usuário — e fica registrado que foi fora do prazo e quem autorizou. É essa assinatura que
+protege quem atende.</p></div>
+<div class="aviso aviso-info"><p class="aviso-titulo">O que fica registrado</p>
+<p>A venda original <strong>não é apagada</strong>: ela continua no histórico com o que foi cobrado.
+A devolução é um documento novo, com itens, motivo, prazo, valor e quem autorizou. Se o erro foi
+da devolução, registra-se outra — não se apaga.</p></div>
+""",
             },
         ],
     },

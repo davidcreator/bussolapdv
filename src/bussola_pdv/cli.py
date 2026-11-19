@@ -22,6 +22,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -433,6 +434,37 @@ def _mover_dados(origem: str | None, destino: Path) -> None:
     print(f"Dados copiados de {from_} para {destino} (o original não foi apagado).")
 
 
+def cmd_api(args: argparse.Namespace) -> int:
+    """Sobe a API local (127.0.0.1 + token) e fica servindo até Ctrl+C."""
+    from .infra.api import ConfiguracaoAPI, ServidorAPI
+
+    _exigir_banco(args.banco)
+    token = args.token or os.environ.get("BUSSOLA_API_TOKEN", "")
+    if len(token) < 16:
+        raise ErroValidacao(
+            "Informe --token (ou a variável BUSSOLA_API_TOKEN) com pelo menos 16 caracteres. "
+            "Exemplo: python -m bussola_pdv.cli api --token \"$(python -c "
+            "'import secrets;print(secrets.token_urlsafe(24))')\""
+        )
+    contexto = _contexto(args)
+    servidor = ServidorAPI(
+        contexto, ConfiguracaoAPI(token=token, host=args.host, porta=args.porta)
+    ).iniciar()
+    print(f"API no ar em {servidor.endereco} (host {args.host}, porta {servidor.porta})")
+    print("Rotas: /v1/saude, /v1/produtos, /v1/estoque, /v1/vendas, /v1/crediario,")
+    print("       /v1/devolucoes, POST /v1/devolucoes, POST /v1/vendas/{id}/cancelar")
+    print("Documentação: docs/API.md. Encerre com Ctrl+C.")
+    try:
+        while True:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nEncerrando a API.")
+    finally:
+        servidor.parar()
+        contexto.fechar()
+    return 0
+
+
 def cmd_ui(args: argparse.Namespace) -> int:
     _exigir_banco(args.banco)
     from .ui.app import executar
@@ -602,6 +634,20 @@ def construir_parser() -> argparse.ArgumentParser:
     p_ui = sub.add_parser("ui", help="abre a interface desktop")
     p_ui.add_argument("--banco", default="dados/bussola.db")
     p_ui.set_defaults(func=cmd_ui)
+
+    p_api = sub.add_parser(
+        "api",
+        help="sobe a API HTTP local (127.0.0.1 + token) para integrações e o servidor do multi-caixa",
+    )
+    p_api.add_argument("--banco", default="dados/bussola.db")
+    p_api.add_argument("--token", default="", help="token da API (ou BUSSOLA_API_TOKEN)")
+    p_api.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="endereço de escuta; 127.0.0.1 por segurança, 0.0.0.0 só com TLS por proxy",
+    )
+    p_api.add_argument("--porta", type=int, default=8765)
+    p_api.set_defaults(func=cmd_api)
 
     p_dados = sub.add_parser("dados", help="mostra ou muda a pasta de dados da instalação")
     p_dados.add_argument("--definir", default=None, help="nova pasta de dados (ex.: D:\\PDV)")

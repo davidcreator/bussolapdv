@@ -2,6 +2,92 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.13.0] — 2026-11-11 — pré-alfa: devolução tipada, API local e os caminhos de fiscal, rede e nuvem
+
+A v0.12.0 fechou as lacunas de cadastro. Esta rodada atende a um pedido de fôlego maior:
+**cancelar, estornar e devolver com tipo e prazo** (prioridade), e, em volta disso, deixar
+**documentado e preparado** o que ainda não vai ser construído — homologação fiscal, vários caixas
+em rede, calculadora de encargos, nuvem AWS/Azure e uma API para serviços web. Isso reabre parte do
+escopo do ADR-029; a separação entre "funciona" e "está preparado" está no **ADR-032**.
+
+### Adicionado — devolução e estorno com tipo, prazo e destino (ADR-031)
+
+- **Tela Vendas → Devolver / estornar itens**: devolve item a item, com a coluna "a devolver" editável
+  e as colunas "vendido" e "já devolvido" ao lado; mostra o prazo do tipo escolhido em texto.
+- **Quatro tipos de devolução**: arrependimento (7 dias, CDC art. 49), defeito (90 dias, CDC art. 26),
+  garantia (prazo do produto, que **só aumenta** o legal) e erro de operação (sem prazo).
+- **Fora do prazo continua possível, mas exige segundo usuário** com `VENDA_DEVOLVER`; fica
+  registrado `fora_do_prazo` na devolução e na auditoria.
+- **Três destinos do valor**: dinheiro (caixa aberto **e** autorizador — o dinheiro sai da gaveta),
+  crédito que abate as parcelas em aberto do cliente como recebimento na forma `VALE`, e troca (sem
+  movimento financeiro).
+- **Documento próprio** (`devolucoes` + `devolucao_itens`) com triggers que recusam `UPDATE`/`DELETE`:
+  a venda original continua `CONCLUIDA` com o que foi cobrado.
+- **Estoque** volta por movimento `ESTORNO`, com o valor unitário **com desconto do item** (não o preço
+  atual da tabela).
+- **Garantia por produto**: nova coluna `produtos.garantia_dias` (0–3650), no cadastro pela tela.
+- **`ServicoDevolucao`**: `registrar`, `itens_devolviveis`, `avaliar`, `listar`; auditoria
+  `DEVOLUCAO_REGISTRADA`.
+- **Parâmetros novos**: `devolucao.prazo_arrependimento_dias`, `devolucao.prazo_defeito_dias`,
+  `devolucao.estoque_automatico`.
+
+### Adicionado — API HTTP local (docs/API.md)
+
+- `bussola api --banco … --token … [--host 127.0.0.1] [--porta 8765]`, usando **só a biblioteca
+  padrão** (`http.server`): nenhuma dependência nova na instalação do Windows.
+- Rotas de leitura: `/v1/saude`, `/v1/produtos`, `/v1/estoque`, `/v1/vendas`, `/v1/vendas/{id}`,
+  `/v1/crediario`, `/v1/devolucoes`, `/v1/devolucoes/{id}`,
+  `/v1/relatorios/{estoque,clientes,crediario,entradas,auditoria}`.
+- Rotas de escrita: `POST /v1/devolucoes` e `POST /v1/vendas/{id}/cancelar`.
+- **Duas camadas de autenticação**: token do aplicativo em toda rota + `login`/`senha` (e
+  `autorizador` quando a regra pede) em toda escrita; nunca sai stack trace na resposta.
+- **Contexto por thread**: conexão SQLite não atravessa thread — cada requisição atendida abre a sua.
+
+### Adicionado — estruturas preparadas, com recusa explícita (ADR-032)
+
+- **Fiscal** (`aplicacao/fiscal.py` + `docs/FISCAL.md`): contrato `EmissorFiscal` (`emitir`,
+  `cancelar`, `consultar`), `DocumentoFiscal`, `SituacaoFiscal`, configuração lida de parâmetros e
+  `EmissorFiscalDesativado`, que **recusa com a lista de pendências**. Roteiro de homologação com 9
+  etapas, requisitos (A1, CSC, IE, autorizador, XML por 5 anos) e ordem de grandeza de 4–8 semanas.
+- **Rede multi-caixa** (`docs/REDE.md`): arquitetura **servidor central + terminais** (por que
+  "SQLite em pasta de rede" corrompe), o que já existe (API), o que falta em ordem (modo servidor com
+  TLS, rotas de escrita restantes, `terminal_id`, cliente remoto, teste de concorrência) e a
+  alternativa de réplica descartada por ora.
+- **Nuvem** (`infra/nuvem/` + `docs/NUVEM.md`): contrato `ArmazenamentoNuvem`
+  (`enviar/baixar/listar/remover`), `ConfiguracaoNuvem`, esqueletos `ArmazenamentoS3` e
+  `ArmazenamentoAzureBlob` que falham com mensagem, dublê em memória usado nos testes, requisitos,
+  política IAM mínima e passos de AWS e Azure.
+- **Encargos** (`dominio/encargos.py` + `docs/ENCARGOS.md`): calculadora pura de multa (2%) e juros de
+  mora (1% a.m. proporcionais aos dias), com carência e memória de cálculo; **não é aplicada em título
+  nenhum** — falta a decisão comercial (P3).
+
+### Corrigido
+
+- Juros por dia calculados com divisão antecipada perdiam centavos (1% ao mês em 30 dias dava R$ 0,90
+  em R$ 100,00); agora a divisão é feita uma vez, no fim.
+
+### Mudado
+
+- **Manual**: nova seção *Devolver e estornar* (diferença para cancelamento, passo a passo, prazos e o
+  que fica registrado); capítulo 1 ganhou **"Em construção (documentado, ainda sem tela)"** e a seção
+  *o que já tem botão e o que ainda não tem* passou a citar encargos e fiscal entre as pendências.
+- **README**: devolução, API local e a lista de **pontos de construção** (fiscal, rede, nuvem,
+  encargos) com ponteiro para cada documento.
+- **DECISOES**: ADR-031 (devolução é documento próprio) e ADR-032 (o que entra agora e o que fica como
+  ponto de construção); pendências P2, P3 e P10 atualizadas e P13/P14/P15 abertas.
+- **PLANO_IMPLEMENTACAO**: devolução marcada como feita; API entra como próximo incremento.
+
+### Verificação
+
+- `tests/test_devolucao.py` (novo, 20 testes): domínio (total com fração, prazos, garantia que
+  aumenta, erro sem prazo), serviço (estoque, dinheiro com autorizador, crédito que abate parcela,
+  quantidade acima do vendido, venda cancelada, venda intacta, imutabilidade no banco) e tela
+  (devolução pelo diálogo, prazo na tela, erro sem item, botão só para quem tem permissão).
+- `tests/test_api.py` (novo, 14 testes): servidor real em porta efêmera, token, credenciais,
+  devolução pela API, tipo inválido com lista de aceitos, cancelamento sem autorizador.
+- `tests/test_encargos.py` (novo, 9 testes) e `tests/test_nuvem_fiscal.py` (novo, 12 testes).
+- Suíte **938 testes / 0 falhas**; ruff e mypy limpos; manual regerado (22 capítulos, 55 seções).
+
 ## [0.12.0] — 2026-11-11 — pré-alfa: cadastro, entrada de mercadoria, ajuste e baixa de parcela pela tela
 
 A v0.11.0 fechou o manual apontando quatro buracos: criar produto, criar cliente, lançar estoque

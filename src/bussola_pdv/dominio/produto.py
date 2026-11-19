@@ -44,6 +44,8 @@ class Produto:
     fornecedor: str = ""
     ncm: str = ""
     ativo: bool = True
+    #: Garantia contratual oferecida pela loja, em dias (0 = só a legal).
+    garantia_dias: int = 0
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:
@@ -60,6 +62,8 @@ class Produto:
             raise ErroValidacao("Custo não pode ser negativo.")
         if self.estoque_minimo_milesimos < 0 or self.ponto_pedido_milesimos < 0:
             raise ErroValidacao("Estoque mínimo e ponto de pedido não podem ser negativos.")
+        if self.garantia_dias < 0 or self.garantia_dias > 3650:
+            raise ErroValidacao("Garantia do produto deve ficar entre 0 e 3650 dias.")
         if self.codigo_barras:
             validar_ean(self.codigo_barras)
 

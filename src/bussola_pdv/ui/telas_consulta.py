@@ -258,6 +258,10 @@ class TelaVendas(QWidget):
         self.botao_cancelar = QPushButton("Cancelar venda selecionada")
         self.botao_cancelar.setObjectName("perigo")
         self.botao_cancelar.clicked.connect(self._cancelar)
+        self.botao_devolver: QPushButton | None = None
+        if usuario.pode(Acao.VENDA_DEVOLVER):
+            self.botao_devolver = QPushButton("Devolver / estornar itens")
+            self.botao_devolver.clicked.connect(self._devolver)
         for widget in (
             QLabel("De:"),
             self.data_ini,
@@ -265,8 +269,11 @@ class TelaVendas(QWidget):
             self.data_fim,
             botao,
             self.botao_reimprimir,
+            self.botao_devolver,
             self.botao_cancelar,
         ):
+            if widget is None:
+                continue
             linha.adicionar(widget)
 
         self.tabela = QTableWidget(0, 8)
@@ -327,6 +334,25 @@ class TelaVendas(QWidget):
                 if coluna in (5, 6):
                     celula.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.tabela.setItem(linha, coluna, celula)
+
+    def _devolver(self) -> None:
+        """Abre a devolução da venda selecionada: itens, motivo, prazo e destino."""
+        from .devolucoes import DialogoDevolucao
+
+        if not (0 <= self.tabela.currentRow() < len(self._vendas)):
+            self.mensagem.setText("Selecione a venda na lista para devolver itens.")
+            return
+        venda_id = str(self._vendas[self.tabela.currentRow()]["id"])
+        venda = self.ctx.vendas.por_id(venda_id)
+        if venda.status.value != "CONCLUIDA":
+            self.mensagem.setText(
+                "Venda cancelada não recebe devolução: o cancelamento já estornou os itens."
+            )
+            return
+        dialogo = DialogoDevolucao(self.ctx, self.usuario, venda, parent=self)
+        if dialogo.exec() == dialogo.DialogCode.Accepted and dialogo.resultado is not None:
+            self.mensagem.setText(dialogo.resumo())
+            self.atualizar()
 
     def _documento_da_selecionada(self) -> DocumentoImpresso:
         """2ª via do cupom da venda selecionada, montada a partir do banco.

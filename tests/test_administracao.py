@@ -70,8 +70,11 @@ class TestDiagnostico:
         assert formatar_bytes(3 * 1024**3) == "3.0 GB"
 
     def test_versao_do_esquema_aparece(self, servico):
+        from bussola_pdv.infra.sqlite.migrador import migracoes_disponiveis
+
+        ultima = max(versao for versao, _, _ in migracoes_disponiveis())
         esquema = next(item for item in servico.diagnostico() if item.nome == "Esquema")
-        assert esquema.valor.startswith("v3 de v3")
+        assert esquema.valor.startswith(f"v{ultima} de v{ultima}")
         assert esquema.status is StatusDiagnostico.OK
 
 
@@ -116,8 +119,10 @@ class TestBackup:
             versao = conexao.execute("SELECT MAX(versao) FROM esquema_versao").fetchone()[0]
         finally:
             conexao.close()
+        from bussola_pdv.infra.sqlite.migrador import migracoes_disponiveis
+
         assert usuarios >= 5
-        assert versao == 3
+        assert versao == max(numero for numero, _, _ in migracoes_disponiveis())
 
     def test_verificacao_do_arquivo_aponta_tabelas_faltando(self, servico, cenario, tmp_path):
         alvo = tmp_path / "incompleto.db"

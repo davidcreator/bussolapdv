@@ -74,6 +74,14 @@ def _moeda(centavos: int) -> str:
     return Dinheiro(centavos).formatado()
 
 
+def caixa_aberto(contexto: Contexto) -> str:
+    """Id do caixa com turno aberto — devolução em dinheiro e recebimento precisam dele."""
+    for caixa in contexto.caixas.listar_caixas():
+        if contexto.caixas.turno_aberto(caixa["id"]) is not None:
+            return str(caixa["id"])
+    raise ErroBussola("Abra o caixa antes: sem turno aberto o dinheiro não tem para onde ir.")
+
+
 class _DialogoBase(QDialog):
     """Casca comum: cartão modal com marca, formulário, faixa de mensagem e botões."""
 
@@ -571,10 +579,7 @@ class DialogoRecebimento(_DialogoBase):
             self.campo_valor.setText(_moeda(int(titulo["saldo_centavos"])))
 
     def _caixa_aberto(self) -> str:
-        for caixa in self.ctx.caixas.listar_caixas():
-            if self.ctx.caixas.turno_aberto(caixa["id"]) is not None:
-                return str(caixa["id"])
-        raise ErroBussola("Abra o caixa antes de receber: o dinheiro entra no turno.")
+        return caixa_aberto(self.ctx)
 
     def _salvar(self) -> None:
         titulo = self._titulo_atual()

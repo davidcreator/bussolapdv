@@ -21,7 +21,12 @@ from bussola_pdv.dominio.seguranca import (
 )
 from bussola_pdv.dominio.usuario import Acao, Perfil, Usuario, exigir_autorizacao
 from bussola_pdv.infra.sqlite.conexao import abrir_conexao, fazer_backup, verificar_integridade
-from bussola_pdv.infra.sqlite.migrador import ErroMigracao, migrar, versao_atual
+from bussola_pdv.infra.sqlite.migrador import (
+    ErroMigracao,
+    migracoes_disponiveis,
+    migrar,
+    versao_atual,
+)
 
 pytestmark = pytest.mark.integracao
 
@@ -29,9 +34,10 @@ pytestmark = pytest.mark.integracao
 class TestMigracoes:
     def test_aplica_todas_as_versoes(self, tmp_path):
         conn = abrir_conexao(tmp_path / "m.db")
+        disponiveis = [numero for numero, _, _ in migracoes_disponiveis()]
         aplicadas = migrar(conn)
-        assert aplicadas == [1, 2, 3]
-        assert versao_atual(conn) == 3
+        assert aplicadas == disponiveis
+        assert versao_atual(conn) == max(disponiveis)
         conn.close()
 
     def test_migrar_duas_vezes_nao_repete(self, tmp_path):

@@ -12,7 +12,7 @@ import sqlite3
 import pytest
 
 from bussola_pdv.infra.sqlite.conexao import abrir_conexao
-from bussola_pdv.infra.sqlite.migrador import migrar, versao_atual
+from bussola_pdv.infra.sqlite.migrador import migracoes_disponiveis, migrar, versao_atual
 
 pytestmark = pytest.mark.integracao
 
@@ -63,7 +63,8 @@ def _db_v2(tmp_path, com_movimento: bool = True):
 def test_migracao_converte_perfis_legados(tmp_path):
     conexao = _db_v2(tmp_path)
     aplicadas = migrar(conexao)
-    assert aplicadas == [3]
+    # da versão 2 em diante, todas as migrações pendentes rodam (3, 4, …)
+    assert aplicadas == [v for v, _, _ in migracoes_disponiveis() if v > 2]
     perfis = {
         linha["login"]: linha["perfil"]
         for linha in conexao.execute("SELECT login, perfil FROM usuarios")
@@ -137,7 +138,7 @@ def test_check_novo_aceita_cinco_perfis_e_recusa_inventado(tmp_path):
 
 def test_base_vazia_tambem_migra(tmp_path):
     conexao = abrir_conexao(tmp_path / "vazio.db")
-    assert migrar(conexao) == [1, 2, 3]
+    assert migrar(conexao) == [v for v, _, _ in migracoes_disponiveis()]
     assert conexao.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0] == 0
     conexao.close()
 
@@ -146,5 +147,5 @@ def test_migracao_e_idempotente(tmp_path):
     conexao = _db_v2(tmp_path)
     migrar(conexao)
     assert migrar(conexao) == []
-    assert versao_atual(conexao) == 3
+    assert versao_atual(conexao) == max(v for v, _, _ in migracoes_disponiveis())
     conexao.close()
