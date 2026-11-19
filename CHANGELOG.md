@@ -4,6 +4,38 @@ Formato inspirado em Keep a Changelog; versionamento semântico a partir de rele
 
 ## [Não lançado]
 
+### Mudado — manual do usuário conta a história do bazar e o que a tela ainda não faz
+
+O manual foi escrito antes de o escopo ficar claro. Agora ele começa pela origem real do programa e
+diz, sem rodeio, o que já tem botão e o que ainda não tem — as duas coisas que um voluntário precisa
+saber antes do primeiro dia.
+
+- **Nova seção "O que já tem botão e o que ainda não tem"** (capítulo 1), montada a partir do próprio
+  código desta versão: vender/caixa/cancelar e consultar/exportar/imprimir **pela tela**; criar produto,
+  criar cliente, lançar estoque inicial/entrada/ajuste e dar baixa em parcela do crediário **ainda não**
+  — dependem do serviço técnico. Com o aviso de que operar o dia está pronto, mas colocar o catálogo
+  dentro do programa precisa ser combinado antes.
+- **Nova seção "Da caderneta para o sistema"**: tabela antes/depois (somar o dia à mão, caderno do
+  crediário, contagem de prateleira, papel solto da sangria, "quem deu esse desconto?") e um roteiro de
+  virada em quatro passos, incluindo rodar os dois em paralelo por alguns dias.
+- **Aviso honesto sobre as dívidas antigas**: o programa cria título a partir de venda a prazo e não
+  importa a caderneta; trazer os saldos em aberto é decisão de vocês, com o critério anotado.
+- **Capítulo 1 reancorado no bazar da ONG** ("Ele nasceu para o bazar de uma ONG...") e glossário com
+  *bazar*, *caderneta*, *coordenação* e *prestação de contas*.
+- **Correções de texto onde o manual prometia tela que não existe**: a seção *Entrada de fornecedor*
+  agora diz que o módulo Entradas está no menu mas a página não foi implementada; Produtos, Clientes,
+  Crediário e Estoque recebem a marca de "consulta/exporta/imprime"; o item "Cadastra produtos e
+  clientes" da lista de capacidades virou "guarda o catálogo... e o cadastro ainda não tem botão".
+- **README**: o limite correspondente agora inclui criar produto e cita o módulo *Entradas* sem página.
+
+### Verificação — manual e escopo
+
+- `tests/test_manual.py` ganhou o teste `test_manual_diz_o_que_a_tela_ainda_nao_faz`, que falha se a
+  seção `nao-da-pela-tela` desaparecer, se as quatro telas deixarem de apontar para ela ou se o texto
+  voltar a prometer cadastro pela tela.
+- Suíte **860 testes / 0 falhas / 0 skipped**; ruff e mypy limpos; manual regerado e conferido no
+  navegador (1440 px: tabela, avisos e links internos; nenhum erro de console).
+
 ### Mudado — escopo fechado: bazar de ONG, controle interno, sem emissão fiscal (ADR-029)
 
 O responsável delimitou o uso: a fase de operação é o **bazar de uma ONG**, onde nota fiscal não é

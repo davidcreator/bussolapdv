@@ -59,7 +59,9 @@ fiscal.</p></div>
 e calcula o troco.</li>
 <li>Controla <strong>turno de caixa</strong>: abertura com fundo de troco, sangria, suprimento,
 conferência de cédulas e fechamento com justificativa de diferença.</li>
-<li>Cadastra produtos, clientes e fornecedores; controla estoque, ponto de pedido e entradas.</li>
+<li>Guarda o catálogo de produtos e clientes e o estoque por movimentos (venda, entrada, ajuste),
+com ponto de pedido. <strong>O cadastro em si ainda não tem botão na tela</strong> — veja
+<a href="#nao-da-pela-tela">o que ainda não dá para fazer só pela tela</a>.</li>
 <li>Controla o <strong>crediário</strong>: títulos, parcelas, atraso e recebimento parcial.</li>
 <li>Exporta qualquer relatório em <strong>Excel (.xlsx)</strong> e <strong>PDF</strong>.</li>
 <li>Imprime em impressora comum (folha A4) e em impressora térmica de bobina 58 mm e 80 mm.</li>
@@ -85,11 +87,114 @@ por base; multi-caixa é outro projeto (pendência P2).</li>
 """,
             },
             {
+                "id": "nao-da-pela-tela",
+                "titulo": "O que já tem botão e o que ainda não tem",
+                "corpo": """
+<p>Antes de o bazar começar a usar, é justo você saber o que já funciona pela tela e o que ainda
+depende de alguém com acesso técnico. A lista abaixo foi tirada do próprio programa desta versão.</p>
+<div class="tabela-rolagem"><table class="tabela">
+<caption>O que a tela faz nesta versão</caption>
+<thead><tr><th>O que você quer fazer</th><th>Como está hoje</th></tr></thead>
+<tbody>
+<tr><th scope="row">Vender, abrir e fechar caixa, cancelar venda</th>
+<td><span class="pilula pilula-dica">pela tela</span> módulos PDV, Caixa e Vendas.</td></tr>
+<tr><th scope="row">Consultar, exportar (Excel/PDF) e imprimir</th>
+<td><span class="pilula pilula-dica">pela tela</span> Produtos, Vendas, Fechamento, Auditoria,
+Clientes, Crediário e Estoque.</td></tr>
+<tr><th scope="row">Usuários, permissões, parâmetros, marca da loja, backup</th>
+<td><span class="pilula pilula-dica">pela tela</span> área Administração.</td></tr>
+<tr><th scope="row">Criar ou alterar produto (preço, custo, mínimo)</th>
+<td><span class="pilula pilula-atencao">ainda não</span> a tela Produtos consulta, exporta e imprime;
+o cadastro entra pelo serviço técnico do programa.</td></tr>
+<tr><th scope="row">Criar cliente, com documento e limite</th>
+<td><span class="pilula pilula-atencao">ainda não</span> a tela Clientes consulta, exporta e imprime.</td></tr>
+<tr><th scope="row">Lançar estoque inicial, entrada de mercadoria ou ajuste</th>
+<td><span class="pilula pilula-atencao">ainda não</span> a tela Estoque mostra movimentos e saldos.
+O módulo <em>Entradas</em> aparece no menu, mas a página ainda não existe nesta versão.</td></tr>
+<tr><th scope="row">Receber parcela do crediário (dar baixa)</th>
+<td><span class="pilula pilula-atencao">ainda não</span> a tela Crediário mostra títulos, atraso e
+saldo, e exporta — mas a baixa de recebimento ainda não tem botão.</td></tr>
+</tbody></table></div>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">O que isso significa na prática</p>
+<p>Para <strong>operar o dia</strong> — vender, receber, conferir a gaveta, fechar o caixa e exportar o
+relatório — o programa está pronto. Para <strong>colocar o catálogo do bazar dentro dele</strong>
+(produtos, clientes, saldo inicial) ainda é preciso alguém com acesso ao serviço do programa.
+Combine isso com quem cuida do computador da ONG <em>antes</em> do primeiro dia.</p>
+<p>Para treinar a equipe sem encostar nos dados reais, peça uma <strong>base de demonstração</strong>
+(loja fictícia, usuários de teste, senha <code>Bussola#2026</code>): o comando está no capítulo
+<a href="#cli">Linha de comando</a>.</p></div>
+""",
+            },
+            {
+                "id": "caderneta-para-sistema",
+                "titulo": "Da caderneta para o sistema",
+                "corpo": """
+<p>O programa não muda o que o bazar faz; muda <strong>onde a informação fica</strong>. A caderneta
+continua servindo de rascunho se você quiser, mas ela deixa de ser o único lugar onde o dia existe —
+e é isso que resolve o problema de somar tudo à mão no fim do dia.</p>
+<div class="tabela-rolagem"><table class="tabela">
+<caption>O que muda no dia a dia</caption>
+<thead><tr><th>Pergunta do dia</th><th>Com a caderneta</th><th>Com o Bússola</th></tr></thead>
+<tbody>
+<tr><th scope="row">Quanto vendi hoje?</th>
+<td>Somar as linhas do dia, conferir duas vezes.</td>
+<td>O fechamento do turno dá o total, com cada venda registrada e o detalhe por forma de pagamento.</td></tr>
+<tr><th scope="row">Quem está devendo?</th>
+<td>Página do crediário, com rasura e risco de perder o rastro.</td>
+<td>Títulos e parcelas, com atraso, tempo de atraso e recebimento parcial ou total.</td></tr>
+<tr><th scope="row">Ainda tem na prateleira?</th>
+<td>Contar item por item.</td>
+<td>Saldo é a soma dos movimentos (venda, entrada, ajuste), com aviso de ruptura e de ponto de pedido.</td></tr>
+<tr><th scope="row">Quanto entrou de dinheiro e quanto saiu?</th>
+<td>Papel solto para sangria e suprimento, fácil de perder.</td>
+<td>Turno de caixa com fundo de troco, sangria, suprimento e diferença que pede justificativa.</td></tr>
+<tr><th scope="row">Quem deu esse desconto?</th>
+<td>Ninguém lembra.</td>
+<td>A autorização é nominal e fica na trilha de auditoria, com data, valor e motivo.</td></tr>
+<tr><th scope="row">E se o caderno perder ou molhar?</th>
+<td>Perdeu o histórico.</td>
+<td>Cópia de segurança verificada, uma vez por dia, com restauração pela própria tela.</td></tr>
+<tr><th scope="row">Como presto contas à coordenação?</th>
+<td>Refazer as contas e digitar uma planilha.</td>
+<td>Fechamento e relatórios exportados em <strong>Excel</strong> e <strong>PDF</strong>, direto da tela.</td></tr>
+</tbody></table></div>
+
+<h4>Como fazer a virada sem susto</h4>
+<ol class="passos">
+<li><strong>Escolha um dia calmo</strong> para começar e faça a contagem inicial do que está na
+prateleira — <em>no papel</em>, para não perder o número. Lançar esse saldo no programa ainda não tem
+botão: é feito pelo serviço técnico, junto com o cadastro dos produtos (veja
+<a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>).</li>
+<li><strong>Cadastre primeiro o que sai toda semana</strong> — o resto entra conforme aparece. Produto
+sem cadastro não é vendido, então é isso que trava o balcão no começo.</li>
+<li><strong>Rode os dois em paralelo por alguns dias</strong>, se preferir: use o programa para vender
+e a caderneta só para o que ele ainda não tem. A comparação de um dia para o outro mostra se algo
+ficou de fora.</li>
+<li><strong>Feche o turno todos os dias</strong>, mesmo nos dias parados. É o fechamento que substitui
+a soma da caderneta — e é ele que a coordenação vai querer ver.</li>
+</ol>
+
+<div class="aviso aviso-atencao"><p class="aviso-titulo">As dívidas antigas precisam de uma decisão sua</p>
+<p>O programa cria título de crediário a partir de uma <strong>venda a prazo</strong>; não existe
+importação da caderneta (é o item "não importa planilha" desta mesma lista). Trazer os saldos em aberto
+da caderneta antiga, portanto, é uma decisão de vocês: a forma mais direta é lançar cada dívida como
+uma venda a prazo no dia da virada, com o valor devedor. Combine com a coordenação antes e anote o
+critério — quem lançou e quando fica registrado na auditoria.</p></div>
+
+<div class="aviso aviso-dica"><p class="aviso-titulo">Ninguém precisa decorar tela</p>
+<p>O programa explica a si mesmo: <kbd>F1</kbd> abre o guia da tela em que você está, e o
+<strong>mentor</strong> conduz passo a passo quem está começando — ele destaca o campo do próximo
+passo. Este manual é para ler com calma e consultar depois; no balcão, o <kbd>F1</kbd> resolve.</p></div>
+""",
+            },
+            {
                 "id": "como-ler",
                 "titulo": "Como ler este manual",
                 "corpo": """
-<p>O manual está em ordem de uso: instalar, entrar, conhecer a tela, operar o dia, fechar o dia,
-administrar e, no fim, o que só interessa a quem entende de computador.</p>
+<p>Este manual foi escrito para o <strong>bazar da ONG</strong>: para quem vai passar a manhã no
+balcão sem nunca ter usado um caixa, e para a coordenação, que precisa conferir o dia e prestar contas.
+Ele está em ordem de uso: instalar, entrar, conhecer a tela, operar o dia, fechar o dia, administrar e,
+no fim, o que só interessa a quem entende de computador.</p>
 <ul>
 <li>Quem vai <strong>operar o caixa</strong> precisa dos capítulos 3 a 18. Os capítulos 1, 2 e 19 a
 25 são do responsável pela instalação e da administração.</li>
@@ -133,6 +238,14 @@ com uma "impressão digital" (hash) que encadeia um evento no outro.</td></tr>
 manifesto que permite saber se a cópia está íntegra.</td></tr>
 <tr><th scope="row">Base de dados</th><td>O arquivo <code>pdv.db</code> onde ficam vendas,
 produtos, clientes e tudo o mais.</td></tr>
+<tr><th scope="row">Bazar</th><td>O uso para o qual este programa foi feito: a loja da ONG, com
+poucas pessoas no balcão e prestação de contas à coordenação.</td></tr>
+<tr><th scope="row">Caderneta</th><td>O caderno de papel onde as vendas, as dívidas e as saídas de
+dinheiro eram anotadas à mão. O programa existe para tirar o dia de dentro dele.</td></tr>
+<tr><th scope="row">Coordenação</th><td>Quem responde pelo bazar: confere o fechamento, olha os
+relatórios e decide o que fazer com o dinheiro e com as dívidas.</td></tr>
+<tr><th scope="row">Prestação de contas</th><td>Mostrar o que entrou, o que saiu e o que sobrou em um
+período. Sai do Fechamento e das telas de relatório em Excel ou PDF.</td></tr>
 </tbody></table></div>
 """,
             },
@@ -553,6 +666,7 @@ compara com o que ele registrou de vendas, sangrias e suprimentos.</p></div>
                 "corpo": """
 <p>O catálogo é a base de tudo: sem produto cadastrado não há venda, não há estoque e não há
 relatório de reposição.</p>
+<p class="dica">Esta tela <strong>consulta, exporta e imprime</strong>; criar ou alterar produto ainda depende de alguém com acesso técnico. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 """,
                 "guia": "produtos",
                 "imagem": (
@@ -588,6 +702,7 @@ agora do que no meio da venda.</p>
                 "corpo": """
 <p>Cliente é opcional na venda à vista e <strong>obrigatório</strong> na venda a prazo. O cadastro
 guarda nome, documento, telefone e o limite de crediário.</p>
+<p class="dica">Esta tela <strong>consulta, exporta e imprime</strong>; criar ou alterar cliente ainda depende de alguém com acesso técnico. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 """,
                 "guia": "clientes",
                 "imagem": (
@@ -611,6 +726,7 @@ guarda nome, documento, telefone e o limite de crediário.</p>
                 "corpo": """
 <p>Venda a prazo gera um <strong>título</strong> com parcelas. O programa mostra o que está a vencer,
 o que está atrasado e há quanto tempo — é o que permite cobrar sem planilha paralela.</p>
+<p class="dica">A baixa de recebimento (dar a parcela como paga) ainda não tem botão nesta tela; o que ela faz é mostrar o que está em aberto e exportar. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 """,
                 "guia": "crediario",
                 "imagem": (
@@ -651,6 +767,7 @@ autorização. Quem autoriza fica registrado na auditoria.</p></div>
 <p>O estoque não é digitado: ele é a soma dos movimentos. Venda baixa, entrada de fornecedor sobe,
 ajuste justifica a diferença. Por isso a tela mostra sempre os dois lados — o saldo e o que o
 explicou.</p>
+<p class="dica">Lançar entrada ou ajuste ainda não tem botão nesta tela: ela mostra o saldo e os movimentos que o explicam. Veja <a href="#nao-da-pela-tela">o que já tem botão e o que ainda não tem</a>.</p>
 """,
                 "guia": "estoque",
                 "imagem": (
@@ -662,9 +779,13 @@ explicou.</p>
                 "id": "entradas",
                 "titulo": "Entrada de fornecedor",
                 "corpo": """
-<p>A entrada é feita no módulo <em>Entradas</em>: escolha o fornecedor, informe os produtos e as
-quantidades, e confirme. O estoque sobe na hora e o custo do produto é atualizado — é isso que faz o
-relatório de margem ter sentido.</p>
+<div class="aviso aviso-atencao"><p class="aviso-titulo">O módulo Entradas ainda não existe</p>
+<p>Esta seção descreve o desenho previsto, <strong>não o que está disponível</strong>: o item
+<em>Entradas</em> aparece no menu, mas a página não foi implementada nesta versão — e a tela Estoque
+não lança movimento. Na prática, hoje, dar entrada de mercadoria depende do serviço técnico.</p></div>
+<p><strong>Como está desenhado:</strong> escolher o fornecedor, informar produtos e quantidades e
+confirmar; o estoque sobe na hora e o custo do produto é atualizado — é isso que faz o relatório de
+margem ter sentido.</p>
 <div class="aviso aviso-info"><p class="aviso-titulo">Estoque negativo</p>
 <p>Vender sem saldo é permitido, mas exige autorização (pendência P5: confirmar se a loja aceita). O
 movimento fica marcado, e o saldo fica negativo até a entrada regularizar.</p></div>

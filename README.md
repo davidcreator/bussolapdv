@@ -431,8 +431,9 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
 - A trilha de auditoria detecta adulteração, mas **não** impede um administrador do sistema de
   reescrever o banco inteiro.
 - Pagamentos eletrônicos são registro manual; nenhuma integração bancária está homologada.
-- **Cadastro e operação pelas telas de Clientes/Crediário/Estoque**: elas consultam e exportam; criar
-  cliente, receber título e lançar entrada de estoque ainda dependem do serviço/CLI.
+- **Telas de Produtos, Clientes, Crediário e Estoque são de consulta**: elas consultam, exportam e
+  imprimem; criar produto, criar cliente, receber título e lançar entrada de estoque ainda dependem do
+  serviço de aplicação (o módulo *Entradas* aparece no menu, mas a página não existe nesta versão).
 - Encargos de crediário, devolução parcial, importação da planilha e **geração do `.exe` neste
   ambiente Linux** continuam pendentes (ver plano); o PDF de fechamento existe desde a v0.5.0.
 - **Impressão foi validada por teste automatizado e em modo PDF/arquivo, não em hardware**: este

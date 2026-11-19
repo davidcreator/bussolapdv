@@ -300,3 +300,20 @@ def test_escopo_fechado_esta_na_documentacao_do_repositorio() -> None:
     for arquivo in ("README.md", "CONTRIBUINDO.md"):
         texto = (RAIZ / arquivo).read_text(encoding="utf-8")
         assert "ADR-029" in texto, f"{arquivo} precisa apontar para a decisão de escopo"
+
+
+def test_manual_diz_o_que_a_tela_ainda_nao_faz(pagina: str) -> None:
+    """O voluntário precisa saber, antes do primeiro dia, o que não tem botão.
+
+    Esta seção já nasceu de uma correção: o texto mandava lançar o estoque inicial
+    no módulo Estoque, que só mostra saldo. Se alguém apagar a seção — ou voltar a
+    prometer cadastro pela tela — o manual fica bonito e inútil no balcão.
+    """
+    assert 'id="nao-da-pela-tela"' in pagina
+    # as quatro telas de consulta apontam para a seção
+    assert pagina.count('href="#nao-da-pela-tela"') >= 5
+    for promessa in ("criar ou alterar produto", "criar cliente", "receber parcela"):
+        assert promessa in pagina.lower()
+    assert "ainda não" in pagina
+    # e o módulo Entradas não pode ser descrito como disponível
+    assert "módulo entradas ainda não existe" in pagina.lower()
