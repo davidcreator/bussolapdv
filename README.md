@@ -13,9 +13,12 @@ PDV desktop **offline**, em Python + PySide6 + SQLite, para varejo brasileiro.
 > com prévia, corte, gaveta e código de barras ([docs/IMPRESSAO.md](docs/IMPRESSAO.md)).
 > Tem **backup automático diário com manifesto verificado**, restauração na interface e uma
 > ferramenta de backup que **não depende do programa** ([docs/BACKUP.md](docs/BACKUP.md)).
-> **Não é homologado para operação real**,
-> não emite documento fiscal, não suporta múltiplas estações em rede e não substitui contador ou
-> sistema fiscal certificado.
+> **Onde ele é usado:** no bazar de uma ONG, para **controle interno** de caixa, estoque e crediário
+> no lugar das cadernetas de papel — sem emissão de documento fiscal, por **decisão de escopo**
+> ([ADR-029](docs/DECISOES.md)), não por pendência. O cupom e os relatórios dizem, no rodapé, que
+> não são documento fiscal. Não há homologação externa (fiscal ou de contador), não suporta
+> múltiplas estações em rede e não substitui sistema fiscal certificado — se um dia a loja precisar
+> de nota, é outro projeto.
 > Leia [docs/PLANO_IMPLEMENTACAO.md](docs/PLANO_IMPLEMENTACAO.md) e [docs/DECISOES.md](docs/DECISOES.md)
 > antes de qualquer uso com dados reais.
 
@@ -421,8 +424,9 @@ docs/              análise do repositório de origem, decisões (ADRs), interfa
 
 ## Limites explícitos
 
-- **Não** é sistema fiscal e não emite NFC-e/SAT; a marca personalizada muda a interface e o rodapé
-  do comprovante interno, nunca um documento fiscal.
+- **Não** é sistema fiscal e não emite NFC-e/SAT — e isso é **escopo fechado**, não pendência
+  ([ADR-029](docs/DECISOES.md)): o uso é interno (bazar de ONG, no lugar da caderneta). A marca
+  personalizada muda a interface e o rodapé do comprovante interno, nunca um documento fiscal.
 - **Não** suporta vários computadores vendendo ao mesmo tempo; arquivo SQLite em rede não é suportado.
 - A trilha de auditoria detecta adulteração, mas **não** impede um administrador do sistema de
   reescrever o banco inteiro.

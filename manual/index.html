@@ -283,14 +283,19 @@ body.escuro mark{background:#8A6D00;color:#FFF}
 computador da própria loja, sem internet. Ele registra a venda, controla o que entrou e o que saiu
 do estoque, guarda o cadastro de produtos e clientes, controla o crediário, fecha o caixa do dia e
 mantém um histórico de tudo o que foi alterado.</p>
-<p>Ele foi feito para varejo pequeno: mercearia, loja de bairro, conveniência, loja de roupa. A
-operação é uma pessoa no balcão, um caixa, e o dono querendo saber no fim do dia quanto vendeu,
-quanto entrou de dinheiro e o que está faltando na prateleira.</p>
+<p>Ele nasceu para o <strong>bazar de uma ONG</strong>: a operação é uma ou duas pessoas no balcão, um
+caixa, e a coordenação querendo saber no fim do dia quanto entrou, o que saiu da prateleira e quem
+ficou devendo no crediário — no lugar das anotações em caderneta, que ninguém consegue somar nem
+conferir depois. Serve igualmente para varejo pequeno: mercearia, loja de bairro, conveniência, loja de
+roupa.</p>
 <div class="aviso aviso-info"><p class="aviso-titulo">Antes de tudo, a parte honesta</p>
-<p>Esta é uma versão <strong>pré-alfa</strong>: serve para operar de verdade e para testar, mas
-<strong>não emite documento fiscal</strong> (NF-e, NFC-e, SAT, cupom fiscal), não foi homologada por
-contador nem por órgão fiscal e não deve ser o único sistema de uma loja em operação sem validação
-prévia. O cupom que ela imprime diz, no rodapé, que não é documento fiscal.</p></div>
+<p>Este programa <strong>não emite documento fiscal</strong> (NF-e, NFC-e, SAT, cupom fiscal) — e isso
+é <strong>decisão de escopo, não pendência</strong>: o uso é <strong>interno</strong>, de controle da
+própria loja. O cupom que ele imprime diz, no rodapé, que não é documento fiscal, e o mesmo aviso
+acompanha todo relatório exportado.</p>
+<p>Se a sua loja precisa de nota fiscal, <strong>este não é o sistema</strong>: ele não substitui
+contador nem sistema fiscal certificado. Quem precisa de nota continua precisando de um emissor
+fiscal.</p></div>
 
 </section>
 <section class="secao" id="faz-nao-faz">
@@ -315,10 +320,11 @@ sem que a cadeia quebre e o programa avise.</li>
 </ul>
 </div>
 <div>
-<h3>Não faz (ainda)</h3>
+<h3>Não faz, por decisão de escopo</h3>
 <ul>
-<li><strong>Não emite documento fiscal.</strong> É a pendência P1 registrada nas decisões do
-projeto: depende de fornecedor fiscal e homologação.</li>
+<li><strong>Não emite documento fiscal.</strong> O uso é interno (bazar de ONG, controle no lugar da
+caderneta): nota fiscal, homologação com contador e integração com fornecedor fiscal estão fora
+desta fase. O cupom e os relatórios avisam, no rodapé, que não são documento fiscal.</li>
 <li>Não vende em <strong>vários caixas na mesma base</strong> pela rede. O projeto é de um caixa
 por base; multi-caixa é outro projeto (pendência P2).</li>
 <li>Não calcula <strong>juros nem encargos</strong> de crediário atrasado (P3).</li>

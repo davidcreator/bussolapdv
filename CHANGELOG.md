@@ -4,6 +4,37 @@ Formato inspirado em Keep a Changelog; versionamento semântico a partir de rele
 
 ## [Não lançado]
 
+### Mudado — escopo fechado: bazar de ONG, controle interno, sem emissão fiscal (ADR-029)
+
+O responsável delimitou o uso: a fase de operação é o **bazar de uma ONG**, onde nota fiscal não é
+necessária — o objetivo é **controle interno**, sair das anotações em caderneta. Com isso, a emissão
+fiscal deixa de ser "pendência que um dia será feita" e passa a ser **fora de escopo**; o que o bazar
+precisa (venda, caixa, estoque, crediário, fechamento, relatórios em Excel/PDF, comprovante interno,
+auditoria e backup) já está no escopo.
+
+- **`docs/DECISOES.md`**: **ADR-029** com contexto, decisão e consequências; a linha **P1** da tabela
+  de pendências fica riscada e explica o motivo. Multi-caixa em rede (P2), encargos de crediário (P3),
+  importação da planilha (P10) e as demais pendências continuam como estão — nenhuma delas é
+  pré-requisito para o bazar operar.
+- **`README.md`**: o bloco de estado passa a dizer **onde** o programa é usado (bazar da ONG, controle
+  no lugar da caderneta) e que a ausência de nota fiscal é decisão de escopo, não pendência.
+- **Manual (`ferramentas/manual_conteudo.py`)**: capítulo 1 reescrito — "Ele nasceu para o bazar de
+  uma ONG...", e o quadro "Antes de tudo, a parte honesta" agora diz que não emitir documento fiscal é
+  **decisão de escopo** e avisa, na mesma frase, que quem precisa de nota precisa de outro sistema. A
+  lista "Não faz (ainda)" virou **"Não faz, por decisão de escopo"**.
+- **`CONTRIBUINDO.md`**: quem procura suporte contratual e emissão fiscal é avisado de que não é
+  questão de tempo — é escopo fechado.
+- O aviso de que o cupom e os relatórios **não são documento fiscal** continua no rodapé do
+  comprovante, no cabeçalho das exportações e no manual: a decisão é sobre escopo, não sobre verdade.
+
+### Verificação — escopo
+
+- `tests/test_manual.py` ganhou dois testes: o manual gerado contém "decisão de escopo", continua
+  contendo "não emite documento fiscal" e **não** voltou a tratar a P1 como pendência (a checagem
+  ignora "P11", que é outro assunto, — encontrado pelo próprio teste antes de fechar); e README,
+  CONTRIBUINDO e DECISOES apontam para a ADR-029.
+- Suíte **859 testes / 0 falhas / 0 skipped**; ruff e mypy limpos; manual regerado.
+
 ### Adicionado — manual do usuário em HTML, CSS e JS (`manual/index.html`)
 
 O guia dentro do programa (F1) responde à dúvida do momento; faltava o documento inteiro para quem

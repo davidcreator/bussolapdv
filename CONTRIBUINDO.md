@@ -89,8 +89,9 @@ Para não haver mal-entendido depois:
 - **não** transfere titularidade, marca ou decisão sobre o rumo do projeto.
 
 Doação é **espontânea, sem contrapartida**. Se você precisa de um sistema com suporte contratual,
-garantia e emissão fiscal, este projeto não é (ainda) esse produto — veja os limites em
-[README](README.md#limites-explícitos).
+garantia e emissão fiscal, este projeto não é esse produto — e não é uma questão de tempo: emissão
+fiscal está **fora do escopo** por decisão registrada ([ADR-029](docs/DECISOES.md)). Veja os limites
+em [README](README.md#limites-explícitos).
 
 ### PIX
 

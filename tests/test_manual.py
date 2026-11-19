@@ -277,3 +277,26 @@ def test_modo_sem_imagens_gera_arquivo_menor(tmp_path) -> None:
     texto = destino.read_text(encoding="utf-8")
     assert "data:image/" not in texto
     assert len(texto) > 40_000  # o texto todo continua lá
+
+
+# -- escopo (ADR-029) ----------------------------------------------------------
+def test_escopo_fechado_esta_escrito_no_manual(pagina: str) -> None:
+    """Emissão fiscal é decisão de escopo, não pendência — e o aviso honesto fica.
+
+    O risco aqui é o oposto do comum: alguém "limpando" o texto para parecer mais
+    pronto e apagando junto o aviso de que o cupom não vale como nota fiscal.
+    """
+    assert "decisão de escopo" in pagina
+    assert "não emite documento fiscal" in pagina
+    # "P11" existe e é outra coisa; o que não pode voltar é a P1 (fiscal) como pendência
+    assert re.search(r"pendência P1(?![0-9])", pagina) is None
+    assert "não é o sistema" in pagina
+
+
+def test_escopo_fechado_esta_na_documentacao_do_repositorio() -> None:
+    decisoes = (RAIZ / "docs" / "DECISOES.md").read_text(encoding="utf-8")
+    assert "ADR-029" in decisoes
+    assert "bazar" in decisoes.lower()
+    for arquivo in ("README.md", "CONTRIBUINDO.md"):
+        texto = (RAIZ / arquivo).read_text(encoding="utf-8")
+        assert "ADR-029" in texto, f"{arquivo} precisa apontar para a decisão de escopo"

@@ -559,11 +559,48 @@ traço ou texto do logo foi redesenhado — os arquivos são os enviados.
 
 ---
 
+## ADR-029 — Escopo fechado: bazar de ONG, controle interno e nenhuma emissão fiscal
+
+**Contexto.** O responsável delimitou o uso do projeto: a fase de operação é o **bazar de uma ONG**,
+onde **não há emissão de nota fiscal**. O objetivo do programa ali é outro — **controle interno**, sair
+das anotações em caderneta e ter caixa, estoque e crediário em um lugar só. Ele também deixou claro que
+há assuntos interessantes em volta (fiscal, multi-caixa, integrações), mas que eles **não são deste
+projeto**: o escopo, a partir daqui, está fechado.
+
+Até esta decisão, a documentação tratava a emissão fiscal como a **pendência P1** — algo que faltava e
+que um dia seria feito. Isso tinha dois efeitos ruins: (a) sugeria que o programa estava incompleto
+para o uso a que se destina, quando ele já cobre o que o bazar precisa; (b) prometia um caminho
+(fornecedor fiscal + homologação) que ninguém decidiu percorrer.
+
+**Decisão.**
+
+1. **Emissão de documento fiscal sai da lista de pendências e entra em "fora de escopo".** O que a
+   operação do bazar precisa — venda, caixa, estoque, crediário, fechamento, relatórios em Excel/PDF,
+   impressão de comprovante interno, auditoria e backup — é o escopo. Nota fiscal, homologação com
+   contador e integração com fornecedor fiscal **não são**.
+2. **O aviso de que o papel não é documento fiscal continua** — no rodapé do cupom, no cabeçalho dos
+   relatórios exportados e no manual. Deixar de tratar fiscal como pendência **não** é fingir que o
+   comprovante vale como nota: é dizer, sem rodeio, que ele é controle interno.
+3. **O texto muda de tom nos três lugares onde a pessoa lê primeiro**: o README (estado e limites), o
+   manual do usuário (capítulo 1) e a tabela de pendências deste documento. "Não faz ainda / pendência
+   P1" vira **"não faz, por decisão"**, com o motivo (uso interno) ao lado.
+4. **Assuntos vizinhos ficam registrados, sem virar promessa.** Multi-caixa em rede (P2), encargos de
+   crediário (P3), importação da planilha (P10) e o resto da tabela seguem como estão: cada um é uma
+   decisão futura de quem mantém o projeto, e nenhum deles é pré-requisito para o bazar funcionar.
+
+**Consequências.** O critério de "pronto" do projeto passa a ser **o bazar operando sem caderneta**, e
+não a conformidade fiscal — o que muda o que se testa e o que se documenta. Quem chegar ao repositório
+vindo de uma loja que precisa de nota fiscal é avisado já no primeiro parágrafo de que este não é o
+programa para isso, em vez de descobrir no meio da instalação. E a lista de pendências volta a conter
+só o que depende de decisão de alguém para **este** uso — o que a torna curta e acionável.
+
+---
+
 ## Pendências que exigem decisão do responsável
 
 | # | Assunto | Situação atual no código | Precisa de |
 |---|---|---|---|
-| P1 | Emissão fiscal | Não implementada; UI diz "não é documento fiscal" | definição de fornecedor fiscal + homologação |
+| ~~P1~~ | ~~Emissão fiscal~~ | **Fora de escopo por decisão (ADR-029)** — uso interno de bazar de ONG; a UI e o cupom seguem dizendo "não é documento fiscal" | nada nesta fase; se um dia virar produto fiscal, é projeto separado |
 | P2 | Multi-caixa em rede | Fora de escopo; travas de turno único por caixa | decisão de produto e projeto separado |
 | P3 | Encargos de crediário | Não aplicados | regra comercial/jurídica |
 | P4 | Limites de desconto | 5% operador / 15% gerente (exemplos do protótipo) | confirmação da política da loja |
