@@ -2,6 +2,54 @@
 
 Formato inspirado em Keep a Changelog; versionamento semântico a partir de releases executáveis.
 
+## [0.15.1] — 2026-11-11 — CI verde: o que o ambiente do CI mostrou e a máquina de quem escreve escondia
+
+O CI ficou vermelho depois da v0.15.0 e a investigação achou **três defeitos reais** — nenhum deles
+"coisa de CI". Todos apareciam só num ambiente diferente do de quem desenvolve (Python 3.12, sem
+Pillow, suíte inteira num processo só), que é justamente o ambiente que o CI reproduz de propósito.
+
+### Corrigido — servidor deixava threads vivas e derrubava o processo
+
+- **`ServidorAPI.parar()` agora fecha as conexões abertas.** Um cliente que conecta e não manda
+  pedido — exatamente o que o botão **Verificar servidor** faz, para ler o certificado — deixava a
+  thread do manipulador presa no `recv`, sobrevivendo ao desligamento. No fim do interpretador, a
+  thread daemon tentava escrever um traceback de `BrokenPipeError` e o processo abortava com
+  `_enter_buffered_busy`. O sintoma no CI era um *segmentation fault* no meio de um teste de layout
+  que não tinha relação nenhuma com a rede.
+- **Timeout de leitura no manipulador (30 s)**: conexão ociosa não fica mais pendurada para sempre.
+- **Cliente que desiste não vira traceback**: `handle_error` silencia `ConnectionError`,
+  `TimeoutError`, `ssl.SSLError` e `OSError` — rotina numa API, não defeito do servidor.
+- **`inspecionar_certificado` fecha um descritor só para cada conexão**: antes o socket cru e o
+  embrulhado em TLS eram fechados os dois (o mesmo descritor duas vezes).
+- Testes novos em `tests/test_api.py` (`TestDesligamento`) provam que **nenhuma thread sobrevive ao
+  `parar()`** e que cliente que desiste **não imprime nada** no stderr.
+
+### Corrigido — manual sem Pillow saía sem medida de imagem
+
+- O gerador embutia as capturas com `width`/`height` **somente quando o Pillow estava instalado**.
+  Sem ele — o caso do CI, que instala só as dependências declaradas — as figuras saíam sem medida e
+  o navegador não reservava o espaço. **As medidas agora saem do próprio cabeçalho PNG** (`struct`,
+  biblioteca padrão), com ou sem Pillow; o Pillow continua sendo só o que encolhe o arquivo.
+- Pillow virou extra opcional declarado (`.[documentacao]`), em vez de dependência invisível.
+- Testes novos (`TestSemPillow`) cobrem o caminho do CI, inclusive gerando o manual inteiro sem
+  Pillow e conferindo que **toda** captura tem medida.
+
+### Corrigido — instabilidade de Qt na suíte
+
+- **Uma `QApplication` por sessão de testes**: cada arquivo criava a sua e a aplicação era destruída
+  ao fim do arquivo (no PySide6 o objeto Qt morre junto com a última referência Python). Criar e
+  destruir `QApplication` no mesmo processo é caminho conhecido de crash.
+- **Timer do mentor virou filho do painel**: o `QTimer.singleShot` estático deixava um disparo na
+  fila com referência ao método de um widget que podia ser destruído antes — callback em objeto
+  liberado é segfault, não exceção. O timer com pai morre junto com o painel.
+
+### Verificação
+
+- CI reproduzido localmente passo a passo: Python **3.12** num ambiente limpo, `pip install -e
+  ".[dev]"`, `ruff check src tests`, `mypy`, `pytest --cov --junitxml` e a verificação de migrações
+  (`demo`/`info`/`backup`) — tudo verde.
+- Suíte: **1061 testes** (as 1055 da v0.15.0 + 6 novos). Também verde em Python 3.13.
+
 ## [0.15.0] — 2026-11-11 — pré-alfa: o caixa inteiro funcionando pela rede
 
 A v0.14.0 entregou o servidor e deixou uma frase explícita: *a tela do balcão ainda abre a base

@@ -17,6 +17,44 @@ from bussola_pdv.dominio.usuario import Perfil, Usuario
 SENHA = "senha-de-teste"
 _INSTANTE = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)  # 09:00 em São Paulo
 
+#: Referência viva da `QApplication` da sessão. Existe porque no PySide6 o objeto
+#: Qt é destruído quando a última referência Python morre: cada arquivo de teste
+#: tinha a sua fixture local, a aplicação era coletada ao fim do arquivo e o
+#: seguinte criava outra — e criar/destruir `QApplication` no mesmo processo é
+#: caminho conhecido de segfault (aconteceu no CI, no meio de outro arquivo).
+#: Uma aplicação por sessão, segurada aqui, elimina a classe inteira do problema.
+_APLICACAO_QT: object | None = None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def aplicacao_qt() -> object | None:
+    """Cria (uma vez) a `QApplication` usada pelos testes de interface.
+
+    Autouse e de sessão: assim nenhuma fixture local descarta a aplicação no meio
+    da suíte. Se o PySide6 não estiver instalado, devolve `None` — os testes que
+    precisam de Qt já se pulam sozinhos com `importorskip`.
+    """
+    global _APLICACAO_QT
+    if _APLICACAO_QT is not None:
+        return _APLICACAO_QT
+    try:
+        from PySide6.QtWidgets import QApplication
+    except ImportError:  # sem Qt instalado: nada a fazer, e nada quebra
+        return None
+    import os
+
+    # Sem vídeo no CI e nos runners: a plataforma offscreen é a única que abre.
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    aplicacao = QApplication.instance() or QApplication(["teste"])
+    try:
+        from bussola_pdv.ui.tema import FOLHA_ESTILO
+
+        aplicacao.setStyleSheet(FOLHA_ESTILO)
+    except ImportError:  # pragma: no cover - tema é do próprio pacote
+        pass
+    _APLICACAO_QT = aplicacao
+    return aplicacao
+
 
 @pytest.fixture(scope="session")
 def hash_senha() -> str:

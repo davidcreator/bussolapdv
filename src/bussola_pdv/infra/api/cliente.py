@@ -251,13 +251,18 @@ def inspecionar_certificado(endereco: str, *, tempo_limite: float = 10.0) -> Ins
     contexto.check_hostname = False
     contexto.verify_mode = ssl.CERT_NONE  # só para **ler** o certificado; nada trafega
     try:
-        with (
-            socket.create_connection((host, porta), timeout=tempo_limite) as cru,
-            contexto.wrap_socket(cru, server_hostname=host) as seguro,
-        ):
-            der = seguro.getpeercert(binary_form=True)
+        # Uma conexão, um dono: o socket embrulhado fecha o TCP por dentro. Fechar
+        # os dois (`with` aninhado) fecharia o mesmo descritor duas vezes e podia
+        # pegar um fd reaproveitado por outra conexão.
+        cru = socket.create_connection((host, porta), timeout=tempo_limite)
     except OSError as exc:
         raise ErroDeComunicacao(f"Não consegui conectar em {host}:{porta}: {exc}") from exc
+    try:
+        with contexto.wrap_socket(cru, server_hostname=host) as seguro:
+            der = seguro.getpeercert(binary_form=True)
+    except (OSError, ssl.SSLError) as exc:
+        cru.close()
+        raise ErroDeComunicacao(f"Falha no TLS com {host}:{porta}: {exc}") from exc
     if not der:  # pragma: no cover - servidor sem certificado não existe em TLS
         raise ErroDeComunicacao(f"{host}:{porta} não apresentou certificado.")
     return InspecaoDeCertificado(

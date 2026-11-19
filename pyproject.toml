@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bussola-pdv"
-version = "0.15.0"
+version = "0.15.1"
 description = "Bússola Sistema PDV Open Source — PDV desktop offline em Python para varejo (pt-BR)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -44,6 +44,12 @@ dev = [
     # biblioteca de verdade, em vez de confiar no XML que nós mesmos geramos.
     "openpyxl>=3.1,<4",
     "pypdf>=5,<7",
+]
+# Gera o manual web com as capturas encolhidas (WebP, ~1,5 MB em vez de ~3,7 MB).
+# Opcional de propósito: sem Pillow o manual sai **correto**, só maior — é o caso do
+# CI, que instala apenas `dev`. Nada em runtime do programa usa Pillow.
+documentacao = [
+    "Pillow>=10",
 ]
 seed = []  # a massa fictícia usa apenas a biblioteca padrão
 # Só para gerar .exe/.msi — não é necessário para rodar do código.

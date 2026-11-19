@@ -26,6 +26,7 @@ import base64
 import html
 import io
 import re
+import struct
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -108,8 +109,29 @@ class Imagem(NamedTuple):
     altura: int
 
 
+def medidas_do_png(dados: bytes) -> tuple[int, int]:
+    """Largura e altura lidas do cabeçalho PNG (IHDR), sem Pillow.
+
+    Existe porque o manual precisa de `width`/`height` **sempre**: sem eles o
+    navegador não reserva o espaço da figura e clicar num capítulo cai no lugar
+    errado enquanto as imagens pintam. O CI instala só as dependências declaradas
+    (sem Pillow), então medir a imagem não pode depender de biblioteca externa —
+    os 8 bytes de largura e altura estão no arquivo, a 16 bytes do começo.
+    """
+    if dados[:8] != b"\x89PNG\r\n\x1a\n" or dados[12:16] != b"IHDR":
+        return 0, 0
+    largura, altura = struct.unpack(">II", dados[16:24])
+    return largura, altura
+
+
 def imagem_embutida(nome: str) -> Imagem:
-    """Captura → `data:` URI reduzida (WebP), para o HTML não depender de arquivo."""
+    """Captura → `data:` URI, para o HTML não depender de arquivo nenhum.
+
+    Com Pillow instalado a imagem vira WebP de até `LARGURA_MAXIMA` px (manual de
+    ~1,5 MB). Sem Pillow — o caso do CI, que instala só as dependências
+    declaradas — embute o PNG original (arquivo maior, imagem idêntica) e **as
+    medidas continuam corretas**, porque saem do próprio cabeçalho do PNG.
+    """
     origem = CAPTURAS / nome
     if not origem.is_file():
         raise SystemExit(
@@ -117,9 +139,14 @@ def imagem_embutida(nome: str) -> Imagem:
         )
     try:
         from PIL import Image
-    except ImportError:  # pragma: no cover - Pillow é dependência de empacotamento
+    except ImportError:  # Pillow é opcional: só encolhe, não é requisito
         dados = origem.read_bytes()
-        return Imagem("data:image/png;base64," + base64.b64encode(dados).decode("ascii"), 0, 0)
+        largura, altura = medidas_do_png(dados)
+        return Imagem(
+            "data:image/png;base64," + base64.b64encode(dados).decode("ascii"),
+            largura,
+            altura,
+        )
 
     with Image.open(origem) as imagem:
         imagem = imagem.convert("RGB")

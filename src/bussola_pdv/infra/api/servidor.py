@@ -18,7 +18,11 @@ Postura de segurança (deliberada, e documentada em docs/API.md):
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
+import socket
+import ssl
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -756,14 +760,89 @@ def _fabrica(contexto: Contexto | Callable[[], Contexto]) -> Callable[[], Contex
     return lambda: Contexto.abrir(caminho, relogio=contexto.relogio)
 
 
+class _ServidorDeRede(ThreadingHTTPServer):
+    """Servidor HTTP que **fecha as conexões** ao desligar e não grita com quem desiste.
+
+    Dois problemas reais, um em cada método:
+
+    * `get_request`/`shutdown_request`: guarda o socket aceito enquanto ele dura e
+      fecha todos em `fechar_conexoes()`. Sem isso, um cliente que abre a conexão e
+      não manda pedido (o "Verificar servidor" faz exatamente isso) deixa uma thread
+      viva depois de ``parar()` — e uma thread daemon viva no fim do interpretador
+      aborta o processo;
+    * `handle_error`: `socketserver` imprime traceback no stderr para qualquer erro
+      do manipulador. Cliente que fecha no meio não é defeito do servidor, e esse
+      texto no desligamento disputa o lock do stderr (`_enter_buffered_busy`).
+    """
+
+    daemon_threads = True
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self._abertas: set[socket.socket] = set()
+        self._trava = threading.Lock()
+
+    def get_request(self) -> tuple[socket.socket, tuple[str, int]]:
+        conexao, endereco = super().get_request()
+        with self._trava:
+            self._abertas.add(conexao)
+        return conexao, endereco
+
+    def shutdown_request(self, request: Any) -> None:
+        with self._trava:
+            self._abertas.discard(request)
+        super().shutdown_request(request)
+
+    def fechar_conexoes(self) -> int:
+        """Fecha tudo que ainda está aberto; devolve quantas conexões foram fechadas."""
+        with self._trava:
+            abertas, self._abertas = self._abertas, set()
+        for conexao in abertas:
+            # `shutdown` antes de `close`: fechar o descritor não acorda outra thread
+            # parada num `recv`; desligar o canal, sim. Sem isso a thread do cliente
+            # lento continua viva (mesmo que inofensiva) até o timeout de leitura.
+            with contextlib.suppress(OSError):
+                conexao.shutdown(socket.SHUT_RDWR)
+            with contextlib.suppress(OSError):
+                conexao.close()
+        return len(abertas)
+
+    def handle_error(self, request: object, client_address: object) -> None:
+        tipo = sys.exc_info()[0]
+        if tipo is not None and issubclass(tipo, (ConnectionError, TimeoutError, ssl.SSLError, OSError)):
+            return  # cliente desistiu no meio: rotina, não erro do servidor
+        super().handle_error(request, client_address)  # type: ignore[arg-type]
+
+
 class _Manipulador(BaseHTTPRequestHandler):
     servico: ServicoWeb  # injetado por ServidorAPI
     server_version = "BussolaPDV-API/1"
     sys_version = ""
 
+    #: Tempo máximo parado esperando o pedido de um cliente já conectado. Sem
+    #: isto, quem abre a conexão e não manda nada (o caso do "Verificar servidor",
+    #: que só lê o certificado) deixa uma thread do servidor parada para sempre.
+    timeout = 30
+
     # -- infraestrutura HTTP ------------------------------------------------
     def log_message(self, formato: str, *args: object) -> None:  # silencia o stderr do stdlib
         return
+
+    def handle(self) -> None:
+        """Atende uma conexão e **não** trata cliente que desistiu como erro.
+
+        Cliente que fecha no meio do caminho (`BrokenPipeError`, `ConnectionReset`,
+        handshake abortado, timeout de leitura) é rotina nesta API: o próprio
+        programa abre conexão só para conferir o certificado e vai embora. O
+        `socketserver` responderia imprimindo traceback no stderr — e esse
+        traceback, no meio do desligamento, é o que derrubava o processo inteiro
+        com `_enter_buffered_busy` (o CI ficava vermelho sem teste nenhum falhar).
+        """
+        try:
+            super().handle()
+        except (ConnectionError, TimeoutError, ssl.SSLError, OSError):
+            self.close_connection = True
+            return
 
     def _responder(self, status: int, corpo: dict) -> None:
         conteudo = json.dumps(corpo, ensure_ascii=False, default=str).encode("utf-8")
@@ -900,8 +979,7 @@ class ServidorAPI:
             (_Manipulador,),
             {"servico": self.servico},
         )
-        self._http = ThreadingHTTPServer((configuracao.host, configuracao.porta), manipulador)
-        self._http.daemon_threads = True
+        self._http = _ServidorDeRede((configuracao.host, configuracao.porta), manipulador)
         if configuracao.tls is not None:
             # O socket é embrulhado ANTES de servir: daí em diante tudo é TLS.
             self._http.socket = configuracao.tls.contexto_tls().wrap_socket(
@@ -935,6 +1013,7 @@ class ServidorAPI:
 
     def parar(self) -> None:
         self._http.shutdown()
+        self._http.fechar_conexoes()
         self._http.server_close()
         if self._thread is not None:
             self._thread.join(timeout=5)

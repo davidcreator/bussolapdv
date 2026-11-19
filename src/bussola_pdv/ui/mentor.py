@@ -67,6 +67,8 @@ class PainelMentor(QFrame):
         self._indice = 0
         self._tema: Tema | None = None
         self._destacado: QWidget | None = None
+        #: Timer de reaplicação do destaque (filho: morre com o painel).
+        self._adiado: QTimer | None = None
 
         self.rotulo_titulo = QLabel()
         self.rotulo_titulo.setObjectName("mentorTitulo")
@@ -138,11 +140,22 @@ class PainelMentor(QFrame):
         O mentor nasce enquanto a janela ainda está sendo montada: aí a geometria dos
         campos ainda é provisória e `ensureWidgetVisible` não rola para lugar nenhum.
         Reaplicar no `resizeEvent`/`showEvent` resolve sem depender de tempo fixo — e
-        um único `singleShot(0)` cobre o caso em que nada mais redimensiona.
+        um único timer de 0 ms cobre o caso em que nada mais redimensiona.
+
+        O timer é **filho deste widget**, não `QTimer.singleShot`: com o `singleShot`
+        estático o disparo fica na fila do processo com uma referência ao método do
+        mentor, e se a janela for fechada/destruída antes do evento ser entregue o
+        callback roda num objeto já liberado — é segfault, não exceção. Foi assim que
+        a suíte inteira caiu no CI, num teste de layout que nada tinha a ver. Timer
+        com pai morre junto com o painel.
         """
         if not self._passos:
             return
-        QTimer.singleShot(0, self._reaplicar_agora)
+        if self._adiado is None:
+            self._adiado = QTimer(self)
+            self._adiado.setSingleShot(True)
+            self._adiado.timeout.connect(self._reaplicar_agora)
+        self._adiado.start(0)
 
     def _reaplicar_agora(self) -> None:
         if self._passos and self.isVisible():

@@ -344,3 +344,52 @@ def test_manual_ensina_a_devolver_e_diz_o_que_esta_em_construcao(pagina: str) ->
     construcao = pagina[pagina.index("Em construção") :][:2500].lower()
     for termo in ("fiscal", "caixas", "nuvem", "juros"):
         assert termo in construcao, f"o manual não avisa que {termo!r} está em construção"
+
+
+# -- o caminho do CI: sem Pillow -------------------------------------------------
+class TestSemPillow:
+    """O CI instala só as dependências declaradas: Pillow não está lá.
+
+    Este é o caminho que roda no GitHub Actions, e por isso precisa de teste
+    próprio: a versão anterior voltava medidas `0×0` sem Pillow, o HTML saía sem
+    `width`/`height` e o teste de "não deslocar a página" falhava só no CI — onde
+    ninguém tem a máquina para investigar.
+    """
+
+    @pytest.fixture
+    def sem_pillow(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "PIL", None)  # `from PIL import Image` falha
+        return None
+
+    def test_medidas_saem_do_cabecalho_do_png(self, sem_pillow) -> None:
+        captura = next((RAIZ / "docs" / "capturas").glob("*.png"))
+        imagem = gerar_manual.imagem_embutida(captura.name)
+        assert imagem.largura > 0
+        assert imagem.altura > 0
+        assert imagem.uri.startswith("data:image/png;base64,")
+
+    def test_medidas_conferem_com_o_arquivo(self, sem_pillow) -> None:
+        """Nada de número inventado: largura e altura são as do PNG original."""
+        import struct
+
+        captura = next((RAIZ / "docs" / "capturas").glob("*.png"))
+        dados = captura.read_bytes()
+        largura, altura = struct.unpack(">II", dados[16:24])
+        imagem = gerar_manual.imagem_embutida(captura.name)
+        assert (imagem.largura, imagem.altura) == (largura, altura)
+
+    def test_arquivo_que_nao_e_png_nao_quebra(self) -> None:
+        assert gerar_manual.medidas_do_png(b"nao e png") == (0, 0)
+
+    def test_manual_sem_pillow_tem_medida_em_todas_as_imagens(self, sem_pillow, tmp_path) -> None:
+        """O defeito do CI, de ponta a ponta: gerar e conferir o HTML."""
+        saida = tmp_path / "manual.html"
+        codigo = gerar_manual.main(["--saida", str(saida)])
+        assert codigo == 0
+        pagina = saida.read_text(encoding="utf-8")
+        # A imagem da lupa (`<img alt="">`) é preenchida por JavaScript: essa não
+        # tem medida por natureza. As capturas, sim, todas precisam ter.
+        figuras = [i for i in re.findall(r"<img [^>]*>", pagina) if 'src="data:' in i]
+        assert len(figuras) >= 20, "sem imagens o teste abaixo passaria à toa"
+        sem_medida = [i for i in figuras if 'width="' not in i or 'height="' not in i]
+        assert not sem_medida, sem_medida[:2]

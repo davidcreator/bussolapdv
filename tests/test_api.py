@@ -211,3 +211,52 @@ class TestRotasDeEscrita:
 
         with pytest.raises(ErroAPI, match="16"):
             ServidorAPI(cenario.ctx, ConfiguracaoAPI(token="curto", porta=0))
+
+
+class TestDesligamento:
+    """O que o servidor deixa para trás quando é desligado.
+
+    Estes dois testes existem por causa de um defeito que só apareceu no CI: o
+    programa abre conexão só para ler o certificado do servidor ("Verificar
+    servidor") e vai embora sem mandar pedido nenhum. A thread do servidor ficava
+    presa na leitura, sobrevivia ao `parar()` e, no fim do interpretador, todo o
+    processo caía com `_enter_buffered_busy` — o CI ficava vermelho apontando para
+    um teste de layout que não tinha culpa nenhuma.
+    """
+
+    def _conectar_e_calar(self, servidor) -> tuple[object, str]:
+        import socket
+
+        conexao = socket.create_connection(("127.0.0.1", servidor.porta), timeout=5)
+        # Conecta e não manda nada: é o que `inspecionar_certificado` faz.
+        return conexao, "process_request_thread"
+
+    def _threads_de_conexao(self) -> list[str]:
+        import threading
+
+        return [t.name for t in threading.enumerate() if "process_request_thread" in t.name]
+
+    def test_parar_fecha_conexao_que_nao_mandou_pedido(self, cenario) -> None:
+        import time
+
+        servidor = ServidorAPI(cenario.ctx, ConfiguracaoAPI(token=TOKEN, porta=0)).iniciar()
+        conexao, _ = self._conectar_e_calar(servidor)
+        try:
+            servidor.parar()
+        finally:
+            conexao.close()
+        for _tentativa in range(50):  # até 2 s: desligar não pode deixar thread viva
+            if not self._threads_de_conexao():
+                break
+            time.sleep(0.04)
+        assert self._threads_de_conexao() == []
+
+    def test_cliente_que_desiste_nao_imprime_traceback(self, cenario, capfd) -> None:
+        servidor = ServidorAPI(cenario.ctx, ConfiguracaoAPI(token=TOKEN, porta=0)).iniciar()
+        conexao, _ = self._conectar_e_calar(servidor)
+        conexao.close()  # foi embora sem pedir nada: rotina, não erro
+        servidor.parar()
+        erro = capfd.readouterr().err
+        assert "Traceback" not in erro
+        assert "BrokenPipeError" not in erro
+        assert "ConnectionResetError" not in erro
